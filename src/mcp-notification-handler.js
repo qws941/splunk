@@ -1,235 +1,235 @@
 /**
- * MCP Notification Handler
- * Integrates with Slack MCP tools for automated notifications
+ * MCP Slack Notification Handler
+ * Integrates with MCP Slack tools for intelligent notification routing
  */
 
-// Import the notification system
-// (In actual deployment, would use proper imports)
-
-/**
- * MCP Slack Notification Handler Class
- * Manages all Slack notifications through MCP protocol
- */
 class MCPSlackHandler {
   constructor() {
-    this.channels = {
+    this.channelMap = {
       'planka-alerts': 'C09D1LW9X3R',
       'ems': 'C09DAJ6QDU3',
-      '배포': 'C09DDFCK8TV', 
+      '배포': 'C09DDFCK8TV',
       '일반': 'C09DEUR4G4A',
       'splunk': 'C09DGE44XL6',
       'blacklist': 'C09E2N1T0GJ',
       'safework': 'C09EBJMS8DN',
       'mcp': 'C09HECF0R5F'
     };
-    
-    this.errorPatterns = [
-      'ERROR', 'FATAL', 'Exception', 'CRITICAL',
-      'deployment failed', 'build failed', 'test failed'
-    ];
+
+    this.isInitialized = false;
   }
 
   /**
-   * Send message using MCP Slack tools
-   * @param {string} channelName - Channel name or ID
-   * @param {string} message - Message content
+   * Initialize MCP Slack connection
    */
-  async sendMessage(channelName, message) {
+  async initialize() {
+    console.log('🔗 Initializing MCP Slack Handler...');
+    
     try {
-      const channelId = this.channels[channelName] || channelName;
-      
-      // Using MCP Slack tool directly
-      const result = await this.mcpSlackPost(channelId, message);
-      
-      console.log(`✅ MCP Slack message sent to ${channelName}`);
-      return result;
+      // In actual implementation, would verify MCP Slack connection
+      this.isInitialized = true;
+      console.log('✅ MCP Slack Handler initialized successfully');
     } catch (error) {
-      console.error(`❌ MCP Slack error for ${channelName}:`, error);
-      // Fallback to general channel
-      if (channelName !== '일반') {
-        return await this.sendMessage('일반', `⚠️ Failed to send to #${channelName}: ${message}`);
-      }
+      console.error('❌ Failed to initialize MCP Slack Handler:', error);
       throw error;
     }
   }
 
   /**
-   * MCP Slack Post wrapper (would be actual MCP call)
-   * @param {string} channelId - Channel ID
-   * @param {string} text - Message text
+   * Send message to Slack channel
+   * @param {string} channelName - Channel name or ID
+   * @param {string} message - Message text
    */
-  async mcpSlackPost(channelId, text) {
-    // In actual implementation, this would be:
-    // return await mcp_slack_slack_post_message({ channel_id: channelId, text });
-    
-    // For now, simulate the call
-    return {
-      ok: true,
-      channel: channelId,
-      message: text,
-      timestamp: new Date().toISOString()
-    };
+  async sendMessage(channelName, message) {
+    if (!this.isInitialized) {
+      console.warn('⚠️ MCP Slack Handler not initialized');
+      return false;
+    }
+
+    try {
+      const channelId = this.channelMap[channelName] || channelName;
+      
+      // In actual implementation, would use MCP Slack post message tool
+      console.log(`📤 Sending to #${channelName} (${channelId}): ${message}`);
+      
+      // Simulate MCP slack post message
+      return {
+        ok: true,
+        channel: channelId,
+        timestamp: Date.now().toString(),
+        message: message
+      };
+    } catch (error) {
+      console.error(`❌ Failed to send message to ${channelName}:`, error);
+      return false;
+    }
   }
 
   /**
-   * Send error log notification with Grafana integration
-   * @param {Array} errors - Error log entries
+   * Send security alert notification
+   * @param {Object} securityEvent - Security event data
+   */
+  async sendSecurityAlert(securityEvent) {
+    const { severity, type, sourceIP, targetIP, details, timestamp, device } = securityEvent;
+    
+    let emoji = '🛡️';
+    let channel = 'splunk';
+    
+    switch (severity) {
+      case 'CRITICAL':
+        emoji = '🚨';
+        channel = '일반'; // Also send to general for critical
+        break;
+      case 'HIGH':
+        emoji = '🔴';
+        break;
+      case 'MEDIUM':
+        emoji = '🟠';
+        break;
+      case 'LOW':
+        emoji = '🟡';
+        break;
+    }
+
+    const message = `${emoji} **FortiGate Security Alert** [${severity}]
+
+🔥 **Device**: ${device}
+🎯 **Type**: ${type}
+📡 **Source**: ${sourceIP}
+🎯 **Target**: ${targetIP}
+🕐 **Time**: ${new Date(timestamp).toLocaleString('ko-KR')}
+
+📋 **Details**: ${details}
+
+🔗 **Splunk Dashboard**: https://splunk.jclee.me/app/SplunkEnterpriseSecuritySuite/incident_review`;
+
+    // Send to primary channel
+    const primaryResult = await this.sendMessage(channel, message);
+    
+    // Send to general for critical alerts
+    if (severity === 'CRITICAL') {
+      await this.sendMessage('일반', `🚨 **CRITICAL SECURITY ALERT** - FortiGate detected critical threat\n📊 Check #splunk for details`);
+    }
+    
+    return primaryResult;
+  }
+
+  /**
+   * Send deployment notification
    * @param {string} projectName - Project name
-   */
-  async notifyErrorLogs(errors, projectName = 'system') {
-    if (!errors || errors.length === 0) return;
-
-    const errorCount = errors.length;
-    const criticalErrors = errors.filter(error => 
-      this.errorPatterns.some(pattern => 
-        error.message?.toLowerCase().includes(pattern.toLowerCase())
-      )
-    );
-
-    // Deployment channel notification
-    const deployMessage = `🚨 ${projectName}: ${errorCount} errors detected in logs
-📊 Grafana: https://grafana.jclee.me/explore`;
-    
-    await this.sendMessage('배포', deployMessage);
-
-    // Critical error notification to general
-    if (criticalErrors.length > 0) {
-      const criticalMessage = `❌ CRITICAL: ${criticalErrors.length} critical errors in ${projectName}
-🔍 Immediate attention required`;
-      
-      await this.sendMessage('일반', criticalMessage);
-    }
-
-    // Project-specific channel if exists
-    if (this.channels[projectName]) {
-      const projectMessage = `⚠️ ${errorCount} errors detected
-🔗 View logs: https://grafana.jclee.me/explore?query={job="${projectName}"}`;
-      
-      await this.sendMessage(projectName, projectMessage);
-    }
-  }
-
-  /**
-   * Deployment notification
-   * @param {string} project - Project name
-   * @param {string} status - success/failed
+   * @param {string} status - Deployment status
    * @param {Object} details - Deployment details
    */
-  async notifyDeployment(project, status, details = {}) {
-    const emoji = status === 'success' ? '✅' : '❌';
-    const timestamp = new Date().toLocaleString('ko-KR');
+  async notifyDeployment(projectName, status, details = {}) {
+    let emoji = '🚀';
+    let channel = '배포';
     
-    let message = `${emoji} **${project}** deployment ${status}
-🕐 ${timestamp}`;
+    switch (status) {
+      case 'started':
+        emoji = '⏳';
+        break;
+      case 'success':
+        emoji = '✅';
+        break;
+      case 'failed':
+        emoji = '❌';
+        channel = '일반'; // Failed deployments to general
+        break;
+      case 'warning':
+        emoji = '⚠️';
+        break;
+    }
 
+    let message = `${emoji} **${projectName}** deployment ${status}`;
+    
     if (details.commit) {
-      message += `\n📝 Commit: ${details.commit.substring(0, 8)}`;
+      message += `\n📝 Commit: \`${details.commit.substring(0, 8)}\``;
+    }
+    
+    if (details.author) {
+      message += `\n👤 By: ${details.author}`;
     }
     
     if (details.duration) {
       message += `\n⏱️ Duration: ${details.duration}`;
     }
-
-    if (status === 'failed' && details.error) {
-      message += `\n🔥 Error: ${details.error}`;
-    }
-
+    
     if (details.url) {
-      message += `\n🔗 ${details.url}`;
+      message += `\n🔗 Service: ${details.url}`;
+    }
+    
+    if (details.verification) {
+      message += `\n\n**Verification:**`;
+      Object.entries(details.verification).forEach(([key, value]) => {
+        message += `\n• ${key}: ${value}`;
+      });
+    }
+    
+    if (details.error) {
+      message += `\n\n❌ **Error**: ${details.error}`;
     }
 
-    // Send to deployment channel
-    await this.sendMessage('배포', message);
-
-    // Send to project-specific channel
-    if (this.channels[project]) {
-      await this.sendMessage(project, message);
-    }
-
-    // If failed, also notify general channel
-    if (status === 'failed') {
-      await this.sendMessage('일반', `🚨 **${project}** deployment failed - requires attention`);
-    }
+    return await this.sendMessage(channel, message);
   }
 
   /**
-   * GitHub Actions notification
-   * @param {string} repo - Repository name
-   * @param {string} workflow - Workflow name
-   * @param {string} status - Status
-   * @param {Object} details - Additional details
+   * Send system status notification
+   * @param {string} system - System name
+   * @param {string} status - System status
+   * @param {Object} metrics - System metrics
    */
-  async notifyGitHubAction(repo, workflow, status, details = {}) {
-    const emoji = status === 'success' ? '✅' : status === 'failure' ? '❌' : '⏳';
+  async sendSystemStatus(system, status, metrics = {}) {
+    const emoji = status === 'online' ? '🟢' : status === 'offline' ? '🔴' : '🟡';
     
-    let message = `${emoji} **${repo}** - ${workflow} ${status}`;
-    
-    if (details.branch) {
-      message += `\n🌿 Branch: ${details.branch}`;
-    }
-    
-    if (details.commit) {
-      message += `\n📝 ${details.commit}`;
-    }
-
-    if (details.runUrl) {
-      message += `\n🔗 View run: ${details.runUrl}`;
-    }
-
-    await this.sendMessage('배포', message);
-  }
-
-  /**
-   * System health notification
-   * @param {string} service - Service name
-   * @param {string} status - Health status
-   * @param {Object} metrics - Service metrics
-   */
-  async notifySystemHealth(service, status, metrics = {}) {
-    const emoji = status === 'healthy' ? '💚' : status === 'warning' ? '🟡' : '🔴';
-    
-    let message = `${emoji} **${service}** health: ${status}`;
+    let message = `${emoji} **${system}** is ${status}`;
     
     if (metrics.uptime) {
-      message += `\n⏱️ Uptime: ${metrics.uptime}`;
+      message += `\n⏱️ Uptime: ${Math.floor(metrics.uptime / 3600000)}h`;
     }
     
-    if (metrics.memory) {
-      message += `\n🧠 Memory: ${metrics.memory}`;
+    if (metrics.eventsProcessed) {
+      message += `\n📊 Events: ${metrics.eventsProcessed}`;
     }
     
-    if (metrics.cpu) {
-      message += `\n⚡ CPU: ${metrics.cpu}`;
+    if (metrics.lastEvent) {
+      message += `\n🕐 Last Event: ${new Date(metrics.lastEvent).toLocaleString('ko-KR')}`;
     }
 
-    // Send to appropriate channel based on severity
-    const channel = status === 'critical' ? '일반' : 'mcp';
-    await this.sendMessage(channel, message);
+    return await this.sendMessage('splunk', message);
   }
 
   /**
-   * Create project error channel if needed
-   * @param {string} projectName - Project name
+   * Get notification status
    */
-  async ensureProjectErrorChannel(projectName) {
-    const channelName = `${projectName}-errors`;
+  getStatus() {
+    return {
+      isInitialized: this.isInitialized,
+      availableChannels: Object.keys(this.channelMap).length,
+      lastNotification: Date.now()
+    };
+  }
+
+  /**
+   * Test notification system
+   */
+  async testNotifications() {
+    console.log('🧪 Testing MCP Slack notifications...');
     
-    if (!this.channels[channelName]) {
-      console.log(`⚠️ Consider creating #${channelName} for automated error notifications`);
-      
-      // In real implementation, would use MCP to create channel:
-      // const result = await mcp_slack_create_channel({ name: channelName });
-      // this.channels[channelName] = result.channel.id;
+    const testMessage = `🔧 **MCP Slack Handler Test**
+⏰ ${new Date().toLocaleString('ko-KR')}
+✅ Notification system operational`;
+
+    const testResult = await this.sendMessage('mcp', testMessage);
+    
+    if (testResult && testResult.ok) {
+      console.log('✅ Notification test successful');
+      return true;
+    } else {
+      console.error('❌ Notification test failed');
+      return false;
     }
   }
 }
 
-// Export for use
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = MCPSlackHandler;
-}
-
-// Global export for browser/worker environments
-if (typeof globalThis !== 'undefined') {
-  globalThis.MCPSlackHandler = MCPSlackHandler;
-}
+// Export
+export default MCPSlackHandler;

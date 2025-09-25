@@ -286,10 +286,4 @@ ${results.failed.map(f => `   • #${f.channel}: ${f.error}`).join('\n')}`;
 }
 
 // Export
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = SlackChannelManager;
-}
-
-if (typeof globalThis !== 'undefined') {
-  globalThis.SlackChannelManager = SlackChannelManager;
-}
+export default SlackChannelManager;

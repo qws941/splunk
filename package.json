@@ -1,17 +1,24 @@
 {
-  "name": "splunk-dashboard",
+  "name": "splunk-fortigate-security",
   "version": "1.0.0",
+  "type": "module",
   "private": true,
+  "description": "Splunk-FortiGate Security Integration System",
+  "main": "src/index.js",
   "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test",
     "build": "node build.js",
     "deploy": "wrangler deploy",
-    "dev": "wrangler dev",
-    "tail": "wrangler tail",
     "pages:build": "npm run build",
     "pages:dev": "npm run build && npx http-server dist -p 8080"
   },
   "devDependencies": {
     "wrangler": "^3.0.0",
     "http-server": "^14.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
