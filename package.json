@@ -1,0 +1,17 @@
+{
+  "name": "splunk-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node build.js",
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "tail": "wrangler tail",
+    "pages:build": "npm run build",
+    "pages:dev": "npm run build && npx http-server dist -p 8080"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0",
+    "http-server": "^14.0.0"
+  }
+}
