@@ -1,0 +1,244 @@
+name: 🧪 E2E Tests with Playwright
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'src/**'
+      - 'tests/e2e/**'
+      - 'playwright.config.js'
+      - 'package.json'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    # Run E2E tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+jobs:
+  e2e-tests:
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    name: E2E Tests (Playwright)
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🎭 Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: ⏳ Wait for deployment (if triggered by push)
+        if: github.event_name == 'push'
+        run: |
+          echo "⏳ Waiting 30 seconds for potential deployment to complete..."
+          sleep 30
+
+      - name: 🏥 Pre-test health check
+        run: |
+          echo "🔍 Checking if the site is accessible..."
+          MAX_RETRIES=10
+          RETRY_COUNT=0
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if curl -sSf https://splunk.jclee.me/health > /dev/null; then
+              echo "✅ Site is accessible!"
+              break
+            else
+              echo "⏳ Attempt $((RETRY_COUNT + 1))/$MAX_RETRIES failed, retrying in 10s..."
+              sleep 10
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+            fi
+          done
+
+          if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+            echo "❌ Site is not accessible after $MAX_RETRIES attempts"
+            exit 1
+          fi
+
+      - name: 🧪 Run Playwright E2E tests
+        run: npm run test:e2e
+        env:
+          CI: true
+
+      - name: 📊 Upload E2E test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+      - name: 📸 Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-screenshots
+          path: test-results/
+          retention-days: 7
+
+      - name: 📈 Publish test results
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: E2E Test Results
+          path: 'playwright-report/results.json'
+          reporter: 'jest-junit'
+          fail-on-error: false
+
+  visual-regression:
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    name: Visual Regression Tests
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🎭 Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: 🏥 Pre-test health check
+        run: |
+          echo "🔍 Checking if the site is accessible..."
+          curl -sSf https://splunk.jclee.me/health > /dev/null || exit 1
+
+      - name: 📸 Run visual regression tests
+        run: npx playwright test tests/e2e/visual-regression.spec.js
+        env:
+          CI: true
+
+      - name: 🖼️ Upload visual test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-regression-results
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 14
+
+  cross-browser:
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    name: Cross-Browser Testing
+    strategy:
+      matrix:
+        browser: [chromium, firefox, webkit]
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🎭 Install Playwright browsers
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - name: 🏥 Pre-test health check
+        run: |
+          echo "🔍 Checking if the site is accessible..."
+          curl -sSf https://splunk.jclee.me/health > /dev/null || exit 1
+
+      - name: 🌐 Run tests on ${{ matrix.browser }}
+        run: npx playwright test --project=${{ matrix.browser }}
+        env:
+          CI: true
+
+      - name: 📊 Upload browser-specific results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.browser }}-test-results
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+
+  performance:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    name: Performance Testing
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🎭 Install Playwright
+        run: npx playwright install chromium --with-deps
+
+      - name: ⚡ Run performance tests
+        run: |
+          npx playwright test tests/e2e/fortinet-policy-verification.spec.js -g "Performance" --project=chromium
+        env:
+          CI: true
+
+      - name: 📈 Upload performance results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-test-results
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+
+  summary:
+    runs-on: ubuntu-latest
+    name: Test Summary
+    needs: [e2e-tests, visual-regression, cross-browser, performance]
+    if: always()
+
+    steps:
+      - name: 📊 Test Results Summary
+        run: |
+          echo "## 🧪 E2E Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| E2E Tests | ${{ needs.e2e-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Visual Regression | ${{ needs.visual-regression.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Cross-Browser | ${{ needs.cross-browser.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Performance | ${{ needs.performance.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Test Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- Playwright HTML Report" >> $GITHUB_STEP_SUMMARY
+          echo "- Screenshots and Videos" >> $GITHUB_STEP_SUMMARY
+          echo "- Visual Regression Results" >> $GITHUB_STEP_SUMMARY
+          echo "- Performance Metrics" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🌐 **Test Target**: https://splunk.jclee.me/" >> $GITHUB_STEP_SUMMARY

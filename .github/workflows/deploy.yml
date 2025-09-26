@@ -42,8 +42,12 @@ jobs:
         run: npm run lint || echo "⚠️ ESLint not configured, skipping..."
         continue-on-error: true
 
-      - name: 🧪 Run tests (if available)
-        run: npm test || echo "⚠️ No tests configured, skipping..."
+      - name: 🧪 Run unit tests (if available)
+        run: npm test || echo "⚠️ No unit tests configured, skipping..."
+        continue-on-error: true
+
+      - name: 🎭 Install Playwright for E2E tests
+        run: npx playwright install chromium --with-deps || echo "⚠️ Playwright installation failed, skipping E2E..."
         continue-on-error: true
 
       - name: 🚀 Deploy to Cloudflare Workers
@@ -88,6 +92,14 @@ jobs:
             echo "❌ API endpoint: FAILED ($API_STATUS)"
             exit 1
           fi
+
+      - name: 🧪 Run critical E2E tests after deployment
+        run: |
+          echo "🧪 Running critical E2E tests to verify deployment..."
+          npx playwright test tests/e2e/fortinet-policy-verification.spec.js -g "should load main page" --project=chromium || echo "⚠️ E2E tests failed but continuing..."
+        continue-on-error: true
+        env:
+          CI: true
 
       - name: 📊 Deployment summary
         if: success()
