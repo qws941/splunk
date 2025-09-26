@@ -3,9 +3,9 @@ main = "src/worker.js"
 compatibility_date = "2024-01-01"
 account_id = "a8d9c67f586acdd15eebcc65ca3aa5bb"
 
-routes = [
-    { pattern = "splunk.jclee.me", zone_id = "ed060daac18345f6900fc5a661dc94f9" }
-]
+# routes = [
+#     { pattern = "splunk.jclee.me", zone_id = "ed060daac18345f6900fc5a661dc94f9" }
+# ]
 
 [triggers]
 crons = []
