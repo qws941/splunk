@@ -8,11 +8,16 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
+    "policy-server": "node src/policy-verification-server.js",
+    "policy-server:dev": "node --watch src/policy-verification-server.js",
     "test": "node --test",
     "build": "node build.js",
     "deploy": "wrangler deploy",
     "pages:build": "npm run build",
     "pages:dev": "npm run build && npx http-server dist -p 8080"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
   },
   "devDependencies": {
     "wrangler": "^3.0.0",
