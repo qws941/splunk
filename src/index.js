@@ -5,8 +5,6 @@
 
 // Import notification modules
 import MCPSlackHandler from './mcp-notification-handler.js';
-import GrafanaLogMonitor from './grafana-monitor.js';
-import DeploymentNotifier from './deployment-notifier.js';
 import SlackChannelManager from './channel-manager.js';
 
 // Import core security modules
