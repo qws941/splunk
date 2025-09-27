@@ -9,12 +9,12 @@ import SlackChannelManager from './channel-manager.js';
 
 // Import core security modules
 import FortigateSplunkIntegration from './fortigate-splunk-integration.js';
-import SplunkAPIConnector from './splunk-api-connector.js';
-import SecurityEventProcessor from './security-event-processor.js';
+import SecurityEventProcessor from '../domains/security/security-event-processor.js';
 
 // Import direct integration connectors (NO MIDDLEWARE)
-import FortiManagerDirectConnector from './fortimanager-direct-connector.js';
-import FortiAnalyzerDirectConnector from './fortianalyzer-direct-connector.js';
+import FortiManagerDirectConnector from '../domains/integration/fortimanager-direct-connector.js';
+import FortiAnalyzerDirectConnector from '../domains/integration/fortianalyzer-direct-connector.js';
+import SplunkAPIConnector from '../domains/integration/splunk-api-connector.js';
 
 /**
  * Main Application Class
