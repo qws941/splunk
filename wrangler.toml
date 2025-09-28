@@ -9,3 +9,28 @@ routes = [
 
 [triggers]
 crons = []
+
+# KV Namespaces - Following jclee.me naming conventions
+[[kv_namespaces]]
+binding = "SPLUNK_CACHE"
+id = "your-splunk-cache-id"
+preview_id = "your-splunk-cache-preview-id"
+
+# D1 Databases - Following jclee.me naming conventions
+[[d1_databases]]
+binding = "SPLUNK_EVENTS"
+database_name = "splunk_events"
+database_id = "your-splunk-events-id"
+
+# Environment configurations
+[env.staging]
+name = "splunk-staging"
+
+[[env.staging.kv_namespaces]]
+binding = "SPLUNK_CACHE"
+id = "your-splunk-cache-staging-id"
+
+[[env.staging.d1_databases]]
+binding = "SPLUNK_EVENTS"
+database_name = "splunk_events_staging"
+database_id = "your-splunk-events-staging-id"
