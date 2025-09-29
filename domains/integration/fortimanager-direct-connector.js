@@ -1,10 +1,18 @@
 /**
  * FortiManager Direct Integration Connector
  * Direct JSON-RPC connection - NO MIDDLEWARE SERVERS
+ * Production-ready implementation with real API calls
  */
 
-class FortiManagerDirectConnector {
+import RealAPIHandler from './real-api-handler.js';
+
+class FortiManagerDirectConnector extends RealAPIHandler {
   constructor() {
+    super(); // Initialize RealAPIHandler
+
+    // Validate required environment variables
+    this.validateEnvironment(['FMG_HOST', 'FMG_USERNAME', 'FMG_PASSWORD']);
+
     this.config = {
       host: process.env.FMG_HOST || 'fortimanager.jclee.me',
       port: process.env.FMG_PORT || 443,
@@ -115,11 +123,20 @@ class FortiManagerDirectConnector {
 
       console.log(`📡 Direct JSON-RPC: POST ${this.baseURL}/jsonrpc`);
 
-      // Mock successful auth
-      this.sessionId = `fmg-direct-${Date.now()}`;
-      this.isConnected = true;
+      // 실제 API 호출 구현 (RealAPIHandler 사용)
+      const authResult = await this.makeHttpRequest(`${this.baseURL}/jsonrpc`, {
+        method: 'POST',
+        body: authRequest,
+        timeout: this.timeouts.connection
+      });
 
-      console.log('✅ Direct FMG authentication successful');
+      if (authResult.result && authResult.result[0] && authResult.result[0].status.code === 0) {
+        this.sessionId = authResult.session;
+        this.isConnected = true;
+        console.log('✅ Direct FMG authentication successful');
+      } else {
+        throw new Error('Authentication failed: Invalid credentials or server error');
+      }
 
     } catch (error) {
       throw new Error(`Direct FMG authentication failed: ${error.message}`);
@@ -656,7 +673,7 @@ class FortiManagerDirectConnector {
     try {
       console.log(`🔍 Querying firewall policies for verification (Device: ${deviceId || 'All'}, VDOM: ${vdom})`);
 
-      const response = await this.makeJSONRPCCall('get', `/pm/config/adom/${this.config.adom}/pkg/default/firewall/policy`, {
+      const response = await this.makeDirectJSONRPCCall('get', `/pm/config/adom/${this.config.adom}/pkg/default/firewall/policy`, {
         meta_fields: ['name', 'policyid', 'action', 'status', 'srcintf', 'dstintf', 'srcaddr', 'dstaddr', 'service', 'logtraffic', 'schedule', 'nat', 'comments'],
         filter: deviceId ? [`device eq ${deviceId}`] : [],
         vdom: vdom
@@ -687,7 +704,7 @@ class FortiManagerDirectConnector {
       }
 
       // Query address objects
-      const response = await this.makeJSONRPCCall('get', `/pm/config/adom/${this.config.adom}/obj/firewall/address`, {
+      const response = await this.makeDirectJSONRPCCall('get', `/pm/config/adom/${this.config.adom}/obj/firewall/address`, {
         filter: [`name eq ${addressName}`],
         vdom: vdom
       });
@@ -720,7 +737,7 @@ class FortiManagerDirectConnector {
       }
 
       // Query service objects
-      const response = await this.makeJSONRPCCall('get', `/pm/config/adom/${this.config.adom}/obj/firewall/service/custom`, {
+      const response = await this.makeDirectJSONRPCCall('get', `/pm/config/adom/${this.config.adom}/obj/firewall/service/custom`, {
         filter: [`name eq ${serviceName}`],
         vdom: vdom
       });
@@ -921,7 +938,7 @@ class FortiManagerDirectConnector {
     try {
       console.log('📋 Retrieving managed devices list...');
 
-      const response = await this.makeJSONRPCCall('get', `/dvmdb/adom/${this.config.adom}/device`, {
+      const response = await this.makeDirectJSONRPCCall('get', `/dvmdb/adom/${this.config.adom}/device`, {
         fields: ['name', 'ip', 'os_ver', 'conn_status', 'type', 'vdom']
       });
 

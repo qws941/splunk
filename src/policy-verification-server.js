@@ -6,7 +6,7 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import FortiManagerDirectConnector from './fortimanager-direct-connector.js';
+import FortiManagerDirectConnector from '../domains/integration/fortimanager-direct-connector.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

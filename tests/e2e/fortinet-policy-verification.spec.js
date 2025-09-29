@@ -62,23 +62,23 @@ test.describe('🛡️ Fortinet Policy Verification System', () => {
   });
 
   test('should display local setup instructions', async ({ page }) => {
-    // Check local setup section
-    await expect(page.locator('.setup-info h3')).toContainText('로컬 실행 방법');
+    // Check local setup section with specific selector
+    await expect(page.locator('.setup-info h3').nth(1)).toContainText('로컬 실행 방법');
 
-    // Check setup commands in code blocks
-    await expect(page.locator('.code-block')).toContainText('git clone');
-    await expect(page.locator('.code-block')).toContainText('npm install');
-    await expect(page.locator('.code-block')).toContainText('npm run policy-server');
-    await expect(page.locator('.code-block')).toContainText('http://localhost:3001');
+    // Check setup commands in code blocks with specific selectors
+    await expect(page.locator('.code-block').first()).toContainText('git clone');
+    await expect(page.locator('.code-block').first()).toContainText('npm install');
+    await expect(page.locator('.code-block').first()).toContainText('npm run policy-server');
+    await expect(page.locator('.code-block').first()).toContainText('http://localhost:3001');
   });
 
   test('should display API usage examples', async ({ page }) => {
-    // Check API usage section
-    await expect(page.locator('.setup-info h3')).toContainText('API 사용 예시');
+    // Check API usage section with specific selector
+    await expect(page.locator('.setup-info h3').nth(2)).toContainText('API 사용 예시');
 
-    // Check API endpoint and curl example
-    await expect(page.locator('.code-block')).toContainText('curl -X POST');
-    await expect(page.locator('.code-block')).toContainText('/api/policy/verify');
+    // Check API endpoint and curl example in second code block
+    await expect(page.locator('.code-block').nth(1)).toContainText('curl -X POST');
+    await expect(page.locator('.code-block').nth(1)).toContainText('/api/policy/verify');
     await expect(page.locator('.code-block')).toContainText('sourceIP');
     await expect(page.locator('.code-block')).toContainText('destIP');
   });
