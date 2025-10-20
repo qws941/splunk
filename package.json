@@ -1,37 +1,38 @@
 {
-  "name": "splunk-fortigate-security",
+  "name": "faz-splunk-hec-integration",
   "version": "1.0.0",
   "type": "module",
   "private": true,
-  "description": "Splunk-FortiGate Security Integration System",
-  "main": "src/index.js",
+  "description": "FortiAnalyzer → Splunk HEC Integration with Slack Alerts",
+  "main": "index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "node --watch src/index.js",
-    "policy-server": "node src/policy-verification-server.js",
-    "policy-server:dev": "node --watch src/policy-verification-server.js",
-    "test": "node --test",
-    "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed",
-    "test:e2e:debug": "playwright test --debug",
-    "test:e2e:ui": "playwright test --ui",
-    "test:e2e:report": "playwright show-report",
-    "test:all": "npm run test && npm run test:e2e",
-    "build": "node build.js",
-    "deploy": "wrangler deploy",
-    "pages:build": "npm run build",
-    "pages:dev": "npm run build && npx http-server dist -p 8080"
+    "start": "node index.js",
+    "dev:worker": "wrangler dev",
+    "deploy:worker": "wrangler publish",
+    "tail:worker": "wrangler tail",
+    "secret:faz-host": "wrangler secret put FAZ_HOST",
+    "secret:faz-username": "wrangler secret put FAZ_USERNAME",
+    "secret:faz-password": "wrangler secret put FAZ_PASSWORD",
+    "secret:splunk-host": "wrangler secret put SPLUNK_HEC_HOST",
+    "secret:splunk-token": "wrangler secret put SPLUNK_HEC_TOKEN",
+    "secret:slack-token": "wrangler secret put SLACK_BOT_TOKEN",
+    "secret:slack-channel": "wrangler secret put SLACK_CHANNEL"
   },
-  "dependencies": {
-    "express": "^4.18.2"
-  },
+  "keywords": [
+    "fortianalyzer",
+    "splunk",
+    "hec",
+    "security",
+    "monitoring",
+    "slack",
+    "alerts"
+  ],
   "devDependencies": {
-    "@playwright/test": "^1.55.1",
-    "http-server": "^14.0.0",
-    "playwright": "^1.55.1",
-    "wrangler": "^3.0.0"
+    "wrangler": "^3.114.15"
   },
   "engines": {
     "node": ">=18.0.0"
-  }
+  },
+  "author": "jclee",
+  "license": "UNLICENSED"
 }

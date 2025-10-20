@@ -1,0 +1,152 @@
+services:
+  # Main Application: FortiAnalyzer → Splunk HEC Integration
+  faz-splunk-integration:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: faz-splunk-integration:latest
+    container_name: faz-splunk
+    hostname: faz-splunk
+    restart: unless-stopped
+
+    environment:
+      # Service Configuration
+      - NODE_ENV=production
+      - TZ=Asia/Seoul
+      - SERVICE_NAME=faz-splunk-integration
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+
+      # FortiAnalyzer
+      - FAZ_HOST=${FAZ_HOST}
+      - FAZ_USERNAME=${FAZ_USERNAME}
+      - FAZ_PASSWORD=${FAZ_PASSWORD}
+      - FAZ_VDOM=${FAZ_VDOM:-root}
+
+      # Splunk HEC
+      - SPLUNK_HEC_HOST=${SPLUNK_HEC_HOST:-splunk}
+      - SPLUNK_HEC_PORT=${SPLUNK_HEC_PORT:-8088}
+      - SPLUNK_HEC_TOKEN=${SPLUNK_HEC_TOKEN:-00000000-0000-0000-0000-000000000000}
+      - SPLUNK_INDEX_FORTIGATE=${SPLUNK_INDEX_FORTIGATE:-fortigate_security}
+      - SPLUNK_HEC_VERIFY_SSL=${SPLUNK_HEC_VERIFY_SSL:-false}
+
+      # Slack Notifications
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      - SLACK_CHANNEL=${SLACK_CHANNEL:-splunk-alerts}
+      - SLACK_ENABLED=${SLACK_ENABLED:-true}
+
+      # Processing Configuration
+      - POLLING_INTERVAL=${POLLING_INTERVAL:-60000}
+      - EVENT_BATCH_SIZE=${EVENT_BATCH_SIZE:-100}
+      - CIRCUIT_BREAKER_THRESHOLD=${CIRCUIT_BREAKER_THRESHOLD:-5}
+      - CIRCUIT_BREAKER_TIMEOUT=${CIRCUIT_BREAKER_TIMEOUT:-60000}
+
+      # Health & Metrics
+      - HEALTH_CHECK_ENABLED=true
+      - HEALTH_CHECK_PATH=/health
+      - METRICS_ENABLED=true
+      - METRICS_PORT=9090
+      - METRICS_PATH=/metrics
+
+      # Grafana Integration
+      - LOKI_URL=${LOKI_URL:-https://grafana.jclee.me}
+      - GRAFANA_URL=${GRAFANA_URL:-https://grafana.jclee.me}
+      - PROMETHEUS_URL=${PROMETHEUS_URL:-https://prometheus.jclee.me}
+
+    ports:
+      - "8080:8080"   # Application port
+      - "9090:9090"   # Prometheus metrics
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    depends_on:
+      splunk:
+        condition: service_healthy
+
+    networks:
+      - faz-splunk-network
+      - traefik-public
+
+    labels:
+      # Traefik Configuration
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+
+      # HTTP Router (Main App)
+      - "traefik.http.routers.faz-splunk.rule=Host(`faz-splunk.jclee.me`)"
+      - "traefik.http.routers.faz-splunk.entrypoints=websecure"
+      - "traefik.http.routers.faz-splunk.tls=true"
+      - "traefik.http.routers.faz-splunk.tls.certresolver=letsencrypt"
+      - "traefik.http.services.faz-splunk.loadbalancer.server.port=8080"
+
+      # Metrics Router (Prometheus)
+      - "traefik.http.routers.faz-splunk-metrics.rule=Host(`faz-splunk.jclee.me`) && PathPrefix(`/metrics`)"
+      - "traefik.http.routers.faz-splunk-metrics.entrypoints=websecure"
+      - "traefik.http.routers.faz-splunk-metrics.tls=true"
+      - "traefik.http.services.faz-splunk-metrics.loadbalancer.server.port=9090"
+
+      # Prometheus Scraping
+      - "prometheus.scrape=true"
+      - "prometheus.port=9090"
+      - "prometheus.path=/metrics"
+      - "prometheus.job=faz-splunk-integration"
+
+      # Loki Logging
+      - "logging=loki"
+      - "loki.job=faz-splunk-integration"
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service,job"
+        tag: "faz-splunk-integration"
+
+  # Splunk Server (Development/Testing)
+  splunk:
+    image: splunk/splunk:latest
+    container_name: splunk-demo
+    hostname: splunk
+    environment:
+      - SPLUNK_START_ARGS=--accept-license
+      - SPLUNK_GENERAL_TERMS=--accept-sgt-current-at-splunk-com
+      - SPLUNK_PASSWORD=${SPLUNK_PASSWORD:-Admin123!}
+      - SPLUNK_HEC_TOKEN=${SPLUNK_HEC_TOKEN:-00000000-0000-0000-0000-000000000000}
+      - SPLUNK_APPS_URL=
+    ports:
+      - "8000:8000"   # Splunk Web UI
+      - "8088:8088"   # HEC
+      - "8089:8089"   # Management Port
+      - "9997:9997"   # Receiving Port
+    volumes:
+      - splunk-var:/opt/splunk/var
+      - splunk-etc:/opt/splunk/etc
+      - ./dashboards:/tmp/dashboards:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/en-US/account/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - faz-splunk-network
+
+networks:
+  faz-splunk-network:
+    driver: bridge
+    internal: true
+
+  traefik-public:
+    external: true
+
+volumes:
+  splunk-var:
+    driver: local
+  splunk-etc:
+    driver: local

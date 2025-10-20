@@ -1,36 +1,108 @@
-name = "splunk"
+# =============================================================================
+# Cloudflare Workers Configuration - FAZ to Splunk HEC Integration
+# =============================================================================
+#
+# Documentation: https://developers.cloudflare.com/workers/
+#
+# =============================================================================
+
+name = "faz-splunk-hec-integration"
 main = "src/worker.js"
-compatibility_date = "2024-01-01"
-account_id = "a8d9c67f586acdd15eebcc65ca3aa5bb"
+compatibility_date = "2025-01-14"
+workers_dev = true
 
-routes = [
-    { pattern = "splunk.jclee.me/*", zone_id = "ed060daac18345f6900fc5a661dc94f9" }
-]
+# Account ID (get from Cloudflare dashboard)
+# account_id = "your_account_id_here"
 
+# Route configuration (optional - for custom domain)
+# route = "https://faz-splunk.jclee.me/*"
+# zone_id = "your_zone_id_here"
+
+# =============================================================================
+# Cron Triggers - Scheduled Execution
+# =============================================================================
+# Runs every 1 minute to collect FortiAnalyzer events
 [triggers]
-crons = []
+crons = ["* * * * *"]  # Every minute
 
-# KV Namespaces - Following jclee.me naming conventions
-[[kv_namespaces]]
-binding = "SPLUNK_CACHE"
-id = "your-splunk-cache-id"
-preview_id = "your-splunk-cache-preview-id"
+# =============================================================================
+# Environment Variables (Non-Secret)
+# =============================================================================
+[vars]
+NODE_ENV = "production"
+TZ = "Asia/Seoul"
+LOG_LEVEL = "info"
 
-# D1 Databases - Following jclee.me naming conventions
-[[d1_databases]]
-binding = "SPLUNK_EVENTS"
-database_name = "splunk_events"
-database_id = "your-splunk-events-id"
+# Polling configuration
+POLLING_INTERVAL = "60000"
+EVENT_BATCH_SIZE = "100"
 
-# Environment configurations
-[env.staging]
-name = "splunk-staging"
+# Alert thresholds
+ALERT_THRESHOLD_CRITICAL = "10"
+ALERT_THRESHOLD_HIGH = "50"
 
-[[env.staging.kv_namespaces]]
-binding = "SPLUNK_CACHE"
-id = "your-splunk-cache-staging-id"
+# Splunk Index
+SPLUNK_INDEX_FORTIGATE = "fortigate_security"
 
-[[env.staging.d1_databases]]
-binding = "SPLUNK_EVENTS"
-database_name = "splunk_events_staging"
-database_id = "your-splunk-events-staging-id"
+# Monitoring
+METRICS_ENABLED = "true"
+HEALTH_CHECK_ENABLED = "true"
+
+# =============================================================================
+# Secrets (Use wrangler secret commands)
+# =============================================================================
+# Deploy secrets using:
+#
+# wrangler secret put FAZ_HOST
+# wrangler secret put FAZ_USERNAME
+# wrangler secret put FAZ_PASSWORD
+# wrangler secret put SPLUNK_HEC_HOST
+# wrangler secret put SPLUNK_HEC_TOKEN
+# wrangler secret put SLACK_BOT_TOKEN
+# wrangler secret put SLACK_CHANNEL
+#
+# Required secrets:
+# - FAZ_HOST: FortiAnalyzer hostname (e.g., fortianalyzer.example.com)
+# - FAZ_PORT: FortiAnalyzer HTTPS port (default: 443)
+# - FAZ_USERNAME: FortiAnalyzer admin username
+# - FAZ_PASSWORD: FortiAnalyzer admin password
+# - SPLUNK_HEC_HOST: Splunk hostname (e.g., splunk.jclee.me)
+# - SPLUNK_HEC_PORT: Splunk HEC port (default: 8088)
+# - SPLUNK_HEC_TOKEN: Splunk HEC token
+# - SPLUNK_HEC_SCHEME: https
+# - SLACK_BOT_TOKEN: Slack Bot token (xoxb-...)
+# - SLACK_CHANNEL: Slack channel for alerts (e.g., splunk-alerts)
+# - SLACK_ENABLED: Enable Slack notifications (true/false)
+#
+# =============================================================================
+
+# =============================================================================
+# Resource Limits
+# =============================================================================
+# Workers limits:
+# - CPU time: 50ms (free), 50ms-30s (paid)
+# - Memory: 128MB
+# - Request size: 100MB
+# - Response size: 100MB
+#
+# For large log volumes, consider Cloudflare Workers Unbound ($0.50/million requests)
+# =============================================================================
+
+# Uncomment for Unbound Workers (longer CPU time)
+# [limits]
+# cpu_ms = 30000  # 30 seconds max CPU time
+
+# =============================================================================
+# Build Configuration
+# =============================================================================
+[build]
+command = "npm install"
+
+# =============================================================================
+# Development
+# =============================================================================
+# wrangler dev - Start local dev server
+# wrangler tail - Stream logs from deployed worker
+# wrangler publish - Deploy to production
+#
+# =============================================================================
