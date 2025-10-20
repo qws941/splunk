@@ -1,0 +1,142 @@
+<dashboard version="1.1">
+  <label>FortiGate Performance Monitoring</label>
+  <description>Device performance, resource usage, and system health</description>
+
+  <!-- Row 1: Resource Usage -->
+  <row>
+    <panel>
+      <title>Average CPU Usage</title>
+      <single>
+        <search>
+          <query>index=fortigate_security cpu_usage=* earliest=-5m | stats avg(cpu_usage) as cpu | eval cpu=round(cpu,1) | fields cpu</query>
+          <refresh>30s</refresh>
+        </search>
+        <option name="underLabel">%</option>
+        <option name="rangeColors">["0x65A637","0xF7BC38","0xF58F39","0xD93F3C"]</option>
+        <option name="rangeValues">[0,50,75,90]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>Average Memory Usage</title>
+      <single>
+        <search>
+          <query>index=fortigate_security memory_usage=* earliest=-5m | stats avg(memory_usage) as mem | eval mem=round(mem,1) | fields mem</query>
+          <refresh>30s</refresh>
+        </search>
+        <option name="underLabel">%</option>
+        <option name="rangeColors">["0x65A637","0xF7BC38","0xF58F39","0xD93F3C"]</option>
+        <option name="rangeValues">[0,60,80,90]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>Average Latency</title>
+      <single>
+        <search>
+          <query>index=fortigate_security latency_ms=* earliest=-5m | stats avg(latency_ms) as latency | eval latency=round(latency,1) | fields latency</query>
+          <refresh>30s</refresh>
+        </search>
+        <option name="underLabel">ms</option>
+        <option name="rangeColors">["0x65A637","0xF7BC38","0xF58F39","0xD93F3C"]</option>
+        <option name="rangeValues">[0,50,100,200]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>Active Sessions</title>
+      <single>
+        <search>
+          <query>index=fortigate_security session_count=* earliest=-5m | stats avg(session_count) as sessions | eval sessions=round(sessions,0) | fields sessions</query>
+          <refresh>30s</refresh>
+        </search>
+        <option name="underLabel">Sessions</option>
+      </single>
+    </panel>
+  </row>
+
+  <!-- Row 2: CPU and Memory Timeline -->
+  <row>
+    <panel>
+      <title>CPU Usage by Device (Last Hour)</title>
+      <chart>
+        <search>
+          <query>index=fortigate_security cpu_usage=* earliest=-1h
+| timechart span=1m avg(cpu_usage) by device_name</query>
+          <refresh>30s</refresh>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.axisTitleY.text">CPU %</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+
+    <panel>
+      <title>Memory Usage by Device (Last Hour)</title>
+      <chart>
+        <search>
+          <query>index=fortigate_security memory_usage=* earliest=-1h
+| timechart span=1m avg(memory_usage) by device_name</query>
+          <refresh>30s</refresh>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.axisTitleY.text">Memory %</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Row 3: Session and Throughput -->
+  <row>
+    <panel>
+      <title>Active Sessions Timeline</title>
+      <chart>
+        <search>
+          <query>index=fortigate_security session_count=* earliest=-1h
+| timechart span=1m avg(session_count) by device_name</query>
+          <refresh>30s</refresh>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.axisTitleY.text">Sessions</option>
+      </chart>
+    </panel>
+
+    <panel>
+      <title>Network Throughput</title>
+      <chart>
+        <search>
+          <query>index=fortigate_security earliest=-1h
+| bucket _time span=1m
+| stats sum(sent_bytes) as sent, sum(rcvd_bytes) as received by _time
+| eval throughput_mbps=round((sent+received)/1024/1024/60*8, 2)
+| timechart span=1m avg(throughput_mbps) as "Throughput (Mbps)"</query>
+          <refresh>30s</refresh>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.axisTitleY.text">Mbps</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Row 4: Device Health -->
+  <row>
+    <panel>
+      <title>Device Health Status</title>
+      <table>
+        <search>
+          <query>index=fortigate_security earliest=-5m
+| stats latest(cpu_usage) as cpu, latest(memory_usage) as mem, latest(session_count) as sessions by device_name
+| eval health=case(cpu>80 OR mem>80, "Critical", cpu>60 OR mem>60, "Warning", 1=1, "Healthy")
+| sort device_name
+| rename device_name as "Device", cpu as "CPU %", mem as "Memory %", sessions as "Sessions", health as "Health Status"</query>
+          <refresh>30s</refresh>
+        </search>
+        <format type="color" field="Health Status">
+          <colorPalette type="map">{"Healthy":#53A051,"Warning":#F8BE34,"Critical":#DC4E41}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+</dashboard>

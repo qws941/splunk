@@ -1,0 +1,604 @@
+<form version="1.1">
+  <label>🔐 Fortinet 설정 관리 (PRD - Proxy Slack 통합)</label>
+  <description>FortiAnalyzer/FortiManager 설정 관리 대시보드 - index=fw 기반, 중복 제거, Slack 알림 (Proxy 지원) | ✨ WCAG 준수 디자인</description>
+
+  <!-- Device Filter -->
+  <fieldset submitButton="false">
+    <input type="dropdown" token="device_filter" searchWhenChanged="true">
+      <label>장비 선택</label>
+      <choice value="*">전체</choice>
+      <default>*</default>
+      <fieldForLabel>devname</fieldForLabel>
+      <fieldForValue>devname</fieldForValue>
+      <search>
+        <query>index=fw | stats count by devname | sort - count</query>
+      </search>
+    </input>
+    <input type="time" token="time_picker">
+      <label>시간 범위</label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+  </fieldset>
+
+  <!-- Row 1: 📊 운영 현황 요약 (WCAG 준수 색상) -->
+  <row>
+    <panel>
+      <title>📈 전체 이벤트</title>
+      <single>
+        <search>
+          <query>index=fw devname=$device_filter$ earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="useColors">1</option>
+        <option name="numberPrecision">0</option>
+        <option name="rangeColors">["0x65A637","0x6DB7C6","0xF7BC38","0xF58F39","0xD93F3C"]</option>
+        <option name="rangeValues">[0,1000,5000,10000]</option>
+        <option name="underLabel">Total Events</option>
+      </single>
+    </panel>
+    <panel>
+      <title>⚙️ 설정 변경</title>
+      <single>
+        <search>
+          <query>index=fw devname=$device_filter$ (logid="0100044547" OR logid="0100044546" OR logid="0100044545") earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="useColors">1</option>
+        <option name="numberPrecision">0</option>
+        <option name="rangeColors">["0x65A637","0xF7BC38","0xF58F39","0xD93F3C"]</option>
+        <option name="rangeValues">[0,10,50]</option>
+        <option name="underLabel">Config Changes</option>
+      </single>
+    </panel>
+    <panel>
+      <title>🖥️ 관리 장비</title>
+      <single>
+        <search>
+          <query>index=fw devname=$device_filter$ earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats dc(devname) as device_count</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="useColors">1</option>
+        <option name="numberPrecision">0</option>
+        <option name="rangeColors">["0x6DB7C6","0x65A637","0xF7BC38"]</option>
+        <option name="rangeValues">[0,5]</option>
+        <option name="underLabel">Devices</option>
+      </single>
+    </panel>
+    <panel>
+      <title>🚨 Critical 이벤트</title>
+      <single>
+        <search>
+          <query>index=fw devname=$device_filter$ (level=critical OR level=alert OR level=emergency) earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| search NOT msg="*Update Fail*"
+| stats count</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="useColors">1</option>
+        <option name="numberPrecision">0</option>
+        <option name="rangeColors">["0x65A637","0xF7BC38","0xD93F3C"]</option>
+        <option name="rangeValues">[0,5]</option>
+        <option name="underLabel">Critical Events</option>
+      </single>
+    </panel>
+    <panel>
+      <title>👤 활성 관리자</title>
+      <single>
+        <search>
+          <query>index=fw devname=$device_filter$ (logid="0100044547" OR logid="0100032001" OR logid="0100032003") earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats dc(user) as admin_count</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">block</option>
+        <option name="useColors">1</option>
+        <option name="numberPrecision">0</option>
+        <option name="rangeColors">["0x6DB7C6","0x65A637","0xF7BC38","0xF58F39"]</option>
+        <option name="rangeValues">[0,3,10]</option>
+        <option name="underLabel">Active Admins</option>
+      </single>
+    </panel>
+  </row>
+
+  <!-- Row 1.5: 📊 트렌드 분석 -->
+  <row>
+    <panel>
+      <title>📊 설정 변경 트렌드 (시간대별)</title>
+      <chart>
+        <search>
+          <query>index=fw devname=$device_filter$ (logid="0100044547" OR logid="0100044546" OR logid="0100044545") earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| eval change_type = case(
+    logid="0100044547", "삭제",
+    logid="0100044546", "수정",
+    logid="0100044545", "추가",
+    1=1, "기타"
+  )
+| timechart span=1h count by change_type</query>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.axisTitleX.text">시간</option>
+        <option name="charting.axisTitleY.text">변경 건수</option>
+        <option name="charting.fieldColors">{"삭제":"0xD93F3C","수정":"0xF7BC38","추가":"0x65A637"}</option>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">preview</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>📊 관리자별 활동 분포</title>
+      <chart>
+        <search>
+          <query>index=fw devname=$device_filter$ (logid="0100044547" OR logid="0100044546" OR logid="0100044545") earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count by user
+| sort - count
+| head 10</query>
+        </search>
+        <option name="charting.chart">bar</option>
+        <option name="charting.legend.placement">none</option>
+        <option name="charting.axisTitleX.text">변경 건수</option>
+        <option name="charting.axisTitleY.text">관리자</option>
+        <option name="charting.chart.barSpacing">5</option>
+        <option name="charting.seriesColors">[0x6DB7C6]</option>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">preview</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Row 2: 📢 설정 변경 이력 (Slack 알림) -->
+  <row>
+    <panel>
+      <title>📢 설정 변경 이력 (클릭 → Slack 알림)</title>
+      <table id="config_changes_table">
+        <search>
+          <query>index=fw devname=$device_filter$ (logid="0100044547" OR logid="0100044546" OR logid="0100044545") earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| rex field=_raw "cfgpath=\"?(?&lt;cfg_path&gt;[^\"]+)\"?"
+| rex field=_raw "cfgobj=\"?(?&lt;cfg_object&gt;[^\"]+)\"?"
+| rex field=_raw "cfgattr=\"?(?&lt;cfg_attr&gt;[^\"]+)\"?"
+| eval config_path = coalesce(cfgpath, cfg_path, "N/A")
+| eval config_object = coalesce(cfgobj, cfg_object, "N/A")
+| eval config_attr = coalesce(cfgattr, cfg_attr, "N/A")
+| eval parsed_value = config_path + " / " + config_object + " [" + config_attr + "]"
+| eval change_type = case(
+    logid="0100044547", "삭제",
+    logid="0100044546", "수정",
+    logid="0100044545", "추가",
+    1=1, "기타"
+  )
+| eval path_category = case(
+    match(config_path, "firewall\.policy"), "방화벽 정책",
+    match(config_path, "vpn\.ipsec"), "IPSec VPN",
+    match(config_path, "vpn\.ssl"), "SSL VPN",
+    match(config_path, "system\.interface"), "인터페이스",
+    match(config_path, "router"), "라우팅",
+    match(config_path, "user"), "사용자/그룹",
+    match(config_path, "firewall\.address"), "주소 객체",
+    match(config_path, "firewall\.service"), "서비스 객체",
+    1=1, "기타 설정"
+  )
+| eval access_method = coalesce(ui, "CLI")
+| eval access_ip = coalesce(from_ip, remip, "N/A")
+| dedup _time devname config_path config_object parsed_value
+| eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
+| table timestamp, devname, user, change_type, path_category, config_object, parsed_value, access_method, access_ip
+| sort - timestamp
+| head 20</query>
+        </search>
+        <option name="drilldown">row</option>
+        <option name="rowNumbers">true</option>
+        <option name="wrap">true</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="count">20</option>
+        <option name="refresh.display">preview</option>
+        <drilldown>
+          <set token="slack_device">$row.devname$</set>
+          <set token="slack_user">$row.user$</set>
+          <set token="slack_change_type">$row.change_type$</set>
+          <set token="slack_category">$row.path_category$</set>
+          <set token="slack_object">$row.config_object$</set>
+          <set token="slack_value">$row.parsed_value$</set>
+          <set token="slack_method">$row.access_method$</set>
+          <set token="slack_ip">$row.access_ip$</set>
+          <set token="slack_time">$row.timestamp$</set>
+          <set token="trigger_config_alert">1</set>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 2.5: 📋 Slack 프록시 설정 도구 -->
+  <row>
+    <panel>
+      <title>📋 Slack 프록시 설정 가이드</title>
+      <html>
+        <div style="padding: 15px; background-color: #f8f9fa; border-left: 4px solid #6DB7C6; margin: 10px 0;">
+          <h3 style="color: #333; margin-top: 0;">🔧 Slack 알림 설정 방법</h3>
+          <p style="color: #666; line-height: 1.6;">
+            이 대시보드에서 행을 클릭하면 Slack 알림이 전송됩니다. 아래 단계를 따라 프록시 서버를 설정하세요.
+          </p>
+
+          <h4 style="color: #333; margin-top: 15px;">1️⃣ Slack Webhook URL 생성</h4>
+          <pre style="background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 4px; overflow-x: auto;">
+# Slack 워크스페이스
+1. https://api.slack.com/apps → Create New App
+2. Incoming Webhooks → Activate
+3. Add New Webhook → 채널 선택 (#splunk-alerts)
+4. Webhook URL 복사
+   https://hooks.slack.com/services/T00000000/B00000000/XXXX</pre>
+
+          <h4 style="color: #333; margin-top: 15px;">2️⃣ Splunk Alert Action 생성</h4>
+          <pre style="background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 4px; overflow-x: auto;">
+# Splunk Web UI
+Settings → Searches, reports, and alerts → Alert actions
+→ Create Alert Action
+
+Name: fortinet_slack
+Type: Webhook
+Webhook URL: http://YOUR_PROXY:3000/slack
+Method: POST</pre>
+
+          <h4 style="color: #333; margin-top: 15px;">3️⃣ 프록시 서버 실행 (선택사항)</h4>
+          <pre style="background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 4px; overflow-x: auto;">
+# Node.js 프록시
+cd /home/jclee/app/splunk
+export SLACK_WEBHOOK_URL="YOUR_WEBHOOK_URL"
+node domains/integration/slack-webhook-handler.js
+
+# Listening on http://localhost:3000/slack</pre>
+
+          <h4 style="color: #333; margin-top: 15px;">4️⃣ 테스트</h4>
+          <pre style="background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 4px; overflow-x: auto;">
+# CLI 테스트
+node scripts/slack-alert-cli.js \
+  --webhook="YOUR_WEBHOOK_URL" \
+  --test</pre>
+
+          <div style="margin-top: 15px; padding: 10px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px;">
+            <strong style="color: #155724;">✅ 설정 완료 후:</strong>
+            <p style="color: #155724; margin: 5px 0 0 0;">
+              위 "📢 설정 변경 이력" 테이블에서 행을 클릭하면 Slack으로 자동 알림이 전송됩니다.
+            </p>
+          </div>
+
+          <div style="margin-top: 10px; padding: 10px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;">
+            <strong style="color: #856404;">📖 상세 가이드:</strong>
+            <p style="color: #856404; margin: 5px 0 0 0;">
+              PROXY_SLACK_SETUP_GUIDE.md 파일 참고
+            </p>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <!-- Row 3: 📋 Slack 쿼리 복사 도구 -->
+  <row depends="$trigger_config_alert$">
+    <panel>
+      <title>📋 Slack 전송 쿼리 (아래 내용 복사하여 프록시 설정)</title>
+      <html>
+        <div style="padding: 15px; background-color: #fff3cd; border-left: 4px solid #ffc107; margin: 10px 0;">
+          <h4 style="color: #856404; margin-top: 0;">🚀 이 쿼리를 프록시 서버에서 사용하세요</h4>
+          <p style="color: #856404;">아래 쿼리를 복사하여 Slack Webhook 프록시 설정에 활용할 수 있습니다.</p>
+        </div>
+      </html>
+      <table>
+        <search>
+          <query>| makeresults
+| eval alert_type="설정변경"
+| eval device="$slack_device$"
+| eval user="$slack_user$"
+| eval change_type="$slack_change_type$"
+| eval category="$slack_category$"
+| eval object_name="$slack_object$"
+| eval value="$slack_value$"
+| eval access_method="$slack_method$"
+| eval access_ip="$slack_ip$"
+| eval timestamp="$slack_time$"
+| eval severity=if(change_type="삭제", "high", "medium")
+| eval slack_message="*[설정변경]* " + category + "\n"
+    + "━━━━━━━━━\n"
+    + "🖥️ 장비: `" + device + "`\n"
+    + "🔄 변경유형: *" + change_type + "*\n"
+    + "📋 대상: `" + object_name + "`\n"
+    + "🔗 경로: `" + value + "`\n"
+    + "👤 관리자: " + user + "\n"
+    + "🌐 접속IP: " + access_ip + "\n"
+    + "🔌 접속방법: " + access_method + "\n"
+    + "🕒 시간: " + timestamp + "\n"
+    + "⚠️ 심각도: *" + severity + "*"
+| eval webhook_payload="{\"text\": \"" + slack_message + "\"}"
+| eval curl_command="curl -X POST YOUR_WEBHOOK_URL -H 'Content-Type: application/json' -d '" + webhook_payload + "'"
+| table alert_type, device, user, change_type, category, object_name, severity, slack_message, webhook_payload, curl_command</query>
+          <done>
+            <unset token="trigger_config_alert"></unset>
+            <unset token="slack_device"></unset>
+            <unset token="slack_user"></unset>
+            <unset token="slack_change_type"></unset>
+            <unset token="slack_category"></unset>
+            <unset token="slack_object"></unset>
+            <unset token="slack_value"></unset>
+            <unset token="slack_method"></unset>
+            <unset token="slack_ip"></unset>
+            <unset token="slack_time"></unset>
+          </done>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="wrap">true</option>
+        <option name="rowNumbers">false</option>
+        <option name="dataOverlayMode">none</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 3: 📢 방화벽 정책 변경 (Slack 알림) -->
+  <row>
+    <panel>
+      <title>🛡️ 방화벽 정책 변경 (클릭 → Slack 알림)</title>
+      <table id="policy_changes_table">
+        <search>
+          <query>index=fw devname=$device_filter$ (logid="0100044547" OR logid="0100044546" OR logid="0100044545") earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| rex field=_raw "cfgpath=\"?(?&lt;cfg_path&gt;[^\"]+)\"?"
+| search cfg_path="firewall.policy*"
+| rex field=_raw "cfgobj=\"?(?&lt;policy_name&gt;[^\"]+)\"?"
+| rex field=_raw "cfgattr=\"?(?&lt;cfg_attr&gt;[^\"]+)\"?"
+| eval change_type = case(
+    logid="0100044547", "삭제",
+    logid="0100044546", "수정",
+    logid="0100044545", "추가",
+    1=1, "기타"
+  )
+| eval change_detail = cfg_path + " [" + cfg_attr + "]"
+| dedup _time devname policy_name change_detail
+| eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
+| table timestamp, devname, user, change_type, policy_name, change_detail
+| sort - timestamp
+| head 20</query>
+        </search>
+        <option name="drilldown">row</option>
+        <option name="rowNumbers">true</option>
+        <option name="wrap">true</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="count">20</option>
+        <option name="refresh.display">preview</option>
+        <drilldown>
+          <set token="policy_device">$row.devname$</set>
+          <set token="policy_user">$row.user$</set>
+          <set token="policy_change_type">$row.change_type$</set>
+          <set token="policy_name">$row.policy_name$</set>
+          <set token="policy_detail">$row.change_detail$</set>
+          <set token="policy_time">$row.timestamp$</set>
+          <set token="trigger_policy_alert">1</set>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Hidden Panel: Policy Change Alert -->
+  <row depends="$trigger_policy_alert$">
+    <panel>
+      <title>Policy Change Alert Trigger</title>
+      <table>
+        <search>
+          <query>| makeresults
+| eval alert_type="방화벽정책변경"
+| eval device="$policy_device$"
+| eval user="$policy_user$"
+| eval change_type="$policy_change_type$"
+| eval policy_name="$policy_name$"
+| eval detail="$policy_detail$"
+| eval timestamp="$policy_time$"
+| eval severity="high"
+| eval message="*[방화벽정책변경]*\n"
+    + "━━━━━━━━━\n"
+    + "🖥️ 장비: `" + device + "`\n"
+    + "📋 정책명: `" + policy_name + "`\n"
+    + "🔄 변경유형: *" + change_type + "*\n"
+    + "🔗 경로: `" + detail + "`\n"
+    + "👤 관리자: " + user + "\n"
+    + "🕒 시간: " + timestamp + "\n"
+    + "⚠️ 심각도: *" + severity + "*"
+| sendalert fortinet_slack param.message="$result.message$" param.severity="$result.severity$" param.device="$result.device$" param.user="$result.user$" param.change_type="$result.change_type$" param.policy_name="$result.policy_name$" param.detail="$result.detail$" param.timestamp="$result.timestamp$"</query>
+          <done>
+            <unset token="trigger_policy_alert"></unset>
+            <unset token="policy_device"></unset>
+            <unset token="policy_user"></unset>
+            <unset token="policy_change_type"></unset>
+            <unset token="policy_name"></unset>
+            <unset token="policy_detail"></unset>
+            <unset token="policy_time"></unset>
+          </done>
+        </search>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 4: 시스템 인터페이스 변경 -->
+  <row>
+    <panel>
+      <title>🔌 시스템 인터페이스 변경</title>
+      <table>
+        <search>
+          <query>index=fw devname=$device_filter$ (logid="0100044547" OR logid="0100044546" OR logid="0100044545") earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| rex field=_raw "cfgpath=\"?(?&lt;cfg_path&gt;[^\"]+)\"?"
+| search cfg_path="system.interface*"
+| rex field=_raw "cfgobj=\"?(?&lt;interface_name&gt;[^\"]+)\"?"
+| rex field=_raw "cfgattr=\"?(?&lt;cfg_attr&gt;[^\"]+)\"?"
+| eval change_type = case(
+    logid="0100044547", "삭제",
+    logid="0100044546", "수정",
+    logid="0100044545", "추가",
+    1=1, "기타"
+  )
+| dedup _time devname interface_name cfg_attr
+| eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
+| table timestamp, devname, user, change_type, interface_name, cfg_attr
+| sort - timestamp
+| head 15</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rowNumbers">true</option>
+        <option name="wrap">true</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="count">15</option>
+        <option name="refresh.display">preview</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 5: 관리자 활동 -->
+  <row>
+    <panel>
+      <title>👨‍💼 관리자 로그인/로그아웃</title>
+      <table>
+        <search>
+          <query>index=fw devname=$device_filter$ (logid="0100032001" OR logid="0100032003") earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| eval login_status = case(
+    logid="0100032001", "로그인",
+    logid="0100032003", "로그아웃",
+    1=1, "기타"
+  )
+| eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
+| eval source_ip = coalesce(from_ip, remip, "N/A")
+| table timestamp, devname, user, login_status, source_ip, ui
+| sort - timestamp
+| head 20</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rowNumbers">true</option>
+        <option name="wrap">true</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="count">20</option>
+        <option name="refresh.display">preview</option>
+      </table>
+    </panel>
+    <panel>
+      <title>📊 관리자별 설정 변경 통계</title>
+      <table>
+        <search>
+          <query>index=fw devname=$device_filter$ (logid="0100044547" OR logid="0100044546" OR logid="0100044545") earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count by user, devname
+| sort - count
+| head 10</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rowNumbers">false</option>
+        <option name="wrap">true</option>
+        <option name="dataOverlayMode">heatmap</option>
+        <option name="count">10</option>
+        <option name="refresh.display">preview</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 6: 📢 Critical 이벤트 (Slack 알림) -->
+  <row>
+    <panel>
+      <title>🚨 Critical 이벤트 (클릭 → Slack 알림)</title>
+      <table id="critical_events_table">
+        <search>
+          <query>index=fw devname=$device_filter$ (level=critical OR level=alert OR level=emergency) earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| search NOT msg="*Update Fail*"
+| eval event_category = case(
+    match(msg, "(?i)(fail|error|down)"), "시스템 오류",
+    match(msg, "(?i)(attack|intrusion|malware)"), "보안 위협",
+    match(msg, "(?i)(cpu|memory|disk)"), "리소스",
+    match(msg, "(?i)(ha|failover|backup)"), "HA 이벤트",
+    match(msg, "(?i)(hardware|sensor)"), "하드웨어",
+    1=1, "기타 Critical"
+  )
+| eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
+| dedup _time devname msg
+| table timestamp, devname, level, event_category, type, msg
+| sort - timestamp
+| head 20</query>
+        </search>
+        <option name="drilldown">row</option>
+        <option name="rowNumbers">true</option>
+        <option name="wrap">true</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="count">20</option>
+        <option name="refresh.display">preview</option>
+        <drilldown>
+          <set token="critical_device">$row.devname$</set>
+          <set token="critical_level">$row.level$</set>
+          <set token="critical_category">$row.event_category$</set>
+          <set token="critical_type">$row.type$</set>
+          <set token="critical_msg">$row.msg$</set>
+          <set token="critical_time">$row.timestamp$</set>
+          <set token="trigger_critical_alert">1</set>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Hidden Panel: Critical Event Alert -->
+  <row depends="$trigger_critical_alert$">
+    <panel>
+      <title>Critical Event Alert Trigger</title>
+      <table>
+        <search>
+          <query>| makeresults
+| eval alert_type="CRITICAL"
+| eval device="$critical_device$"
+| eval severity_level="$critical_level$"
+| eval category="$critical_category$"
+| eval event_type="$critical_type$"
+| eval message_text="$critical_msg$"
+| eval timestamp="$critical_time$"
+| eval severity="critical"
+| eval message="🚨 *[CRITICAL 이벤트]*\n"
+    + "━━━━━━━━━\n"
+    + "🖥️ 장비: `" + device + "`\n"
+    + "🔴 레벨: *" + severity_level + "*\n"
+    + "📋 카테고리: " + category + "\n"
+    + "🔔 이벤트타입: " + event_type + "\n"
+    + "💬 메시지: ```" + message_text + "```\n"
+    + "🕒 시간: " + timestamp + "\n"
+    + "⚠️ 심각도: *" + severity + "*"
+| sendalert fortinet_slack param.message="$result.message$" param.severity="$result.severity$" param.device="$result.device$" param.severity_level="$result.severity_level$" param.category="$result.category$" param.event_type="$result.event_type$" param.message_text="$result.message_text$" param.timestamp="$result.timestamp$"</query>
+          <done>
+            <unset token="trigger_critical_alert"></unset>
+            <unset token="critical_device"></unset>
+            <unset token="critical_level"></unset>
+            <unset token="critical_category"></unset>
+            <unset token="critical_type"></unset>
+            <unset token="critical_msg"></unset>
+            <unset token="critical_time"></unset>
+          </done>
+        </search>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 7: 실시간 이벤트 스트림 -->
+  <row>
+    <panel>
+      <title>📡 실시간 이벤트 스트림 (최근 15분, 30초 자동 새로고침)</title>
+      <event>
+        <search>
+          <query>index=fw devname=$device_filter$ earliest=-15m
+| sort - _time
+| head 100</query>
+          <refresh>30s</refresh>
+          <refreshType>delay</refreshType>
+        </search>
+        <option name="count">15</option>
+        <option name="list.drilldown">none</option>
+        <option name="maxLines">3</option>
+        <option name="raw.drilldown">none</option>
+        <option name="rowNumbers">true</option>
+        <option name="type">list</option>
+        <option name="segmentation">full</option>
+      </event>
+    </panel>
+  </row>
+</form>

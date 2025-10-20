@@ -1,276 +1,481 @@
 /**
- * Cloudflare Worker Entry Point
- * Serves the Fortinet Policy Verification web interface
+ * Cloudflare Worker - FAZ to Splunk HEC Integration
+ *
+ * Scheduled worker that runs every 1 minute to:
+ * 1. Collect security events from FortiAnalyzer
+ * 2. Process and enrich events
+ * 3. Send to Splunk HEC
+ * 4. Send critical alerts to Slack
+ *
+ * Deployment: wrangler publish
+ * Logs: wrangler tail
  */
 
-// Import the HTML content directly
-const htmlContent = `<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🛡️ Fortinet 방화벽 정책 확인</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+// =============================================================================
+// Cloudflare Worker Event Handlers
+// =============================================================================
 
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-      color: #ffffff;
-      min-height: 100vh;
-      padding: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .container {
-      max-width: 800px;
-      margin: 0 auto;
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(10px);
-      border-radius: 20px;
-      padding: 40px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-      text-align: center;
-    }
-
-    .header h1 {
-      font-size: 2.5rem;
-      margin-bottom: 20px;
-      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-    }
-
-    .description {
-      font-size: 1.2rem;
-      opacity: 0.9;
-      margin-bottom: 30px;
-      line-height: 1.6;
-    }
-
-    .features {
-      text-align: left;
-      margin: 30px 0;
-    }
-
-    .features h3 {
-      color: #4fc3f7;
-      margin-bottom: 15px;
-    }
-
-    .features ul {
-      list-style: none;
-      padding: 0;
-    }
-
-    .features li {
-      margin: 10px 0;
-      padding-left: 30px;
-      position: relative;
-    }
-
-    .features li:before {
-      content: '✅';
-      position: absolute;
-      left: 0;
-    }
-
-    .setup-info {
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 15px;
-      padding: 25px;
-      margin: 30px 0;
-      text-align: left;
-    }
-
-    .setup-info h3 {
-      color: #4fc3f7;
-      margin-bottom: 15px;
-    }
-
-    .code-block {
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: 8px;
-      padding: 15px;
-      font-family: monospace;
-      font-size: 0.9rem;
-      margin: 10px 0;
-      white-space: pre-wrap;
-    }
-
-    .github-link {
-      display: inline-block;
-      background: linear-gradient(45deg, #4fc3f7, #29b6f6);
-      color: white;
-      text-decoration: none;
-      padding: 15px 30px;
-      border-radius: 50px;
-      font-weight: 600;
-      transition: transform 0.3s ease;
-    }
-
-    .github-link:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 20px rgba(79, 195, 247, 0.3);
-    }
-
-    .status {
-      margin-top: 20px;
-      padding: 15px;
-      background: rgba(76, 175, 80, 0.2);
-      border: 1px solid #4caf50;
-      border-radius: 10px;
-    }
-
-    @media (max-width: 768px) {
-      .container {
-        margin: 20px;
-        padding: 30px 20px;
-      }
-
-      .header h1 {
-        font-size: 2rem;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>🛡️ Fortinet 방화벽 정책 확인 시스템</h1>
-      <p class="description">
-        FortiManager를 통해 관리되는 80+ FortiGate 장비의<br>
-        방화벽 정책을 실시간으로 확인할 수 있는 웹 기반 도구
-      </p>
-    </div>
-
-    <div class="features">
-      <h3>🎯 핵심 기능</h3>
-      <ul>
-        <li>출발지 → 목적지 트래픽 분석</li>
-        <li>실시간 허용/차단 여부 확인</li>
-        <li>다중 FortiGate 장비 지원 (80+)</li>
-        <li>Multi-VDOM 환경 지원</li>
-        <li>정책 상세 정보 표시</li>
-        <li>모바일 친화적 웹 인터페이스</li>
-      </ul>
-    </div>
-
-    <div class="setup-info">
-      <h3>🚀 시스템 구성</h3>
-      <p>이 시스템은 다음과 같이 구성되어 있습니다:</p>
-      <ul>
-        <li><strong>웹 인터페이스</strong>: 사용자 친화적 정책 확인 도구</li>
-        <li><strong>Policy Server</strong>: Express.js 기반 RESTful API</li>
-        <li><strong>FortiManager 연동</strong>: JSON-RPC 직접 연결</li>
-        <li><strong>Splunk 통합</strong>: 중앙화된 보안 이벤트 처리</li>
-      </ul>
-    </div>
-
-    <div class="setup-info">
-      <h3>🔧 로컬 실행 방법</h3>
-      <div class="code-block"># 저장소 클론
-git clone https://github.com/qws941/splunk.git
-cd splunk
-
-# 의존성 설치
-npm install
-
-# 환경 변수 설정
-export FMG_HOST=fortimanager.jclee.me
-export FMG_USERNAME=admin
-export FMG_PASSWORD=your_password
-
-# 정책 확인 서버 실행
-npm run policy-server
-
-# 웹 브라우저에서 접속
-# http://localhost:3001</div>
-    </div>
-
-    <div class="setup-info">
-      <h3>📊 API 사용 예시</h3>
-      <div class="code-block"># 정책 확인 API
-curl -X POST http://localhost:3001/api/policy/verify \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "sourceIP": "192.168.1.100",
-    "destIP": "10.0.0.100",
-    "protocol": "TCP",
-    "port": 80
-  }'</div>
-    </div>
-
-    <div class="status">
-      <strong>✅ 시스템 상태:</strong> 정책 확인 시스템이 성공적으로 구현되었습니다!<br>
-      완전한 기능을 사용하려면 위의 설정 과정을 따라 로컬 서버를 실행하세요.
-    </div>
-
-    <div style="margin-top: 30px;">
-      <a href="https://github.com/qws941/splunk" class="github-link" target="_blank">
-        📚 GitHub 저장소 방문
-      </a>
-    </div>
-
-    <div style="margin-top: 30px; font-size: 0.9rem; opacity: 0.8;">
-      <p>🔒 보안이 중요한 환경에서는 적절한 접근 제어와 모니터링을 구성하시기 바랍니다.</p>
-      <p>📞 지원이 필요하시면 GitHub Issues를 이용해 주세요.</p>
-    </div>
-  </div>
-</body>
-</html>`;
-
+/**
+ * Scheduled Event Handler (Cron Triggers)
+ * Runs every 1 minute as configured in wrangler.toml
+ */
 export default {
+  async scheduled(event, env, ctx) {
+    console.log('🕐 Cron trigger fired at:', new Date().toISOString());
+
+    try {
+      const processor = new FAZSplunkProcessor(env);
+      await processor.processEvents();
+
+      console.log('✅ Event processing completed successfully');
+    } catch (error) {
+      console.error('❌ Event processing failed:', error.message);
+      console.error('Stack:', error.stack);
+
+      // Send error notification to Slack if enabled
+      if (env.SLACK_ENABLED === 'true' && env.SLACK_BOT_TOKEN) {
+        await sendErrorNotification(env, error);
+      }
+    }
+  },
+
+  /**
+   * HTTP Request Handler (for manual triggers and health checks)
+   */
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-
-    // Handle different routes
-    if (url.pathname === '/' || url.pathname === '/index.html') {
-      return new Response(htmlContent, {
-        headers: {
-          'Content-Type': 'text/html;charset=UTF-8',
-          'Cache-Control': 'public, max-age=3600',
-        },
-      });
-    }
 
     // Health check endpoint
     if (url.pathname === '/health') {
       return new Response(JSON.stringify({
         status: 'healthy',
-        message: 'Fortinet Policy Verification System - Static Web Interface',
+        service: 'faz-splunk-hec-integration',
         timestamp: new Date().toISOString(),
-        note: 'For full functionality, run the Node.js server locally'
+        environment: env.NODE_ENV || 'production'
       }), {
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache',
-        },
+        headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    // API information endpoint
-    if (url.pathname.startsWith('/api')) {
-      return new Response(JSON.stringify({
-        message: 'API endpoints are available when running the local server',
-        setup: 'Run: npm run policy-server',
-        endpoints: [
-          'POST /api/policy/verify - Policy verification',
-          'GET /api/fortimanager/devices - Device list',
-          'GET /health - Server status'
-        ]
-      }), {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+    // Manual trigger endpoint
+    if (url.pathname === '/trigger' && request.method === 'POST') {
+      try {
+        const processor = new FAZSplunkProcessor(env);
+        await processor.processEvents();
+
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'Event processing triggered successfully',
+          timestamp: new Date().toISOString()
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: error.message,
+          timestamp: new Date().toISOString()
+        }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
     }
 
-    // 404 for other routes
-    return new Response('Page not found', { status: 404 });
-  },
+    // Default response
+    return new Response(JSON.stringify({
+      service: 'FAZ to Splunk HEC Integration',
+      version: '1.0.0',
+      endpoints: {
+        health: '/health',
+        trigger: 'POST /trigger'
+      }
+    }), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
 };
+
+// =============================================================================
+// Main Processing Class
+// =============================================================================
+
+class FAZSplunkProcessor {
+  constructor(env) {
+    this.env = env;
+    this.fazConnector = new FortiAnalyzerConnector(env);
+    this.splunkConnector = new SplunkHECConnector(env);
+    this.slackConnector = new SlackConnector(env);
+    this.eventProcessor = new SecurityEventProcessor();
+  }
+
+  async processEvents() {
+    const startTime = Date.now();
+    console.log('🚀 Starting event processing...');
+
+    // 1. Collect events from FortiAnalyzer
+    const events = await this.fazConnector.fetchSecurityEvents();
+    console.log(`📥 Collected ${events.length} events from FortiAnalyzer`);
+
+    if (events.length === 0) {
+      console.log('ℹ️  No new events to process');
+      return;
+    }
+
+    // 2. Process and enrich events
+    const processedEvents = [];
+    const criticalEvents = [];
+
+    for (const event of events) {
+      const enrichedEvent = this.eventProcessor.processEvent(event);
+      processedEvents.push(enrichedEvent);
+
+      // Track critical events for alerting
+      if (this.eventProcessor.shouldAlert(enrichedEvent)) {
+        criticalEvents.push(enrichedEvent);
+      }
+    }
+
+    console.log(`⚙️  Processed ${processedEvents.length} events`);
+    console.log(`🚨 Found ${criticalEvents.length} critical events`);
+
+    // 3. Send to Splunk HEC
+    const splunkResult = await this.splunkConnector.sendEvents(processedEvents);
+    console.log(`📤 Sent ${splunkResult.success} events to Splunk (${splunkResult.failed} failed)`);
+
+    // 4. Send Slack alerts for critical events
+    if (this.env.SLACK_ENABLED === 'true' && criticalEvents.length > 0) {
+      await this.sendSlackAlerts(criticalEvents);
+    }
+
+    // 5. Log summary
+    const duration = Date.now() - startTime;
+    console.log(`✅ Processing completed in ${duration}ms`);
+    console.log(`📊 Summary: ${events.length} collected, ${processedEvents.length} processed, ${criticalEvents.length} alerts`);
+  }
+
+  async sendSlackAlerts(events) {
+    let sent = 0;
+    let failed = 0;
+
+    for (const event of events) {
+      try {
+        await this.slackConnector.sendSecurityAlert(event);
+        sent++;
+      } catch (error) {
+        console.error(`❌ Failed to send Slack alert:`, error.message);
+        failed++;
+      }
+    }
+
+    console.log(`📢 Slack alerts: ${sent} sent, ${failed} failed`);
+  }
+}
+
+// =============================================================================
+// FortiAnalyzer Connector (Cloudflare Workers Compatible)
+// =============================================================================
+
+class FortiAnalyzerConnector {
+  constructor(env) {
+    this.host = env.FAZ_HOST;
+    this.port = env.FAZ_PORT || '443';
+    this.username = env.FAZ_USERNAME;
+    this.password = env.FAZ_PASSWORD;
+    this.sessionId = null;
+  }
+
+  async fetchSecurityEvents() {
+    // Login to get session ID
+    await this.login();
+
+    // Calculate time range (last 1 minute)
+    const now = Math.floor(Date.now() / 1000);
+    const oneMinuteAgo = now - 60;
+
+    // Fetch events
+    const events = await this.getLogs({
+      filter: [
+        ['time', '>=', oneMinuteAgo],
+        ['time', '<=', now],
+        ['type', '==', 'traffic']
+      ],
+      limit: 100
+    });
+
+    // Logout
+    await this.logout();
+
+    return events;
+  }
+
+  async login() {
+    const response = await fetch(`https://${this.host}:${this.port}/jsonrpc`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: 1,
+        method: 'exec',
+        params: [{
+          url: '/sys/login/user',
+          data: {
+            user: this.username,
+            passwd: this.password
+          }
+        }]
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.result && data.result[0].status.code === 0) {
+      this.sessionId = data.session;
+      console.log('✅ FortiAnalyzer login successful');
+    } else {
+      throw new Error('FortiAnalyzer login failed');
+    }
+  }
+
+  async getLogs(params) {
+    const response = await fetch(`https://${this.host}:${this.port}/jsonrpc`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cookie': `APSCOOKIE_${this.port}=${this.sessionId}`
+      },
+      body: JSON.stringify({
+        id: 2,
+        method: 'get',
+        params: [{
+          url: '/logview/adom/root/logsearch',
+          filter: params.filter,
+          limit: params.limit || 100
+        }],
+        session: this.sessionId
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.result && data.result[0].status.code === 0) {
+      return data.result[0].data || [];
+    }
+
+    return [];
+  }
+
+  async logout() {
+    await fetch(`https://${this.host}:${this.port}/jsonrpc`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cookie': `APSCOOKIE_${this.port}=${this.sessionId}`
+      },
+      body: JSON.stringify({
+        id: 3,
+        method: 'exec',
+        params: [{ url: '/sys/logout' }],
+        session: this.sessionId
+      })
+    });
+
+    this.sessionId = null;
+  }
+}
+
+// =============================================================================
+// Splunk HEC Connector (Cloudflare Workers Compatible)
+// =============================================================================
+
+class SplunkHECConnector {
+  constructor(env) {
+    this.host = env.SPLUNK_HEC_HOST;
+    this.port = env.SPLUNK_HEC_PORT || '8088';
+    this.token = env.SPLUNK_HEC_TOKEN;
+    this.scheme = env.SPLUNK_HEC_SCHEME || 'https';
+    this.index = env.SPLUNK_INDEX_FORTIGATE || 'fortigate_security';
+  }
+
+  async sendEvents(events) {
+    const hecEvents = events.map(event => ({
+      time: event.timestamp || Math.floor(Date.now() / 1000),
+      source: 'fortianalyzer',
+      sourcetype: 'fortigate:security',
+      index: this.index,
+      event: event
+    }));
+
+    const response = await fetch(`${this.scheme}://${this.host}:${this.port}/services/collector/event/1.0`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Splunk ${this.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: hecEvents.map(e => JSON.stringify(e)).join('\n')
+    });
+
+    const result = await response.json();
+
+    return {
+      success: result.code === 0 ? events.length : 0,
+      failed: result.code === 0 ? 0 : events.length
+    };
+  }
+}
+
+// =============================================================================
+// Slack Connector (Cloudflare Workers Compatible)
+// =============================================================================
+
+class SlackConnector {
+  constructor(env) {
+    this.token = env.SLACK_BOT_TOKEN;
+    this.channel = env.SLACK_CHANNEL || 'splunk-alerts';
+  }
+
+  async sendSecurityAlert(event) {
+    const severity = event.severity || 'medium';
+    const color = this.getSeverityColor(severity);
+    const emoji = this.getSeverityEmoji(severity);
+
+    const message = {
+      channel: this.channel,
+      attachments: [{
+        color: color,
+        title: `${emoji} Security Alert: ${severity.toUpperCase()}`,
+        text: event.message || 'Security event detected',
+        fields: [
+          { title: 'Event Type', value: event.event_type || 'Unknown', short: true },
+          { title: 'Risk Score', value: `${event.risk_score || 0}/100`, short: true },
+          { title: 'Source IP', value: event.source_ip || 'N/A', short: true },
+          { title: 'Target IP', value: event.target_ip || event.dst_ip || 'N/A', short: true },
+          { title: 'Timestamp', value: new Date(event.timestamp * 1000).toISOString(), short: false }
+        ],
+        footer: 'FortiAnalyzer → Splunk HEC',
+        ts: event.timestamp || Math.floor(Date.now() / 1000)
+      }]
+    };
+
+    const response = await fetch('https://slack.com/api/chat.postMessage', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(message)
+    });
+
+    const result = await response.json();
+
+    if (!result.ok) {
+      throw new Error(`Slack API error: ${result.error}`);
+    }
+  }
+
+  getSeverityColor(severity) {
+    const colors = {
+      critical: '#DC4E41',
+      high: '#F1813F',
+      medium: '#F8BE34',
+      low: '#53A051'
+    };
+    return colors[severity] || '#808080';
+  }
+
+  getSeverityEmoji(severity) {
+    const emojis = {
+      critical: '🔴',
+      high: '🟠',
+      medium: '🟡',
+      low: '🟢'
+    };
+    return emojis[severity] || '⚪';
+  }
+}
+
+// =============================================================================
+// Security Event Processor (Same as existing)
+// =============================================================================
+
+class SecurityEventProcessor {
+  processEvent(rawEvent) {
+    const event = {
+      ...rawEvent,
+      timestamp: rawEvent.time || Math.floor(Date.now() / 1000),
+      severity: this.calculateSeverity(rawEvent),
+      risk_score: this.calculateRiskScore(rawEvent),
+      event_type: this.classifyEventType(rawEvent)
+    };
+
+    return event;
+  }
+
+  calculateSeverity(event) {
+    if (event.attack || event.virus || event.botnet) return 'critical';
+    if (event.action === 'deny' || event.action === 'blocked') return 'high';
+    if (event.level === 'warning') return 'medium';
+    return 'low';
+  }
+
+  calculateRiskScore(event) {
+    let score = 0;
+
+    if (event.attack) score += 40;
+    if (event.virus) score += 40;
+    if (event.botnet) score += 30;
+    if (event.action === 'deny' || event.action === 'blocked') score += 20;
+    if (event.sentbyte > 1000000) score += 10; // > 1MB
+
+    return Math.min(score, 100);
+  }
+
+  classifyEventType(event) {
+    if (event.attack) return 'intrusion_attempt';
+    if (event.virus) return 'malware_detected';
+    if (event.botnet) return 'botnet_activity';
+    if (event.action === 'deny') return 'policy_violation';
+    return 'traffic';
+  }
+
+  shouldAlert(event) {
+    if (event.severity === 'critical') return true;
+    if (event.severity === 'high' && event.risk_score > 70) return true;
+
+    const alwaysAlertTypes = ['intrusion_attempt', 'malware_detected', 'data_exfiltration'];
+    if (alwaysAlertTypes.includes(event.event_type)) return true;
+
+    return false;
+  }
+}
+
+// =============================================================================
+// Error Notification
+// =============================================================================
+
+async function sendErrorNotification(env, error) {
+  try {
+    const slackConnector = new SlackConnector(env);
+    await fetch('https://slack.com/api/chat.postMessage', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.SLACK_BOT_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        channel: env.SLACK_CHANNEL,
+        attachments: [{
+          color: '#DC4E41',
+          title: '🔴 Worker Error',
+          text: `FAZ to Splunk HEC Worker encountered an error`,
+          fields: [
+            { title: 'Error', value: error.message, short: false },
+            { title: 'Timestamp', value: new Date().toISOString(), short: true }
+          ]
+        }]
+      })
+    });
+  } catch (notifError) {
+    console.error('Failed to send error notification:', notifError.message);
+  }
+}

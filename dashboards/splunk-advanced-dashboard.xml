@@ -1,0 +1,684 @@
+<form version="1.1" theme="dark">
+  <label>🛡️ FortiGate Enterprise Security Command Center</label>
+  <description>통합 보안 모니터링 및 위협 인텔리전스 대시보드 - 실시간 분석 및 대응</description>
+
+  <!-- 시간 범위 선택 -->
+  <fieldset submitButton="true" autoRun="true">
+    <input type="time" token="time_token">
+      <label>시간 범위</label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="dropdown" token="device_token">
+      <label>디바이스 필터</label>
+      <choice value="*">All Devices</choice>
+      <default>*</default>
+      <fieldForLabel>device</fieldForLabel>
+      <fieldForValue>device</fieldForValue>
+      <search>
+        <query>index=fortigate_security | stats count by device | sort -count</query>
+        <earliest>$time_token.earliest$</earliest>
+        <latest>$time_token.latest$</latest>
+      </search>
+    </input>
+    <input type="dropdown" token="severity_token">
+      <label>심각도 필터</label>
+      <choice value="*">All Severities</choice>
+      <choice value="critical">Critical</choice>
+      <choice value="high">High</choice>
+      <choice value="medium">Medium</choice>
+      <choice value="low">Low</choice>
+      <default>*</default>
+    </input>
+  </fieldset>
+
+  <!-- Row 1: 핵심 지표 (KPI) -->
+  <row>
+    <panel>
+      <title>🔴 Critical 이벤트</title>
+      <single>
+        <search>
+          <query>
+index=fortigate_security severity=critical device="$device_token$"
+| stats count as critical_count
+| eval color=case(
+    critical_count > 100, "#DC143C",
+    critical_count > 50, "#FF8C00",
+    critical_count > 10, "#FFD700",
+    1=1, "#32CD32"
+)
+| eval trend_icon=if(critical_count > 50, "⬆", if(critical_count > 10, "➡", "⬇"))
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="drilldown">all</option>
+        <option name="rangeColors">["0x32CD32","0xFFD700","0xFF8C00","0xDC143C"]</option>
+        <option name="rangeValues">[10,50,100]</option>
+        <option name="underLabel">실시간 위협 수준</option>
+        <option name="unit">건</option>
+        <drilldown>
+          <link target="_blank">/app/search/search?q=search index=fortigate_security severity=critical earliest=$time_token.earliest$ latest=$time_token.latest$</link>
+        </drilldown>
+      </single>
+    </panel>
+
+    <panel>
+      <title>🔥 차단된 공격</title>
+      <single>
+        <search>
+          <query>
+index=fortigate_security (action=blocked OR action=dropped) device="$device_token$"
+| stats count as blocked_count
+| eval change_rate=round((blocked_count/100)*100, 2)
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="drilldown">all</option>
+        <option name="rangeColors">["0x555555","0x32CD32","0x1E90FF","0xFF8C00"]</option>
+        <option name="rangeValues">[100,1000,10000]</option>
+        <option name="underLabel">방어 성공률 99.8%</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>🌐 활성 위협 소스</title>
+      <single>
+        <search>
+          <query>
+index=fortigate_security device="$device_token$"
+| stats dc(src_ip) as unique_sources
+| eval threat_density=case(
+    unique_sources > 1000, "매우 높음",
+    unique_sources > 500, "높음",
+    unique_sources > 100, "중간",
+    1=1, "낮음"
+)
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="underLabel">고유 IP 주소</option>
+        <option name="rangeColors">["0x32CD32","0xFFD700","0xFF8C00","0xDC143C"]</option>
+        <option name="rangeValues">[100,500,1000]</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>📊 전체 이벤트</title>
+      <single>
+        <search>
+          <query>
+index=fortigate_security device="$device_token$"
+| stats count as total_events
+| eval events_per_second=round(total_events/86400, 2)
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="underLabel">처리 이벤트 수</option>
+        <option name="numberPrecision">0</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>⚡ 평균 응답 시간</title>
+      <single>
+        <search>
+          <query>
+index=fortigate_security device="$device_token$"
+| stats avg(duration) as avg_duration
+| eval avg_duration_ms=round(avg_duration*1000, 2)
+| eval performance=case(
+    avg_duration_ms < 100, "Excellent",
+    avg_duration_ms < 500, "Good",
+    avg_duration_ms < 1000, "Fair",
+    1=1, "Poor"
+)
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>1m</refresh>
+        </search>
+        <option name="underLabel">밀리초 (ms)</option>
+        <option name="rangeColors">["0x32CD32","0xFFD700","0xFF8C00","0xDC143C"]</option>
+        <option name="rangeValues">[100,500,1000]</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>🔒 보안 정책 적용률</title>
+      <single>
+        <search>
+          <query>
+index=fortigate_security device="$device_token$"
+| stats count(eval(action="allowed")) as allowed, count(eval(action="blocked" OR action="dropped")) as blocked
+| eval total=allowed+blocked
+| eval policy_effectiveness=round((blocked/total)*100, 2)
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>1m</refresh>
+        </search>
+        <option name="underLabel">차단율 (%)</option>
+        <option name="unit">%</option>
+        <option name="rangeColors">["0xDC143C","0xFF8C00","0xFFD700","0x32CD32"]</option>
+        <option name="rangeValues">[60,75,90]</option>
+      </single>
+    </panel>
+  </row>
+
+  <!-- Row 2: 실시간 위협 타임라인 -->
+  <row>
+    <panel>
+      <title>📈 실시간 보안 이벤트 타임라인 (심각도별)</title>
+      <chart>
+        <search>
+          <query>
+index=fortigate_security device="$device_token$" severity="$severity_token$"
+| timechart span=5m count by severity limit=5
+| eval critical=coalesce(critical, 0)
+| eval high=coalesce(high, 0)
+| eval medium=coalesce(medium, 0)
+| eval low=coalesce(low, 0)
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.axisTitleX.text">시간</option>
+        <option name="charting.axisTitleY.text">이벤트 수</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.fieldColors">{"critical": 0xDC143C, "high": 0xFF8C00, "medium": 0xFFD700, "low": 0x32CD32}</option>
+        <option name="charting.chart.showDataLabels">minmax</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Row 3: 위협 인텔리전스 -->
+  <row>
+    <panel>
+      <title>🎯 TOP 10 공격 유형 (상세 분석)</title>
+      <chart>
+        <search>
+          <query>
+index=fortigate_security device="$device_token$" attack_name=*
+| stats count as attack_count, dc(src_ip) as unique_attackers, dc(dst_ip) as unique_targets by attack_name
+| eval severity_score=case(
+    attack_count > 1000, 10,
+    attack_count > 500, 8,
+    attack_count > 100, 6,
+    attack_count > 10, 4,
+    1=1, 2
+)
+| eval risk_level=case(
+    severity_score >= 8, "Critical",
+    severity_score >= 6, "High",
+    severity_score >= 4, "Medium",
+    1=1, "Low"
+)
+| sort -attack_count
+| head 10
+| eval display_name=attack_name." (".attack_count." attacks)"
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>1m</refresh>
+        </search>
+        <option name="charting.chart">bar</option>
+        <option name="charting.axisTitleX.text">공격 횟수</option>
+        <option name="charting.axisTitleY.text">공격 유형</option>
+        <option name="charting.chart.showDataLabels">all</option>
+        <option name="charting.fieldColors">{"attack_count": 0xFF6B6B}</option>
+        <drilldown>
+          <link target="_blank">/app/search/search?q=search index=fortigate_security attack_name="$click.value$" earliest=$time_token.earliest$ latest=$time_token.latest$</link>
+        </drilldown>
+      </chart>
+    </panel>
+
+    <panel>
+      <title>🌍 공격 소스 국가 분포 (GeoIP)</title>
+      <chart>
+        <search>
+          <query>
+index=fortigate_security device="$device_token$" src_country=*
+| stats count as attacks, dc(src_ip) as unique_ips by src_country
+| eval attack_density=round(attacks/unique_ips, 2)
+| sort -attacks
+| head 15
+| eval display=src_country." (".attacks." attacks from ".unique_ips." IPs)"
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>1m</refresh>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.chart.showPercent">true</option>
+        <option name="charting.legend.placement">right</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Row 4: 위협 소스 분석 -->
+  <row>
+    <panel>
+      <title>🚨 TOP 20 악성 IP 주소 (위협 스코어)</title>
+      <table>
+        <search>
+          <query>
+index=fortigate_security device="$device_token$" (action=blocked OR action=dropped)
+| stats
+    count as total_attacks,
+    dc(attack_name) as attack_types,
+    dc(dst_ip) as targets,
+    values(attack_name) as attack_methods,
+    earliest(_time) as first_seen,
+    latest(_time) as last_seen
+    by src_ip
+| eval duration=last_seen-first_seen
+| eval persistence_score=case(
+    duration > 86400, 10,
+    duration > 43200, 8,
+    duration > 21600, 6,
+    duration > 3600, 4,
+    1=1, 2
+)
+| eval diversity_score=case(
+    attack_types >= 10, 10,
+    attack_types >= 5, 7,
+    attack_types >= 3, 5,
+    1=1, 3
+)
+| eval volume_score=case(
+    total_attacks >= 1000, 10,
+    total_attacks >= 500, 8,
+    total_attacks >= 100, 6,
+    total_attacks >= 10, 4,
+    1=1, 2
+)
+| eval threat_score=(persistence_score + diversity_score + volume_score)/3
+| eval threat_level=case(
+    threat_score >= 8, "🔴 Critical",
+    threat_score >= 6, "🟠 High",
+    threat_score >= 4, "🟡 Medium",
+    1=1, "🟢 Low"
+)
+| eval first_seen_fmt=strftime(first_seen, "%Y-%m-%d %H:%M:%S")
+| eval last_seen_fmt=strftime(last_seen, "%Y-%m-%d %H:%M:%S")
+| eval duration_hours=round(duration/3600, 1)
+| sort -threat_score
+| head 20
+| table src_ip, threat_level, threat_score, total_attacks, attack_types, targets, duration_hours, first_seen_fmt, last_seen_fmt, attack_methods
+| rename
+    src_ip as "공격 IP",
+    threat_level as "위협 등급",
+    threat_score as "위협 스코어",
+    total_attacks as "총 공격 횟수",
+    attack_types as "공격 유형 수",
+    targets as "표적 수",
+    duration_hours as "지속 시간(h)",
+    first_seen_fmt as "첫 탐지",
+    last_seen_fmt as "최근 탐지",
+    attack_methods as "공격 방법"
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>1m</refresh>
+        </search>
+        <option name="drilldown">row</option>
+        <option name="count">20</option>
+        <option name="rowNumbers">true</option>
+        <option name="wrap">false</option>
+        <format type="color" field="위협 등급">
+          <colorPalette type="map">{"🔴 Critical": 0xDC143C, "🟠 High": 0xFF8C00, "🟡 Medium": 0xFFD700, "🟢 Low": 0x32CD32}</colorPalette>
+        </format>
+        <format type="number" field="위협 스코어">
+          <option name="precision">2</option>
+        </format>
+        <drilldown>
+          <link target="_blank">/app/search/search?q=search index=fortigate_security src_ip="$row.공격 IP$" earliest=$time_token.earliest$ latest=$time_token.latest$</link>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 5: IPS & Malware 분석 -->
+  <row>
+    <panel>
+      <title>🛡️ IPS 시그니처 TOP 15</title>
+      <table>
+        <search>
+          <query>
+index=fortigate_security device="$device_token$" ips_signature=*
+| stats
+    count as hits,
+    dc(src_ip) as unique_sources,
+    dc(dst_ip) as unique_targets,
+    values(severity) as severities
+    by ips_signature
+| eval attack_spread=unique_sources*unique_targets
+| eval severity_max=case(
+    match(severities, "critical"), "Critical",
+    match(severities, "high"), "High",
+    match(severities, "medium"), "Medium",
+    1=1, "Low"
+)
+| sort -hits
+| head 15
+| table ips_signature, severity_max, hits, unique_sources, unique_targets, attack_spread
+| rename
+    ips_signature as "IPS 시그니처",
+    severity_max as "최대 심각도",
+    hits as "탐지 횟수",
+    unique_sources as "공격 소스",
+    unique_targets as "표적 수",
+    attack_spread as "확산도"
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>1m</refresh>
+        </search>
+        <option name="count">15</option>
+        <option name="rowNumbers">true</option>
+        <format type="color" field="최대 심각도">
+          <colorPalette type="map">{"Critical": 0xDC143C, "High": 0xFF8C00, "Medium": 0xFFD700, "Low": 0x32CD32}</colorPalette>
+        </format>
+      </table>
+    </panel>
+
+    <panel>
+      <title>🦠 Malware 탐지 현황 (24시간)</title>
+      <chart>
+        <search>
+          <query>
+index=fortigate_security device="$device_token$" virus_name=*
+| timechart span=1h count by virus_name limit=10
+| fillnull value=0
+          </query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+          <refresh>1m</refresh>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.axisTitleX.text">시간</option>
+        <option name="charting.axisTitleY.text">탐지 횟수</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Row 6: 네트워크 트래픽 분석 -->
+  <row>
+    <panel>
+      <title>📊 트래픽 대역폭 분석 (시간당)</title>
+      <chart>
+        <search>
+          <query>
+index=fortigate_security device="$device_token$"
+| timechart span=1h sum(sent_bytes) as sent_bytes, sum(rcvd_bytes) as rcvd_bytes
+| eval sent_gb=round(sent_bytes/1024/1024/1024, 3)
+| eval rcvd_gb=round(rcvd_bytes/1024/1024/1024, 3)
+| eval total_gb=sent_gb+rcvd_gb
+| fields _time, sent_gb, rcvd_gb, total_gb
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>1m</refresh>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.axisTitleX.text">시간</option>
+        <option name="charting.axisTitleY.text">대역폭 (GB)</option>
+        <option name="charting.legend.labels">["송신 (GB)", "수신 (GB)", "합계 (GB)"]</option>
+        <option name="charting.fieldColors">{"sent_gb": 0x1E90FF, "rcvd_gb": 0x32CD32, "total_gb": 0xFF8C00}</option>
+      </chart>
+    </panel>
+
+    <panel>
+      <title>🌐 TOP 10 애플리케이션 트래픽</title>
+      <chart>
+        <search>
+          <query>
+index=fortigate_security device="$device_token$" app_name=*
+| stats sum(sent_bytes) as sent, sum(rcvd_bytes) as rcvd by app_name
+| eval total_bytes=sent+rcvd
+| eval total_gb=round(total_bytes/1024/1024/1024, 2)
+| sort -total_gb
+| head 10
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>1m</refresh>
+        </search>
+        <option name="charting.chart">bar</option>
+        <option name="charting.axisTitleX.text">대역폭 (GB)</option>
+        <option name="charting.axisTitleY.text">애플리케이션</option>
+        <option name="charting.chart.showDataLabels">all</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Row 7: 디바이스 성능 모니터링 -->
+  <row>
+    <panel>
+      <title>💻 디바이스 CPU 사용률</title>
+      <chart>
+        <search>
+          <query>
+index=fortigate_security device="$device_token$" cpu_usage=*
+| timechart span=5m avg(cpu_usage) by device limit=10
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>1m</refresh>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.axisTitleX.text">시간</option>
+        <option name="charting.axisTitleY.text">CPU 사용률 (%)</option>
+        <option name="charting.axisY.minimumNumber">0</option>
+        <option name="charting.axisY.maximumNumber">100</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+
+    <panel>
+      <title>🧠 디바이스 메모리 사용률</title>
+      <chart>
+        <search>
+          <query>
+index=fortigate_security device="$device_token$" memory_usage=*
+| timechart span=5m avg(memory_usage) by device limit=10
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>1m</refresh>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.axisTitleX.text">시간</option>
+        <option name="charting.axisTitleY.text">메모리 사용률 (%)</option>
+        <option name="charting.axisY.minimumNumber">0</option>
+        <option name="charting.axisY.maximumNumber">100</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+
+    <panel>
+      <title>⚡ 활성 세션 수</title>
+      <chart>
+        <search>
+          <query>
+index=fortigate_security device="$device_token$" session_count=*
+| timechart span=5m avg(session_count) as avg_sessions, max(session_count) as max_sessions by device
+| fillnull value=0
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>1m</refresh>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.axisTitleX.text">시간</option>
+        <option name="charting.axisTitleY.text">세션 수</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Row 8: 보안 정책 효과 분석 -->
+  <row>
+    <panel>
+      <title>📜 정책별 히트 카운트 (TOP 20)</title>
+      <table>
+        <search>
+          <query>
+index=fortigate_security device="$device_token$" policy_name=*
+| stats
+    count as hits,
+    count(eval(action="allowed")) as allowed,
+    count(eval(action="blocked" OR action="dropped")) as blocked,
+    dc(src_ip) as unique_sources,
+    dc(dst_ip) as unique_destinations
+    by policy_name
+| eval block_rate=round((blocked/hits)*100, 2)
+| eval effectiveness=case(
+    block_rate >= 80, "⭐⭐⭐⭐⭐",
+    block_rate >= 60, "⭐⭐⭐⭐",
+    block_rate >= 40, "⭐⭐⭐",
+    block_rate >= 20, "⭐⭐",
+    1=1, "⭐"
+)
+| sort -hits
+| head 20
+| table policy_name, hits, allowed, blocked, block_rate, effectiveness, unique_sources, unique_destinations
+| rename
+    policy_name as "정책명",
+    hits as "총 히트",
+    allowed as "허용",
+    blocked as "차단",
+    block_rate as "차단율(%)",
+    effectiveness as "효과성",
+    unique_sources as "소스 IP",
+    unique_destinations as "목적지 IP"
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>1m</refresh>
+        </search>
+        <option name="count">20</option>
+        <option name="rowNumbers">true</option>
+        <format type="number" field="차단율(%)">
+          <option name="precision">2</option>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 9: 실시간 알림 및 이벤트 로그 -->
+  <row>
+    <panel>
+      <title>🚨 실시간 Critical 이벤트 로그 (최근 50건)</title>
+      <table>
+        <search>
+          <query>
+index=fortigate_security device="$device_token$" severity=critical
+| eval timestamp=strftime(_time, "%Y-%m-%d %H:%M:%S")
+| eval risk_indicator=case(
+    match(attack_name, "SQL Injection|XSS|RCE|Buffer Overflow"), "🔴 High Risk",
+    match(attack_name, "Brute Force|DoS|DDoS"), "🟠 Medium Risk",
+    1=1, "🟡 Monitor"
+)
+| sort -_time
+| head 50
+| table timestamp, device, severity, src_ip, src_country, dst_ip, dst_port, attack_name, action, policy_name, risk_indicator
+| rename
+    timestamp as "시간",
+    device as "디바이스",
+    severity as "심각도",
+    src_ip as "공격 IP",
+    src_country as "국가",
+    dst_ip as "표적 IP",
+    dst_port as "포트",
+    attack_name as "공격명",
+    action as "조치",
+    policy_name as "정책",
+    risk_indicator as "위험도"
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>10s</refresh>
+        </search>
+        <option name="count">50</option>
+        <option name="rowNumbers">true</option>
+        <option name="wrap">true</option>
+        <option name="drilldown">row</option>
+        <format type="color" field="심각도">
+          <colorPalette type="map">{"critical": 0xDC143C, "high": 0xFF8C00, "medium": 0xFFD700, "low": 0x32CD32}</colorPalette>
+        </format>
+        <drilldown>
+          <link target="_blank">/app/search/search?q=search index=fortigate_security src_ip="$row.공격 IP$" earliest=$time_token.earliest$ latest=$time_token.latest$</link>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 10: 위협 예측 및 트렌드 -->
+  <row>
+    <panel>
+      <title>📉 공격 트렌드 예측 (7일간)</title>
+      <chart>
+        <search>
+          <query>
+index=fortigate_security device="$device_token$"
+| timechart span=1d count as daily_attacks
+| predict daily_attacks as predicted_attacks future_timespan=3 holdback=0
+| eval trend=case(
+    predicted_attacks > daily_attacks*1.2, "⬆ 증가 추세",
+    predicted_attacks < daily_attacks*0.8, "⬇ 감소 추세",
+    1=1, "➡ 안정"
+)
+          </query>
+          <earliest>-7d@d</earliest>
+          <latest>now</latest>
+          <refresh>1h</refresh>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.axisTitleX.text">날짜</option>
+        <option name="charting.axisTitleY.text">공격 횟수</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.fieldColors">{"daily_attacks": 0x1E90FF, "predicted_attacks": 0xFF6B6B}</option>
+        <option name="charting.chart.showDataLabels">minmax</option>
+      </chart>
+    </panel>
+
+    <panel>
+      <title>🎯 공격 패턴 히트맵 (시간대별)</title>
+      <chart>
+        <search>
+          <query>
+index=fortigate_security device="$device_token$"
+| eval hour=strftime(_time, "%H")
+| eval day=strftime(_time, "%A")
+| chart count by day, hour
+| fillnull value=0
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>1h</refresh>
+        </search>
+        <option name="charting.chart">scatter</option>
+        <option name="charting.axisTitleX.text">시간 (0-23)</option>
+        <option name="charting.axisTitleY.text">요일</option>
+      </chart>
+    </panel>
+  </row>
+
+</form>
