@@ -357,21 +357,21 @@
 | eval config_attr = coalesce(cfgattr, cfg_attr, "N/A")
 | eval parsed_value = config_path + " / " + config_object + " [" + config_attr + "]"
 | eval change_type = case(
-    logid="0100044547", "삭제",
-    logid="0100044546", "수정",
-    logid="0100044545", "추가",
-    1=1, "기타"
+    logid="0100044547", "Deleted",
+    logid="0100044546", "Edited",
+    logid="0100044545", "Added",
+    1=1, "Other"
   )
 | eval path_category = case(
-    match(config_path, "firewall\.policy"), "방화벽 정책",
+    match(config_path, "firewall\.policy"), "Firewall Policy",
     match(config_path, "vpn\.ipsec"), "IPSec VPN",
     match(config_path, "vpn\.ssl"), "SSL VPN",
-    match(config_path, "system\.interface"), "인터페이스",
-    match(config_path, "router"), "라우팅",
-    match(config_path, "user"), "사용자/그룹",
-    match(config_path, "firewall\.address"), "주소 객체",
-    match(config_path, "firewall\.service"), "서비스 객체",
-    1=1, "기타 설정"
+    match(config_path, "system\.interface"), "Interface",
+    match(config_path, "router"), "Routing",
+    match(config_path, "user"), "User/Group",
+    match(config_path, "firewall\.address"), "Address Object",
+    match(config_path, "firewall\.service"), "Service Object",
+    1=1, "Other"
   )
 | eval access_method = coalesce(ui, "CLI")
 | eval access_ip = coalesce(from_ip, remip, "N/A")
