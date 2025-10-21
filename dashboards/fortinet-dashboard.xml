@@ -35,7 +35,7 @@
   <!-- Row 1: 📊 방화벽 로그 현황 -->
   <row>
     <panel>
-      <title>🔴 Critical 이벤트</title>
+      <title>🔴 Critical Events</title>
       <single>
         <search>
           <query>index=fw devname=$device_filter$ (level=critical OR level=alert OR level=emergency) earliest=$time_picker.earliest$ latest=$time_picker.latest$
@@ -52,7 +52,7 @@
       </single>
     </panel>
     <panel>
-      <title>🛡️ 차단</title>
+      <title>🛡️ Blocked</title>
       <single>
         <search>
           <query>index=fw devname=$device_filter$ (action=deny OR action=block OR action=drop) earliest=$time_picker.earliest$ latest=$time_picker.latest$
@@ -68,7 +68,7 @@
       </single>
     </panel>
     <panel>
-      <title>🌐 활성 소스 IP</title>
+      <title>🌐 Active Source IPs</title>
       <single>
         <search>
           <query>index=fw devname=$device_filter$ earliest=$time_picker.earliest$ latest=$time_picker.latest$
@@ -83,7 +83,7 @@
       </single>
     </panel>
     <panel>
-      <title>📈 전체 이벤트</title>
+      <title>📈 Total Events</title>
       <single>
         <search>
           <query>index=fw devname=$device_filter$ earliest=$time_picker.earliest$ latest=$time_picker.latest$
@@ -99,7 +99,7 @@
       </single>
     </panel>
     <panel>
-      <title>⚙️ 설정 변경</title>
+      <title>⚙️ Config Changes</title>
       <single>
         <search>
           <query>index=fw devname=$device_filter$ (logid="0100044547" OR logid="0100044546" OR logid="0100044545") earliest=$time_picker.earliest$ latest=$time_picker.latest$
@@ -126,7 +126,7 @@
   </row>
   <row>
     <panel>
-      <title>📊 이벤트 타임라인</title>
+      <title>📊 Event Timeline</title>
       <chart>
         <search>
           <query>index=fw devname=$device_filter$ earliest=$time_picker.earliest$ latest=$time_picker.latest$
@@ -141,23 +141,22 @@
         <option name="charting.chart">column</option>
         <option name="charting.chart.stackMode">stacked</option>
         <option name="charting.legend.placement">bottom</option>
-        <option name="charting.axisTitleX.text">시간</option>
-        <option name="charting.axisTitleY.text">이벤트 수</option>
+        <option name="charting.axisTitleX.text">Time</option>
+        <option name="charting.axisTitleY.text">Events</option>
         <option name="charting.fieldColors">{"Critical":"0xD93F3C","High":"0xF58F39","Medium":"0xF7BC38","Low":"0x65A637"}</option>
         <option name="drilldown">none</option>
       </chart>
     </panel>
     <panel>
-      <title>🎯 차단 유형 분포</title>
+      <title>🎯 Block Type Distribution</title>
       <chart>
         <search>
           <query>index=fw devname=$device_filter$ (action=deny OR action=block) earliest=$time_picker.earliest$ latest=$time_picker.latest$
 | eval block_category = case(
-    match(type, "(?i)traffic"), "패킷 필터",
-    match(type, "(?i)file"), "파일 필터",
-    match(type, "(?i)webfilter"), "URL 필터",
-    match(type, "(?i)app"), "앱 필터",
-    1=1, "기타"
+    match(type, "(?i)traffic"), "Traffic",
+    match(type, "(?i)webfilter"), "Web Filter",
+    match(type, "(?i)utm"), "UTM",
+    1=1, "Other"
   )
 | stats count by block_category
 | sort - count</query>
@@ -171,7 +170,7 @@
   </row>
   <row>
     <panel>
-      <title>🚨 Top 10 차단된 소스 IP</title>
+      <title>🚨 Top 10 Blocked Source IPs</title>
       <table>
         <search>
           <query>index=fw devname=$device_filter$ (action=deny OR action=block) earliest=$time_picker.earliest$ latest=$time_picker.latest$
@@ -201,7 +200,7 @@
   </row>
   <row>
     <panel>
-      <title>📊 대역폭 사용량 추이</title>
+      <title>📊 Bandwidth Usage Trend</title>
       <chart>
         <search>
           <query>index=fw devname=$device_filter$ earliest=$time_picker.earliest$ latest=$time_picker.latest$
@@ -212,7 +211,7 @@
         </search>
         <option name="charting.chart">area</option>
         <option name="charting.legend.placement">bottom</option>
-        <option name="charting.axisTitleX.text">시간</option>
+        <option name="charting.axisTitleX.text">Time</option>
         <option name="charting.axisTitleY.text">MB</option>
         <option name="charting.seriesColors">[0x6DB7C6]</option>
         <option name="charting.chart.showDataLabels">none</option>
@@ -220,7 +219,7 @@
       </chart>
     </panel>
     <panel>
-      <title>🌐 프로토콜 분포</title>
+      <title>🌐 Protocol Distribution</title>
       <chart>
         <search>
           <query>index=fw devname=$device_filter$ earliest=$time_picker.earliest$ latest=$time_picker.latest$
@@ -231,7 +230,7 @@
         </search>
         <option name="charting.chart">bar</option>
         <option name="charting.legend.placement">none</option>
-        <option name="charting.axisTitleX.text">패킷 수</option>
+        <option name="charting.axisTitleX.text">Packets</option>
         <option name="charting.seriesColors">[0x65A637]</option>
         <option name="drilldown">none</option>
       </chart>
@@ -239,7 +238,7 @@
   </row>
   <row>
     <panel>
-      <title>🚀 Top 10 애플리케이션</title>
+      <title>🚀 Top 10 Applications</title>
       <table>
         <search>
           <query>index=fw devname=$device_filter$ app=* earliest=$time_picker.earliest$ latest=$time_picker.latest$
@@ -269,7 +268,7 @@
   </row>
   <row>
     <panel>
-      <title>💻 평균 CPU 사용률</title>
+      <title>💻 Average CPU Usage</title>
       <single>
         <search>
           <query>index=fw devname=$device_filter$ cpu=* earliest=$time_picker.earliest$ latest=$time_picker.latest$
@@ -286,7 +285,7 @@
       </single>
     </panel>
     <panel>
-      <title>🧠 평균 메모리 사용률</title>
+      <title>🧠 Average Memory Usage</title>
       <single>
         <search>
           <query>index=fw devname=$device_filter$ mem=* earliest=$time_picker.earliest$ latest=$time_picker.latest$
@@ -303,7 +302,7 @@
       </single>
     </panel>
     <panel>
-      <title>🔌 활성 세션</title>
+      <title>🔌 Active Sessions</title>
       <single>
         <search>
           <query>index=fw devname=$device_filter$ session=* earliest=$time_picker.earliest$ latest=$time_picker.latest$
@@ -319,7 +318,7 @@
       </single>
     </panel>
     <panel>
-      <title>📶 디바이스 상태</title>
+      <title>📶 Device Status</title>
       <single>
         <search>
           <query>index=fw devname=$device_filter$ earliest=$time_picker.earliest$ latest=$time_picker.latest$
@@ -345,7 +344,7 @@
   </row>
   <row>
     <panel>
-      <title>📢 설정 변경 이력</title>
+      <title>📢 Config Change History</title>
       <table id="config_changes_table">
         <search>
           <query>index=fw devname=$device_filter$ (logid="0100044547" OR logid="0100044546" OR logid="0100044545") earliest=$time_picker.earliest$ latest=$time_picker.latest$
@@ -402,7 +401,7 @@
   <!-- Slack 알림 테스트 -->
   <row>
     <panel>
-      <title>🔴 Critical 이벤트 알림</title>
+      <title>🔴 Critical Event Alert</title>
       <table>
         <search>
           <query>index=fw (level=critical OR level=alert) earliest=$time_picker.earliest$ latest=$time_picker.latest$
@@ -427,7 +426,7 @@
       </table>
     </panel>
     <panel>
-      <title>⚙️ 설정 변경 알림</title>
+      <title>⚙️ Config Change Alert</title>
       <table>
         <search>
           <query>index=fw (logid="0100044547" OR logid="0100044546" OR logid="0100044545") earliest=$time_picker.earliest$ latest=$time_picker.latest$
