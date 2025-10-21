@@ -7,23 +7,23 @@
 
 ```
 파일: fortinet-dashboard.xml
-크기: 31KB
-패널: 29개 (8 sections)
+크기: 18KB
+패널: 17개 (7 sections)
 인덱스: index=fw
 상태: ✅ 프로덕션 준비 완료
 ```
 
 **주요 기능**:
-- ✅ **트래픽 분석** - 대역폭, 프로토콜, 애플리케이션, 서비스 사용량
-- ✅ **성능 모니터링** - CPU, 메모리, 세션, HA 상태
-- ✅ **설정 변경 추적** - 정책 변경 이력, Slack 알림 통합
+- ✅ **트래픽 데이터** - 대역폭, 프로토콜, 애플리케이션, 서비스 사용량
+- ✅ **성능 데이터** - CPU, 메모리, 세션, HA 상태
+- ✅ **설정 변경 추적** - 정책 변경 이력
 - ✅ **보안 로그** - FortiGate 방화벽 로그 실시간 수집
+- ✅ **Slack 알림** - Splunk Alert Action 지원
 
 **특징**:
 - 🎨 WCAG Level AA 색상 준수 (접근성)
 - 🔍 Global filters (장비, 시간, 심각도)
-- 🔔 Slack 자동 알림 (설정 변경 행 클릭)
-- 💾 세션 기반 Webhook URL 저장
+- 🔔 Slack 알림 (Splunk Alert Actions 사용)
 
 ---
 
@@ -59,10 +59,22 @@ splunk add dashboard fortinet-dashboard \
 
 ---
 
-## 🔔 Slack 통합 설정
+## 🔔 Slack 알림 설정 (Splunk Alert Action)
 
-### 1단계: Slack Webhook URL 생성
+### 1단계: Slack 앱 설치
 
+```bash
+# 자동 설치 스크립트 실행
+sudo /home/jclee/app/splunk/scripts/install-slack-alert.sh
+
+# 설치 과정:
+# 1. plugins/slack-notification-alert_232.tgz 압축 해제
+# 2. $SPLUNK_HOME/etc/apps/slack_alerts/ 설치
+# 3. Webhook URL 및 채널 설정
+# 4. Slack 연결 테스트
+```
+
+**Webhook URL 생성 (필요 시)**:
 ```
 https://api.slack.com/apps
 → Create New App
@@ -71,44 +83,41 @@ https://api.slack.com/apps
 → Webhook URL 복사
 ```
 
-### 2단계: 대시보드에서 설정
-
-```
-1. Splunk에서 fortinet-dashboard 열기
-2. "🔧 Slack Webhook 설정" 패널 찾기
-3. Webhook URL 입력
-4. 채널 선택 (#splunk-alerts)
-5. 최소 심각도 선택 (high 권장)
-6. "설정 저장" 클릭
-```
-
-### 3단계: 백그라운드 프록시 실행 (선택사항)
+### 2단계: Splunk 재시작
 
 ```bash
-# .env 파일 설정
-cd /home/jclee/app/splunk
-echo "SLACK_WEBHOOK_URL=https://hooks.slack.com/..." >> .env
+sudo /opt/splunk/bin/splunk restart
+```
 
-# PM2로 프록시 실행
-pm2 start index.js --name slack-proxy
-pm2 save
+### 3단계: Alert 생성
 
-# 또는 Docker
-docker-compose up -d
+```
+1. Splunk 대시보드에서 "📢 설정 변경 이력" 테이블 찾기
+2. 검색 쿼리 옆 "Save As" → "Alert" 클릭
+3. Alert 이름: "FortiGate 설정 변경 알림"
+4. Trigger Conditions 설정:
+   - Real-time 또는 Schedule (예: Every 5 minutes)
+   - Trigger alert when: Number of Results > 0
+5. Trigger Actions:
+   - "Slack" 선택
+   - Channel: #splunk-alerts
+   - Message: 설정 변경 감지
+6. Save
 ```
 
 ### 4단계: 테스트
 
 ```bash
-# CLI 테스트
-node scripts/slack-alert-cli.js \
-  --webhook="https://hooks.slack.com/..." \
-  --test
+# Slack 연결 테스트
+curl -X POST "https://hooks.slack.com/services/YOUR/WEBHOOK/URL" \
+  -H "Content-Type: application/json" \
+  -d '{"text":"✅ Splunk Slack Alert 테스트"}'
 
-# 대시보드 테스트
-1. "📢 설정 변경 이력" 테이블에서 행 클릭
-2. Slack 채널에서 알림 확인
+# Alert 수동 트리거 (Splunk UI)
+Settings → Searches, reports, and alerts → "FortiGate 설정 변경 알림" → Run
 ```
+
+**참고**: 상세 가이드는 `docs/SLACK_ALERT_INSTALLATION.md` 참고
 
 ---
 
@@ -141,24 +150,34 @@ index=fw earliest=-1h | head 10
 
 ### Slack 알림이 작동하지 않음
 
-**원인 1**: Webhook URL 잘못됨
+**원인 1**: slack_alerts 앱 미설치
+```bash
+# Splunk Web UI 확인
+Settings → Alert Actions → "Slack" 존재 확인
+
+# 설치
+sudo /home/jclee/app/splunk/scripts/install-slack-alert.sh
+sudo /opt/splunk/bin/splunk restart
+```
+
+**원인 2**: Alert 설정 오류
+```bash
+# Alert 확인
+Settings → Searches, reports, and alerts → Alert 이름 클릭
+
+# Trigger Actions에서 "Slack" 선택 여부 확인
+# Webhook URL 설정 확인: Settings → Alert Actions → Slack
+```
+
+**원인 3**: Webhook URL 잘못됨
 ```bash
 # 테스트
-curl -X POST "YOUR_WEBHOOK_URL" \
+curl -X POST "https://hooks.slack.com/services/YOUR/WEBHOOK/URL" \
   -H "Content-Type: application/json" \
   -d '{"text": "Test message"}'
 ```
 
-**원인 2**: 프록시 서버 미실행
-```bash
-# 프록시 상태 확인
-pm2 status slack-proxy
-
-# 로그 확인
-pm2 logs slack-proxy
-```
-
-**원인 3**: 방화벽 차단
+**원인 4**: 방화벽 차단
 ```bash
 # Splunk 서버에서 Slack 연결 테스트
 curl -I https://hooks.slack.com
@@ -176,7 +195,7 @@ curl -I https://hooks.slack.com
 
 ## 📚 추가 문서
 
-- **Slack 프록시 설정**: `../PROXY_SLACK_SETUP_GUIDE.md`
+- **Slack 알림 설정**: `../docs/SLACK_ALERT_INSTALLATION.md`
 - **프로젝트 구조**: `../PROJECT_STRUCTURE.md`
 
 ---
@@ -187,14 +206,16 @@ curl -I https://hooks.slack.com
 # 1. 대시보드 배포
 node scripts/deploy-dashboards.js
 
-# 2. Slack Webhook 설정 (선택사항)
-echo "SLACK_WEBHOOK_URL=https://hooks.slack.com/..." >> .env
+# 2. Slack 알림 설치 (선택사항)
+sudo scripts/install-slack-alert.sh
+sudo /opt/splunk/bin/splunk restart
 
-# 3. 프록시 실행 (선택사항)
-pm2 start index.js --name slack-proxy
-
-# 4. Splunk Web UI에서 확인
+# 3. Splunk Web UI에서 확인
 open http://YOUR_SPLUNK:8000/app/search/fortinet_dashboard
+
+# 4. Alert 생성 (선택사항)
+# Settings → Searches, reports, and alerts → New Alert
+# Trigger Actions → Slack 선택
 ```
 
 ---
