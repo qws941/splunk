@@ -1,8 +1,32 @@
+<?xml version='1.0' encoding='utf-8'?>
 <form version="1.1">
   <label>🛡️ FortiGate 모니터링 대시보드</label>
-  <description>Events | Traffic | Performance | Config | WCAG</description>
+  <search id="base_fw_search">
+    <query>
+      index=fw devname=$device_filter$
+      | eval severity_level = case(
+          level="critical" OR level="emergency" OR level="alert", "critical",
+          level="high" OR level="error" OR level="warning", "high",
+          level="medium" OR level="notice", "medium",
+          1=1, "low"
+        )
+      | eval event_category = case(
+          action="deny" OR action="block" OR action="drop", "blocked",
+          action="allow" OR action="accept", "allowed",
+          1=1, "other"
+        )
+      | eval config_change_type = case(
+          logid="0100044547", "Deleted",
+          logid="0100044546", "Edited",
+          logid="0100044545", "Added",
+          1=1, null()
+        )
+    </query>
+    <earliest>$time_picker.earliest$</earliest>
+    <latest>$time_picker.latest$</latest>
+  </search><description>Events | Traffic | Performance | Config | WCAG</description>
 
-  <!-- Global Filters -->
+  
   <fieldset submitButton="false">
     <input type="dropdown" token="device_filter" searchWhenChanged="true">
       <label>장비 선택</label>
@@ -32,15 +56,16 @@
     </input>
   </fieldset>
 
-  <!-- Row 1: 📊 방화벽 로그 현황 -->
+  
   <row>
     <panel>
       <title>🔴 Critical Events</title>
       <single>
-        <search>
-          <query>index=fw devname=$device_filter$ (level=critical OR level=alert OR level=emergency) earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| search NOT msg="*Update Fail*"
-| stats count</query>
+        <search base="base_fw_search">
+          <query>
+      search (level=critical OR level=alert OR level=emergency) | search NOT msg="*Update Fail*"
+| stats count
+    </query>
         </search>
         <option name="drilldown">none</option>
         <option name="colorMode">block</option>
@@ -54,9 +79,10 @@
     <panel>
       <title>🛡️ Blocked</title>
       <single>
-        <search>
-          <query>index=fw devname=$device_filter$ (action=deny OR action=block OR action=drop) earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| stats count</query>
+        <search base="base_fw_search">
+          <query>
+      search (action=deny OR action=block OR action=drop) | stats count
+    </query>
         </search>
         <option name="drilldown">none</option>
         <option name="colorMode">block</option>
@@ -70,9 +96,10 @@
     <panel>
       <title>🌐 Active Source IPs</title>
       <single>
-        <search>
-          <query>index=fw devname=$device_filter$ earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| stats dc(srcip) as unique_sources</query>
+        <search base="base_fw_search">
+          <query>
+      stats dc(srcip) as unique_sources
+    </query>
         </search>
         <option name="drilldown">none</option>
         <option name="colorMode">block</option>
@@ -85,9 +112,10 @@
     <panel>
       <title>📈 Total Events</title>
       <single>
-        <search>
-          <query>index=fw devname=$device_filter$ earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| stats count</query>
+        <search base="base_fw_search">
+          <query>
+      stats count
+    </query>
         </search>
         <option name="drilldown">none</option>
         <option name="colorMode">block</option>
@@ -101,9 +129,10 @@
     <panel>
       <title>⚙️ Config Changes</title>
       <single>
-        <search>
-          <query>index=fw devname=$device_filter$ (logid="0100044547" OR logid="0100044546" OR logid="0100044545") earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| stats count</query>
+        <search base="base_fw_search">
+          <query>
+      search (logid="0100044547" OR logid="0100044546" OR logid="0100044545") | stats count
+    </query>
         </search>
         <option name="drilldown">none</option>
         <option name="colorMode">block</option>
@@ -116,7 +145,7 @@
     </panel>
   </row>
 
-  <!-- Row 2: 🔒 시스템 로그 -->
+  
   <row>
     <panel>
       <html>
@@ -128,15 +157,10 @@
     <panel>
       <title>📊 Event Timeline</title>
       <chart>
-        <search>
-          <query>index=fw devname=$device_filter$ earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| eval severity_level = case(
-    level="critical" OR level="alert" OR level="emergency", "Critical",
-    level="warning" OR level="error", "High",
-    level="notice" OR level="information", "Medium",
-    1=1, "Low"
-  )
-| timechart span=1h count by severity_level</query>
+        <search base="base_fw_search">
+          <query>
+      timechart span=1h count by severity_level
+    </query>
         </search>
         <option name="charting.chart">column</option>
         <option name="charting.chart.stackMode">stacked</option>
@@ -150,16 +174,17 @@
     <panel>
       <title>🎯 Block Type Distribution</title>
       <chart>
-        <search>
-          <query>index=fw devname=$device_filter$ (action=deny OR action=block) earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| eval block_category = case(
+        <search base="base_fw_search">
+          <query>
+      search (action=deny OR action=block) | eval block_category = case(
     match(type, "(?i)traffic"), "Traffic",
     match(type, "(?i)webfilter"), "Web Filter",
     match(type, "(?i)utm"), "UTM",
     1=1, "Other"
   )
 | stats count by block_category
-| sort - count</query>
+| sort - count
+    </query>
         </search>
         <option name="charting.chart">pie</option>
         <option name="charting.legend.placement">right</option>
@@ -172,14 +197,15 @@
     <panel>
       <title>🚨 Top 10 Blocked Source IPs</title>
       <table>
-        <search>
-          <query>index=fw devname=$device_filter$ (action=deny OR action=block) earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| stats count as blocked_count by srcip
+        <search base="base_fw_search">
+          <query>
+      search (action=deny OR action=block) | stats count as blocked_count by srcip
 | sort - blocked_count
 | head 10
 | eval rank = _serial
 | table rank, srcip, blocked_count
-| rename srcip as "Source IP", blocked_count as "Blocked Count", rank as "Rank"</query>
+| rename srcip as "Source IP", blocked_count as "Blocked Count", rank as "Rank"
+    </query>
         </search>
         <option name="drilldown">none</option>
         <option name="rowNumbers">false</option>
@@ -190,7 +216,7 @@
     </panel>
   </row>
 
-  <!-- Row 4: 📡 트래픽 로그 -->
+  
   <row>
     <panel>
       <html>
@@ -202,12 +228,13 @@
     <panel>
       <title>📊 Bandwidth Usage Trend</title>
       <chart>
-        <search>
-          <query>index=fw devname=$device_filter$ earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| eval bytes_total = coalesce(sentbyte, 0) + coalesce(rcvdbyte, 0)
+        <search base="base_fw_search">
+          <query>
+      eval bytes_total = coalesce(sentbyte, 0) + coalesce(rcvdbyte, 0)
 | timechart span=1h sum(bytes_total) as total_bytes
 | eval total_mb = round(total_bytes/1024/1024, 2)
-| fields _time, total_mb</query>
+| fields _time, total_mb
+    </query>
         </search>
         <option name="charting.chart">area</option>
         <option name="charting.legend.placement">bottom</option>
@@ -221,12 +248,13 @@
     <panel>
       <title>🌐 Protocol Distribution</title>
       <chart>
-        <search>
-          <query>index=fw devname=$device_filter$ earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| eval protocol = coalesce(proto, service, "Other")
+        <search base="base_fw_search">
+          <query>
+      eval protocol = coalesce(proto, service, "Other")
 | stats count by protocol
 | sort - count
-| head 10</query>
+| head 10
+    </query>
         </search>
         <option name="charting.chart">bar</option>
         <option name="charting.legend.placement">none</option>
@@ -240,14 +268,15 @@
     <panel>
       <title>🚀 Top 10 Applications</title>
       <table>
-        <search>
-          <query>index=fw devname=$device_filter$ app=* earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| stats count as session_count, sum(sentbyte) as sent_bytes, sum(rcvdbyte) as rcvd_bytes by app
+        <search base="base_fw_search">
+          <query>
+      app=* | stats count as session_count, sum(sentbyte) as sent_bytes, sum(rcvdbyte) as rcvd_bytes by app
 | eval total_mb = round((sent_bytes + rcvd_bytes)/1024/1024, 2)
 | sort - session_count
 | head 10
 | table app, session_count, total_mb
-| rename app as "애플리케이션", session_count as "세션 수", total_mb as "트래픽 (MB)"</query>
+| rename app as "애플리케이션", session_count as "세션 수", total_mb as "트래픽 (MB)"
+    </query>
         </search>
         <option name="drilldown">none</option>
         <option name="rowNumbers">true</option>
@@ -258,7 +287,7 @@
     </panel>
   </row>
 
-  <!-- Row 5: ⚡ 성능 데이터 -->
+  
   <row>
     <panel>
       <html>
@@ -270,10 +299,11 @@
     <panel>
       <title>💻 Average CPU Usage</title>
       <single>
-        <search>
-          <query>index=fw devname=$device_filter$ cpu=* earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| stats avg(cpu) as avg_cpu
-| eval avg_cpu = round(avg_cpu, 1)</query>
+        <search base="base_fw_search">
+          <query>
+      cpu=* | stats avg(cpu) as avg_cpu
+| eval avg_cpu = round(avg_cpu, 1)
+    </query>
         </search>
         <option name="drilldown">none</option>
         <option name="colorMode">block</option>
@@ -287,10 +317,11 @@
     <panel>
       <title>🧠 Average Memory Usage</title>
       <single>
-        <search>
-          <query>index=fw devname=$device_filter$ mem=* earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| stats avg(mem) as avg_mem
-| eval avg_mem = round(avg_mem, 1)</query>
+        <search base="base_fw_search">
+          <query>
+      mem=* | stats avg(mem) as avg_mem
+| eval avg_mem = round(avg_mem, 1)
+    </query>
         </search>
         <option name="drilldown">none</option>
         <option name="colorMode">block</option>
@@ -304,10 +335,11 @@
     <panel>
       <title>🔌 Active Sessions</title>
       <single>
-        <search>
-          <query>index=fw devname=$device_filter$ session=* earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| stats avg(session) as avg_sessions
-| eval avg_sessions = round(avg_sessions, 0)</query>
+        <search base="base_fw_search">
+          <query>
+      session=* | stats avg(session) as avg_sessions
+| eval avg_sessions = round(avg_sessions, 0)
+    </query>
         </search>
         <option name="drilldown">none</option>
         <option name="colorMode">block</option>
@@ -320,9 +352,10 @@
     <panel>
       <title>📶 Device Status</title>
       <single>
-        <search>
-          <query>index=fw devname=$device_filter$ earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| stats dc(devname) as device_count</query>
+        <search base="base_fw_search">
+          <query>
+      stats dc(devname) as device_count
+    </query>
         </search>
         <option name="drilldown">none</option>
         <option name="colorMode">block</option>
@@ -334,7 +367,7 @@
     </panel>
   </row>
 
-  <!-- Row 6: 🔧 설정 로그 -->
+  
   <row>
     <panel>
       <html>
@@ -346,9 +379,9 @@
     <panel>
       <title>📢 Config Change History</title>
       <table id="config_changes_table">
-        <search>
-          <query>index=fw devname=$device_filter$ (logid="0100044547" OR logid="0100044546" OR logid="0100044545") earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| rex field=_raw "cfgpath=\"?(?&lt;cfg_path&gt;[^\"]+)\"?"
+        <search base="base_fw_search">
+          <query>
+      search (logid="0100044547" OR logid="0100044546" OR logid="0100044545") | rex field=_raw "cfgpath=\"?(?&lt;cfg_path&gt;[^\"]+)\"?"
 | rex field=_raw "cfgobj=\"?(?&lt;cfg_object&gt;[^\"]+)\"?"
 | rex field=_raw "cfgattr=\"?(?&lt;cfg_attr&gt;[^\"]+)\"?"
 | eval config_path = coalesce(cfgpath, cfg_path, "N/A")
@@ -378,7 +411,8 @@
 | eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
 | table timestamp, devname, user, change_type, path_category, config_object, parsed_value, access_method, access_ip
 | sort - timestamp
-| head 20</query>
+| head 20
+    </query>
         </search>
         <option name="drilldown">none</option>
         <option name="rowNumbers">true</option>
@@ -389,7 +423,7 @@
     </panel>
   </row>
 
-  <!-- Slack 알림 테스트 -->
+  
   <row>
     <panel>
       <html>
@@ -398,7 +432,7 @@
     </panel>
   </row>
 
-  <!-- Slack 알림 테스트 -->
+  
   <row>
     <panel>
       <title>🔴 Critical Event Alert</title>
