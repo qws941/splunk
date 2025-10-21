@@ -1,0 +1,21 @@
+ip,abuse_score,country,isp,usage_type,domain,is_whitelisted,total_reports,last_reported,confidence_score
+# AbuseIPDB Threat Intelligence Lookup Table
+#
+# This file is populated by scripts/fetch_abuseipdb_intel.py
+# Cron schedule: */30 * * * * (every 30 minutes)
+#
+# Fields:
+# - ip: IP address
+# - abuse_score: Abuse confidence score (0-100)
+# - country: ISO country code
+# - isp: Internet Service Provider
+# - usage_type: Type of IP (Commercial, Data Center, etc.)
+# - domain: Reverse DNS domain
+# - is_whitelisted: Boolean (true/false)
+# - total_reports: Number of abuse reports
+# - last_reported: Timestamp of last report (ISO8601)
+# - confidence_score: Internal confidence score (0-100)
+#
+# Example data (will be replaced by API fetch):
+# 192.168.1.100,95,CN,China Telecom,Data Center,example.com,false,1234,2025-10-21T12:00:00Z,98
+# 10.0.0.50,0,US,Amazon AWS,Hosting,amazonaws.com,true,0,,0
