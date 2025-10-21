@@ -523,4 +523,164 @@ index=_internal source=*scheduler.log savedsearch_name="Correlation_*" earliest=
       </table>
     </panel>
   </row>
+
+  <!-- Row 12: Slack Notification Test Panel -->
+  <row>
+    <panel>
+      <title>📢 Slack 알림 테스트 (Notification Test)</title>
+      <html>
+        <div style="padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; color: white; margin: 10px 0;">
+          <h2 style="margin-top: 0; font-size: 24px;">🔔 Slack 알림 테스트</h2>
+          <p style="font-size: 16px; line-height: 1.6;">
+            이 패널에서 Slack 알림 설정을 테스트할 수 있습니다.<br/>
+            <strong>사용 방법:</strong>
+          </p>
+          <ol style="font-size: 14px; line-height: 1.8; margin-left: 20px;">
+            <li><strong>테스트 메시지 전송</strong>: 아래 "Send Test Alert" 버튼 클릭</li>
+            <li><strong>실제 Detection 알림</strong>: 상관관계 탐지 시 자동 전송</li>
+            <li><strong>알림 히스토리</strong>: 최근 24시간 내 전송된 알림 확인</li>
+          </ol>
+
+          <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 5px; margin-top: 15px;">
+            <h3 style="margin-top: 0; font-size: 18px;">⚙️ 설정 확인</h3>
+            <ul style="font-size: 13px; list-style: none; padding: 0;">
+              <li>✓ Slack Plugin: slack-notification-alert_232.tgz</li>
+              <li>✓ Channel: #splunk-alerts</li>
+              <li>✓ Alert Actions: correlation-rules.conf (Line 197, 358)</li>
+              <li>✓ Python Script: fortigate_auto_block.py</li>
+            </ul>
+          </div>
+
+          <div style="margin-top: 20px; padding: 15px; background: rgba(0,0,0,0.3); border-left: 4px solid #ffd700; border-radius: 4px;">
+            <strong>📝 Note:</strong> Slack 알림은 다음 조건에서 자동 전송됩니다:
+            <ul style="margin: 10px 0 0 20px; font-size: 13px;">
+              <li><strong>Correlation Score ≥ 90</strong>: AUTO_BLOCK (즉시 차단 + 알림)</li>
+              <li><strong>Correlation Score 80-89</strong>: REVIEW_AND_BLOCK (검토 요청 알림)</li>
+              <li><strong>Weak Signal Correlation</strong>: 약한 신호 조합 감지 (알림 전용)</li>
+              <li><strong>Sophisticated Threat</strong>: APT 패턴 감지 (고급 위협 알림)</li>
+            </ul>
+          </div>
+        </div>
+      </html>
+    </panel>
+
+    <panel>
+      <title>🚀 Slack 알림 실행 (Quick Actions)</title>
+      <html>
+        <div style="padding: 20px; text-align: center;">
+          <h3 style="color: #333; margin-bottom: 20px;">테스트 알림 전송</h3>
+
+          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <p style="color: #666; margin-bottom: 15px;">
+              아래 버튼을 클릭하면 <strong>#splunk-alerts</strong> 채널로 테스트 메시지가 전송됩니다.
+            </p>
+
+            <a href="/app/search/search?q=search%20index%3Dfortigate_security%20earliest%3D-5m%20%7C%20head%201%20%7C%20eval%20test_alert%3D%22true%22%2C%20correlation_score%3D95%2C%20correlation_rule%3D%22Manual%20Test%22%2C%20action_recommendation%3D%22AUTO_BLOCK%22%20%7C%20collect%20index%3Dsummary_fw%20marker%3D%22correlation_detection%3Dtest%22&amp;earliest=-5m&amp;latest=now"
+               target="_blank"
+               style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; border-radius: 25px; text-decoration: none; font-size: 16px; font-weight: bold; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); transition: all 0.3s;">
+              📤 Send Test Alert to Slack
+            </a>
+          </div>
+
+          <div style="background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; padding: 15px; margin-top: 20px;">
+            <p style="color: #856404; margin: 0; font-size: 14px;">
+              <strong>⚠️ 주의:</strong> Slack Bot Token과 Channel 설정이 필요합니다.<br/>
+              설정 파일: <code>/opt/splunk/etc/apps/slack_alerts/local/alert_actions.conf</code>
+            </p>
+          </div>
+
+          <div style="margin-top: 25px; padding: 20px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 8px; color: white;">
+            <h4 style="margin-top: 0;">📋 Saved Search 실행 옵션</h4>
+            <p style="font-size: 13px; margin-bottom: 15px;">
+              또는 Splunk CLI로 직접 실행:
+            </p>
+            <pre style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px; text-align: left; overflow-x: auto; font-size: 12px;">
+splunk search "| makeresults | eval message=\"Test Alert from Correlation Dashboard\", severity=\"high\", correlation_score=95"
+            </pre>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <!-- Row 13: Recent Slack Notifications History -->
+  <row>
+    <panel>
+      <title>📜 최근 Slack 알림 히스토리 (Recent 24h)</title>
+      <table>
+        <search>
+          <query>
+index=_internal source=*slack* OR source=*alert_actions* earliest=-24h
+| rex field=_raw "channel=(?&lt;channel&gt;[^\s]+)"
+| rex field=_raw "message=(?&lt;message&gt;[^\"]+)"
+| rex field=_raw "status=(?&lt;status&gt;\w+)"
+| stats count as notification_count,
+    latest(_time) as last_sent,
+    values(channel) as channels,
+    values(status) as statuses
+  by message
+| eval last_sent = strftime(last_sent, "%Y-%m-%d %H:%M:%S")
+| sort - notification_count
+| head 20
+| rename message as "Message",
+    notification_count as "Count",
+    last_sent as "Last Sent",
+    channels as "Channels",
+    statuses as "Status"
+          </query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rowNumbers">true</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+
+    <panel>
+      <title>✅ Slack 알림 성공률 (Success Rate)</title>
+      <single>
+        <search>
+          <query>
+index=_internal source=*alert_actions* "slack" earliest=-24h
+| stats count as total,
+    sum(eval(if(match(_raw, "(?i)success|sent"), 1, 0))) as successful,
+    sum(eval(if(match(_raw, "(?i)error|fail"), 1, 0))) as failed
+| eval success_rate = round((successful / total) * 100, 2)
+| eval success_rate_display = success_rate + "%"
+| fields success_rate_display
+          </query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0xdc4e41","0xf1813f","0x53a051"]</option>
+        <option name="rangeValues">[50,90]</option>
+        <option name="underLabel">Last 24 Hours</option>
+        <option name="useColors">1</option>
+        <option name="unit">Success Rate</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>📊 알림 전송 통계 (24h)</title>
+      <table>
+        <search>
+          <query>
+index=_internal source=*alert_actions* "slack" earliest=-24h
+| rex field=_raw "severity=(?&lt;severity&gt;\w+)"
+| rex field=_raw "score=(?&lt;score&gt;\d+)"
+| stats count as alerts,
+    avg(score) as avg_score,
+    max(score) as max_score
+  by severity
+| eval avg_score = round(avg_score, 2)
+| sort - alerts
+| rename severity as "Severity",
+    alerts as "Alert Count",
+    avg_score as "Avg Score",
+    max_score as "Max Score"
+          </query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rowNumbers">false</option>
+      </table>
+    </panel>
+  </row>
 </form>
