@@ -1,0 +1,323 @@
+{
+  "modelName": "Fortinet_Security",
+  "displayName": "Fortinet Security Analytics",
+  "description": "Normalized FortiGate security events with accelerated access for fast analytics across severity, action, traffic patterns, and threat intelligence.",
+  "objectSummary": {
+    "Event-Based": 1,
+    "Transaction-Based": 0,
+    "Search-Based": 0
+  },
+  "objects": [
+    {
+      "objectName": "Security_Events",
+      "displayName": "Security Events",
+      "parentName": "BaseEvent",
+      "comment": "Root object containing all FortiGate security events with normalized fields",
+      "fields": [
+        {
+          "fieldName": "_time",
+          "displayName": "Event Time",
+          "type": "timestamp",
+          "required": true,
+          "hidden": false,
+          "editable": false,
+          "comment": "Timestamp of the security event"
+        },
+        {
+          "fieldName": "src_ip",
+          "displayName": "Source IP",
+          "type": "string",
+          "required": true,
+          "hidden": false,
+          "editable": false,
+          "comment": "Source IP address"
+        },
+        {
+          "fieldName": "dst_ip",
+          "displayName": "Destination IP",
+          "type": "string",
+          "required": true,
+          "hidden": false,
+          "editable": false,
+          "comment": "Destination IP address"
+        },
+        {
+          "fieldName": "src_port",
+          "displayName": "Source Port",
+          "type": "number",
+          "required": false,
+          "hidden": false,
+          "editable": false,
+          "comment": "Source port number"
+        },
+        {
+          "fieldName": "dst_port",
+          "displayName": "Destination Port",
+          "type": "number",
+          "required": false,
+          "hidden": false,
+          "editable": false,
+          "comment": "Destination port number"
+        },
+        {
+          "fieldName": "protocol",
+          "displayName": "Protocol",
+          "type": "string",
+          "required": false,
+          "hidden": false,
+          "editable": false,
+          "comment": "Network protocol (TCP, UDP, ICMP, etc.)"
+        },
+        {
+          "fieldName": "action",
+          "displayName": "Action",
+          "type": "string",
+          "required": true,
+          "hidden": false,
+          "editable": false,
+          "comment": "Firewall action (allow, deny, etc.)"
+        },
+        {
+          "fieldName": "severity",
+          "displayName": "Severity",
+          "type": "string",
+          "required": false,
+          "hidden": false,
+          "editable": false,
+          "comment": "Event severity level (critical, high, medium, low)"
+        },
+        {
+          "fieldName": "bytes_sent",
+          "displayName": "Bytes Sent",
+          "type": "number",
+          "required": false,
+          "hidden": false,
+          "editable": false,
+          "comment": "Outbound traffic in bytes"
+        },
+        {
+          "fieldName": "bytes_received",
+          "displayName": "Bytes Received",
+          "type": "number",
+          "required": false,
+          "hidden": false,
+          "editable": false,
+          "comment": "Inbound traffic in bytes"
+        },
+        {
+          "fieldName": "packets_sent",
+          "displayName": "Packets Sent",
+          "type": "number",
+          "required": false,
+          "hidden": false,
+          "editable": false,
+          "comment": "Outbound packet count"
+        },
+        {
+          "fieldName": "packets_received",
+          "displayName": "Packets Received",
+          "type": "number",
+          "required": false,
+          "hidden": false,
+          "editable": false,
+          "comment": "Inbound packet count"
+        },
+        {
+          "fieldName": "devname",
+          "displayName": "Device Name",
+          "type": "string",
+          "required": false,
+          "hidden": false,
+          "editable": false,
+          "comment": "FortiGate device hostname"
+        },
+        {
+          "fieldName": "policy_id",
+          "displayName": "Policy ID",
+          "type": "number",
+          "required": false,
+          "hidden": false,
+          "editable": false,
+          "comment": "Firewall policy ID that matched the traffic"
+        },
+        {
+          "fieldName": "service",
+          "displayName": "Service",
+          "type": "string",
+          "required": false,
+          "hidden": false,
+          "editable": false,
+          "comment": "Service name (HTTP, HTTPS, SSH, etc.)"
+        },
+        {
+          "fieldName": "app",
+          "displayName": "Application",
+          "type": "string",
+          "required": false,
+          "hidden": false,
+          "editable": false,
+          "comment": "Application name detected by FortiGate"
+        },
+        {
+          "fieldName": "msg",
+          "displayName": "Message",
+          "type": "string",
+          "required": false,
+          "hidden": false,
+          "editable": false,
+          "comment": "Log message from FortiGate"
+        }
+      ],
+      "calculations": [
+        {
+          "calculationID": "attack_type",
+          "calculationType": "Eval",
+          "outputFields": [
+            {
+              "fieldName": "attack_type",
+              "displayName": "Attack Type",
+              "type": "string",
+              "required": false,
+              "hidden": false,
+              "editable": false,
+              "comment": "Categorized attack type based on log message"
+            }
+          ],
+          "expression": "case(msg LIKE \"%intrusion%\" OR msg LIKE \"%IPS%\", \"intrusion_attempt\", msg LIKE \"%malware%\" OR msg LIKE \"%virus%\", \"malware_detected\", msg LIKE \"%exfiltration%\" OR msg LIKE \"%data leak%\", \"data_exfiltration\", msg LIKE \"%lateral%\" OR msg LIKE \"%pivot%\", \"lateral_movement\", msg LIKE \"%privilege%\" OR msg LIKE \"%escalation%\", \"privilege_escalation\", msg LIKE \"%credential%\" OR msg LIKE \"%password%\", \"credential_access\", msg LIKE \"%brute%\" OR msg LIKE \"%login fail%\", \"brute_force\", msg LIKE \"%scan%\" OR msg LIKE \"%probe%\", \"reconnaissance\", msg LIKE \"%ddos%\" OR msg LIKE \"%flood%\", \"denial_of_service\", msg LIKE \"%SQL%\" OR msg LIKE \"%injection%\", \"web_attack\", 1=1, \"other\")",
+          "comment": "Automatically categorizes security events based on log message patterns"
+        },
+        {
+          "calculationID": "event_category",
+          "calculationType": "Eval",
+          "outputFields": [
+            {
+              "fieldName": "event_category",
+              "displayName": "Event Category",
+              "type": "string",
+              "required": false,
+              "hidden": false,
+              "editable": false,
+              "comment": "High-level event categorization (blocked, allowed, other)"
+            }
+          ],
+          "expression": "case(action=\"deny\", \"blocked\", action=\"allow\", \"allowed\", 1=1, \"other\")",
+          "comment": "Categorizes events by firewall action for simplified filtering"
+        },
+        {
+          "calculationID": "risk_score",
+          "calculationType": "Eval",
+          "outputFields": [
+            {
+              "fieldName": "risk_score",
+              "displayName": "Risk Score",
+              "type": "number",
+              "required": false,
+              "hidden": false,
+              "editable": false,
+              "comment": "Calculated risk score (0-100) based on severity and attack type"
+            }
+          ],
+          "expression": "case(severity=\"critical\", 90, severity=\"high\", 70, severity=\"medium\", 50, severity=\"low\", 30, 1=1, 10) + case(attack_type=\"intrusion_attempt\", 10, attack_type=\"malware_detected\", 10, attack_type=\"data_exfiltration\", 10, attack_type=\"privilege_escalation\", 8, attack_type=\"credential_access\", 8, attack_type=\"brute_force\", 5, 1=1, 0)",
+          "comment": "Risk score combining severity and attack type for prioritization"
+        },
+        {
+          "calculationID": "total_bytes",
+          "calculationType": "Eval",
+          "outputFields": [
+            {
+              "fieldName": "total_bytes",
+              "displayName": "Total Bytes",
+              "type": "number",
+              "required": false,
+              "hidden": false,
+              "editable": false,
+              "comment": "Sum of bytes sent and received"
+            }
+          ],
+          "expression": "coalesce(bytes_sent, 0) + coalesce(bytes_received, 0)",
+          "comment": "Total traffic volume for bandwidth analysis"
+        }
+      ],
+      "constraints": [
+        {
+          "search": "index=fw",
+          "owner": "Fortinet_Security"
+        }
+      ],
+      "lineage": "BaseEvent"
+    },
+    {
+      "objectName": "Blocked_Traffic",
+      "displayName": "Blocked Traffic",
+      "parentName": "Security_Events",
+      "comment": "Subset of security events where firewall action is deny",
+      "fields": [],
+      "calculations": [],
+      "constraints": [
+        {
+          "search": "action=deny",
+          "owner": "Blocked_Traffic"
+        }
+      ],
+      "lineage": "BaseEvent.Security_Events"
+    },
+    {
+      "objectName": "Allowed_Traffic",
+      "displayName": "Allowed Traffic",
+      "parentName": "Security_Events",
+      "comment": "Subset of security events where firewall action is allow",
+      "fields": [],
+      "calculations": [],
+      "constraints": [
+        {
+          "search": "action=allow",
+          "owner": "Allowed_Traffic"
+        }
+      ],
+      "lineage": "BaseEvent.Security_Events"
+    },
+    {
+      "objectName": "Critical_Events",
+      "displayName": "Critical Events",
+      "parentName": "Security_Events",
+      "comment": "High-priority security events requiring immediate attention",
+      "fields": [],
+      "calculations": [],
+      "constraints": [
+        {
+          "search": "severity=critical",
+          "owner": "Critical_Events"
+        }
+      ],
+      "lineage": "BaseEvent.Security_Events"
+    },
+    {
+      "objectName": "High_Risk_Events",
+      "displayName": "High Risk Events",
+      "parentName": "Security_Events",
+      "comment": "Events with calculated risk score above 70 (requires acceleration)",
+      "fields": [],
+      "calculations": [],
+      "constraints": [
+        {
+          "search": "| eval risk_score = case(severity=\"critical\", 90, severity=\"high\", 70, severity=\"medium\", 50, severity=\"low\", 30, 1=1, 10) + case(attack_type=\"intrusion_attempt\", 10, attack_type=\"malware_detected\", 10, attack_type=\"data_exfiltration\", 10, attack_type=\"privilege_escalation\", 8, attack_type=\"credential_access\", 8, attack_type=\"brute_force\", 5, 1=1, 0) | where risk_score > 70",
+          "owner": "High_Risk_Events"
+        }
+      ],
+      "lineage": "BaseEvent.Security_Events"
+    }
+  ],
+  "acceleration": {
+    "enabled": true,
+    "earliestTime": "-90d",
+    "cronSchedule": "*/5 * * * *",
+    "maxConcurrent": 2
+  },
+  "objectNameList": [
+    "Security_Events",
+    "Blocked_Traffic",
+    "Allowed_Traffic",
+    "Critical_Events",
+    "High_Risk_Events"
+  ]
+}
