@@ -68,7 +68,7 @@
       </single>
     </panel>
     <panel>
-      <title>🌐 활성 위협 소스</title>
+      <title>🌐 활성 소스 IP</title>
       <single>
         <search>
           <query>index=fw devname=$device_filter$ earliest=$time_picker.earliest$ latest=$time_picker.latest$
@@ -188,76 +188,6 @@
         <option name="dataOverlayMode">heatmap</option>
         <option name="count">10</option>
       </table>
-    </panel>
-  </row>
-
-  <!-- Row 3: 🔍 위협 인텔리전스 -->
-  <row>
-    <panel>
-      <html>
-        <h2 style="color: #F58F39; border-bottom: 2px solid #F58F39; padding-bottom: 5px;">🔍 위협 인텔리전스</h2>
-      </html>
-    </panel>
-  </row>
-  <row>
-    <panel>
-      <title>🦠 멀웨어 감지</title>
-      <single>
-        <search>
-          <query>index=fw devname=$device_filter$ (subtype=virus OR type=virus) earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| stats count</query>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="colorMode">block</option>
-        <option name="useColors">1</option>
-        <option name="rangeColors">["0x65A637","0xF7BC38","0xF58F39","0xD93F3C"]</option>
-        <option name="rangeValues">[0,10,50]</option>
-        <option name="underLabel">Malware Detections</option>
-      </single>
-    </panel>
-    <panel>
-      <title>🕸️ Botnet 통신</title>
-      <single>
-        <search>
-          <query>index=fw devname=$device_filter$ (category=botnet OR type=botnet) earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| stats count</query>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="colorMode">block</option>
-        <option name="useColors">1</option>
-        <option name="rangeColors">["0x65A637","0xF7BC38","0xF58F39","0xD93F3C"]</option>
-        <option name="rangeValues">[0,5,20]</option>
-        <option name="underLabel">Botnet Events</option>
-      </single>
-    </panel>
-    <panel>
-      <title>🚫 WebFilter 차단</title>
-      <single>
-        <search>
-          <query>index=fw devname=$device_filter$ (service=webfilter OR subtype=webfilter) action=blocked earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| stats count</query>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="colorMode">block</option>
-        <option name="useColors">1</option>
-        <option name="rangeColors">["0x65A637","0x6DB7C6","0xF7BC38","0xF58F39"]</option>
-        <option name="rangeValues">[0,100,500]</option>
-        <option name="underLabel">Blocked Sites</option>
-      </single>
-    </panel>
-    <panel>
-      <title>🔐 SSL 검사</title>
-      <single>
-        <search>
-          <query>index=fw devname=$device_filter$ (subtype="ssl" OR service="ssl") earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| stats count</query>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="colorMode">block</option>
-        <option name="useColors">1</option>
-        <option name="rangeColors">["0x6DB7C6"]</option>
-        <option name="underLabel">SSL Inspections</option>
-      </single>
     </panel>
   </row>
 
