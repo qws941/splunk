@@ -64,7 +64,7 @@
         <option name="numberPrecision">0</option>
         <option name="rangeColors">["0x555555","0x65A637","0x6DB7C6","0xF7BC38"]</option>
         <option name="rangeValues">[100,1000,5000]</option>
-        <option name="underLabel">Blocked Attacks</option>
+        <option name="underLabel">Blocked Packets</option>
       </single>
     </panel>
     <panel>
@@ -148,18 +148,18 @@
       </chart>
     </panel>
     <panel>
-      <title>🎯 공격 유형 분포</title>
+      <title>🎯 차단 유형 분포</title>
       <chart>
         <search>
           <query>index=fw devname=$device_filter$ (action=deny OR action=block) earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| eval attack_category = case(
-    match(type, "(?i)(ips|intrusion)"), "IPS/침입",
-    match(type, "(?i)(virus|malware)"), "멀웨어",
-    match(type, "(?i)webfilter"), "웹필터",
-    match(type, "(?i)app"), "애플리케이션",
+| eval block_category = case(
+    match(type, "(?i)(ips|intrusion)"), "패킷 필터",
+    match(type, "(?i)(virus|malware)"), "파일 필터",
+    match(type, "(?i)webfilter"), "URL 필터",
+    match(type, "(?i)app"), "앱 필터",
     1=1, "기타"
   )
-| stats count by attack_category
+| stats count by block_category
 | sort - count</query>
         </search>
         <option name="charting.chart">pie</option>
@@ -171,16 +171,16 @@
   </row>
   <row>
     <panel>
-      <title>🚨 Top 10 공격 소스 IP</title>
+      <title>🚨 Top 10 차단된 소스 IP</title>
       <table>
         <search>
           <query>index=fw devname=$device_filter$ (action=deny OR action=block) earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| stats count as attack_count by srcip, srccountry
-| sort - attack_count
+| stats count as blocked_count by srcip, srccountry
+| sort - blocked_count
 | head 10
 | eval 순위 = _serial
-| table 순위, srcip, srccountry, attack_count
-| rename srcip as "소스 IP", srccountry as "국가", attack_count as "공격 횟수"</query>
+| table 순위, srcip, srccountry, blocked_count
+| rename srcip as "소스 IP", srccountry as "국가", blocked_count as "차단 횟수"</query>
         </search>
         <option name="drilldown">none</option>
         <option name="rowNumbers">false</option>
