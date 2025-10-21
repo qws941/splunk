@@ -1,6 +1,6 @@
 <form version="1.1">
   <label>🛡️ FortiGate 보안 대시보드</label>
-  <description>Security | Threat | Traffic | Performance | Config + Slack | WCAG</description>
+  <description>Security | Traffic | Performance | Config | WCAG</description>
 
   <!-- Global Filters -->
   <fieldset submitButton="false">
@@ -52,7 +52,7 @@
       </single>
     </panel>
     <panel>
-      <title>🛡️ 차단된 공격</title>
+      <title>🛡️ 차단</title>
       <single>
         <search>
           <query>index=fw devname=$device_filter$ (action=deny OR action=block OR action=drop) earliest=$time_picker.earliest$ latest=$time_picker.latest$
@@ -335,17 +335,17 @@
     </panel>
   </row>
 
-  <!-- Row 6: 🔧 설정 관리 (Slack 통합) -->
+  <!-- Row 6: 🔧 설정 로그 -->
   <row>
     <panel>
       <html>
-        <h2 style="color: #D93F3C; border-bottom: 2px solid #D93F3C; padding-bottom: 5px;">🔧 설정 관리 및 Slack 알림</h2>
+        <h2 style="color: #D93F3C; border-bottom: 2px solid #D93F3C; padding-bottom: 5px;">🔧 설정 로그</h2>
       </html>
     </panel>
   </row>
   <row>
     <panel>
-      <title>📢 설정 변경 이력</title>
+      <title>📢 객체 삭제</title>
       <table id="config_changes_table">
         <search>
           <query>index=fw devname=$device_filter$ (logid="0100044547" OR logid="0100044546" OR logid="0100044545") earliest=$time_picker.earliest$ latest=$time_picker.latest$
@@ -358,7 +358,7 @@
 | eval parsed_value = config_path + " / " + config_object + " [" + config_attr + "]"
 | eval change_type = case(
     logid="0100044547", "삭제",
-    logid="0100044546", "수정",
+    logid="0100044546", "삭제",
     logid="0100044545", "추가",
     1=1, "기타"
   )
@@ -390,38 +390,7 @@
     </panel>
   </row>
 
-  <!-- Row 7: Slack 알림 설정 안내 -->
-  <row>
-    <panel>
-      <html>
-        <div style="padding: 20px; background-color: #f8f9fa; border-left: 4px solid #65A637; margin: 10px 0;">
-          <h3 style="color: #333; margin-top: 0;">📢 Slack 알림 설정 방법</h3>
-
-          <h4 style="color: #333; margin-top: 15px;">✅ Splunk Alert Action 사용 (권장)</h4>
-          <ol style="color: #555; line-height: 1.8;">
-            <li><strong>Slack 앱 설치:</strong>
-              <pre style="background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 4px; overflow-x: auto; margin-top: 5px;">sudo /home/jclee/app/splunk/scripts/install-slack-alert.sh</pre>
-            </li>
-            <li><strong>Splunk 재시작:</strong>
-              <pre style="background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 4px; overflow-x: auto; margin-top: 5px;">sudo /opt/splunk/bin/splunk restart</pre>
-            </li>
-            <li><strong>Alert 생성:</strong> 위 "📢 설정 변경 이력" 테이블에서 "Save As" → "Alert" 클릭</li>
-            <li><strong>Trigger Actions:</strong> Alert Actions에서 "Slack" 선택 후 채널 설정</li>
-          </ol>
-
-          <div style="padding: 10px; background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 4px; margin-top: 15px;">
-            <strong style="color: #0c5460;">💡 참고:</strong>
-            <p style="color: #0c5460; margin: 5px 0 0 0;">
-              설치 스크립트는 <code>plugins/slack-notification-alert_232.tgz</code> (Splunkbase 공식 앱 v2.3.2)를 자동 설치합니다.<br/>
-              상세 가이드: <code>docs/SLACK_ALERT_INSTALLATION.md</code>
-            </p>
-          </div>
-        </div>
-      </html>
-    </panel>
-  </row>
-
-  <!-- Row 8: 실시간 로그 -->
+  <!-- Row 7: 실시간 로그 -->
   <row>
     <panel>
       <title>📡 실시간 이벤트 스트림 (최근 15분, 30초 자동 새로고침)</title>
