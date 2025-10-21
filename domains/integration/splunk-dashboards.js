@@ -61,7 +61,7 @@ class SplunkDashboards {
     </panel>
 
     <panel>
-      <title>Blocked Attacks</title>
+      <title>Filtered Traffic</title>
       <single>
         <search>
           <query>index=${this.baseIndex} action=blocked earliest=-1h | stats count</query>
@@ -70,13 +70,13 @@ class SplunkDashboards {
         <option name="drilldown">all</option>
         <option name="rangeColors">["0x65A637","0xF7BC38","0xF58F39","0xD93F3C"]</option>
         <option name="rangeValues">[0,100,500,1000]</option>
-        <option name="underLabel">Blocked</option>
+        <option name="underLabel">Filtered</option>
         <option name="useColors">1</option>
       </single>
     </panel>
 
     <panel>
-      <title>Unique Threat Sources</title>
+      <title>Unique Event Sources</title>
       <single>
         <search>
           <query>index=${this.baseIndex} action=blocked earliest=-1h | stats dc(src_ip) as count</query>
@@ -109,7 +109,7 @@ class SplunkDashboards {
     </panel>
 
     <panel>
-      <title>Attack Actions Distribution</title>
+      <title>Action Distribution</title>
       <chart>
         <search>
           <query>index=${this.baseIndex} earliest=-1h
@@ -123,37 +123,37 @@ class SplunkDashboards {
     </panel>
   </row>
 
-  <!-- Row 3: Top Threats -->
+  <!-- Row 3: Top Event Sources -->
   <row>
     <panel>
-      <title>Top Attack Sources (Last Hour)</title>
+      <title>Top Traffic Sources (Last Hour)</title>
       <table>
         <search>
           <query>index=${this.baseIndex} (action=blocked OR action=dropped) earliest=-1h
-| stats count as attacks, dc(dst_ip) as targets, values(attack_name) as attack_types by src_ip
-| eval threat_level=case(attacks > 100, "Critical", attacks > 50, "High", attacks > 10, "Medium", 1=1, "Low")
-| sort -attacks
+| stats count as events, dc(dst_ip) as targets, values(signature_name) as signatures by src_ip
+| eval event_level=case(events > 100, "Critical", events > 50, "High", events > 10, "Medium", 1=1, "Low")
+| sort -events
 | head 10
-| rename src_ip as "Source IP", attacks as "Attack Count", targets as "Unique Targets", attack_types as "Attack Types", threat_level as "Threat Level"</query>
+| rename src_ip as "Source IP", events as "Event Count", targets as "Unique Targets", signatures as "Signatures", event_level as "Event Level"</query>
           <refresh>30s</refresh>
         </search>
         <option name="drilldown">row</option>
         <option name="rowNumbers">true</option>
-        <format type="color" field="Threat Level">
+        <format type="color" field="Event Level">
           <colorPalette type="map">{"Critical":#DC4E41,"High":#F1813F,"Medium":#F8BE34,"Low":#53A051}</colorPalette>
         </format>
       </table>
     </panel>
 
     <panel>
-      <title>Top IPS Signatures</title>
+      <title>Top Filter Signatures</title>
       <table>
         <search>
-          <query>index=${this.baseIndex} attack_name=* earliest=-1h
-| stats count as hits, dc(src_ip) as sources by attack_name, severity
+          <query>index=${this.baseIndex} signature_name=* earliest=-1h
+| stats count as hits, dc(src_ip) as sources by signature_name, severity
 | sort -hits
 | head 10
-| rename attack_name as "Signature", hits as "Hits", sources as "Unique Sources", severity as "Severity"</query>
+| rename signature_name as "Signature", hits as "Hits", sources as "Unique Sources", severity as "Severity"</query>
           <refresh>30s</refresh>
         </search>
         <option name="drilldown">row</option>
@@ -186,7 +186,7 @@ class SplunkDashboards {
   <!-- Row 5: Geographic Distribution -->
   <row>
     <panel>
-      <title>Attack Sources by Country</title>
+      <title>Event Sources by Country</title>
       <map>
         <search>
           <query>index=${this.baseIndex} action=blocked earliest=-24h
@@ -204,20 +204,20 @@ class SplunkDashboards {
   }
 
   /**
-   * Threat Intelligence Dashboard
+   * Event Analysis Dashboard
    */
   getThreatIntelDashboard() {
     return `<dashboard version="1.1">
-  <label>Threat Intelligence Dashboard</label>
-  <description>Advanced threat detection and intelligence monitoring</description>
+  <label>Event Analysis Dashboard</label>
+  <description>Advanced event detection and pattern monitoring</description>
 
-  <!-- Row 1: Threat Summary -->
+  <!-- Row 1: Event Summary -->
   <row>
     <panel>
-      <title>Malware Detections (24h)</title>
+      <title>File Detections (24h)</title>
       <single>
         <search>
-          <query>index=${this.fazIndex} virus_name=* earliest=-24h | stats count</query>
+          <query>index=${this.fazIndex} file_signature=* earliest=-24h | stats count</query>
           <refresh>1m</refresh>
         </search>
         <option name="rangeColors">["0x65A637","0xF7BC38","0xF58F39","0xD93F3C"]</option>
@@ -226,7 +226,7 @@ class SplunkDashboards {
     </panel>
 
     <panel>
-      <title>Botnet Communications</title>
+      <title>C&C Communications</title>
       <single>
         <search>
           <query>index=${this.fazIndex} category=botnet earliest=-24h | stats count</query>
@@ -238,10 +238,10 @@ class SplunkDashboards {
     </panel>
 
     <panel>
-      <title>Malicious DNS Queries</title>
+      <title>Flagged DNS Queries</title>
       <single>
         <search>
-          <query>index=${this.fazIndex} threat_category=malicious earliest=-24h | stats count</query>
+          <query>index=${this.fazIndex} dns_category=flagged earliest=-24h | stats count</query>
           <refresh>1m</refresh>
         </search>
         <option name="rangeColors">["0x65A637","0xF7BC38","0xF58F39","0xD93F3C"]</option>
@@ -262,33 +262,33 @@ class SplunkDashboards {
     </panel>
   </row>
 
-  <!-- Row 2: Malware Analysis -->
+  <!-- Row 2: File Analysis -->
   <row>
     <panel>
-      <title>Top Malware Families</title>
+      <title>Top File Signatures</title>
       <chart>
         <search>
-          <query>index=${this.fazIndex} virus_name=* earliest=-24h
-| stats count as detections, dc(src_ip) as infected_hosts by virus_name
+          <query>index=${this.fazIndex} file_signature=* earliest=-24h
+| stats count as detections, dc(src_ip) as affected_hosts by file_signature
 | sort -detections
 | head 10</query>
           <refresh>2m</refresh>
         </search>
         <option name="charting.chart">bar</option>
-        <option name="charting.axisTitleX.text">Malware Family</option>
+        <option name="charting.axisTitleX.text">File Signature</option>
         <option name="charting.axisTitleY.text">Detections</option>
       </chart>
     </panel>
 
     <panel>
-      <title>Infected Hosts</title>
+      <title>Affected Hosts</title>
       <table>
         <search>
-          <query>index=${this.fazIndex} virus_name=* earliest=-24h
-| stats count as infections, values(virus_name) as malware by src_ip
-| sort -infections
+          <query>index=${this.fazIndex} file_signature=* earliest=-24h
+| stats count as detections, values(file_signature) as signatures by src_ip
+| sort -detections
 | head 15
-| rename src_ip as "Host IP", infections as "Infection Count", malware as "Malware Types"</query>
+| rename src_ip as "Host IP", detections as "Detection Count", signatures as "File Signatures"</query>
           <refresh>2m</refresh>
         </search>
         <option name="drilldown">row</option>
@@ -296,17 +296,17 @@ class SplunkDashboards {
     </panel>
   </row>
 
-  <!-- Row 3: Botnet Activity -->
+  <!-- Row 3: C&C Activity -->
   <row>
     <panel>
-      <title>Botnet Command & Control Servers</title>
+      <title>Command & Control Servers</title>
       <table>
         <search>
-          <query>index=${this.fazIndex} category=botnet earliest=-24h
-| stats count as connections, dc(src_ip) as bots by dst_ip, botnet_name
+          <query>index=${this.fazIndex} category=c2 earliest=-24h
+| stats count as connections, dc(src_ip) as clients by dst_ip, pattern_name
 | sort -connections
 | head 15
-| rename dst_ip as "C&C Server", connections as "Connection Attempts", bots as "Bot Count", botnet_name as "Botnet Name"</query>
+| rename dst_ip as "Server", connections as "Connection Attempts", clients as "Client Count", pattern_name as "Pattern Name"</query>
           <refresh>2m</refresh>
         </search>
         <option name="drilldown">row</option>
@@ -315,11 +315,11 @@ class SplunkDashboards {
     </panel>
 
     <panel>
-      <title>Botnet Timeline</title>
+      <title>C&C Timeline</title>
       <chart>
         <search>
-          <query>index=${this.fazIndex} category=botnet earliest=-24h
-| timechart span=1h count by botnet_name</query>
+          <query>index=${this.fazIndex} category=c2 earliest=-24h
+| timechart span=1h count by pattern_name</query>
           <refresh>2m</refresh>
         </search>
         <option name="charting.chart">line</option>
@@ -327,10 +327,10 @@ class SplunkDashboards {
     </panel>
   </row>
 
-  <!-- Row 4: Web Threats -->
+  <!-- Row 4: Web Filtering -->
   <row>
     <panel>
-      <title>Blocked Websites by Category</title>
+      <title>Filtered Websites by Category</title>
       <chart>
         <search>
           <query>index=${this.baseIndex} service=webfilter action=blocked earliest=-24h
@@ -344,14 +344,14 @@ class SplunkDashboards {
     </panel>
 
     <panel>
-      <title>Top Blocked URLs</title>
+      <title>Top Filtered URLs</title>
       <table>
         <search>
           <query>index=${this.baseIndex} service=webfilter action=blocked earliest=-24h
-| stats count as blocks, dc(src_ip) as users by url, category
-| sort -blocks
+| stats count as filters, dc(src_ip) as users by url, category
+| sort -filters
 | head 15
-| rename url as "URL", blocks as "Blocks", users as "Unique Users", category as "Category"</query>
+| rename url as "URL", filters as "Filters", users as "Unique Users", category as "Category"</query>
           <refresh>2m</refresh>
         </search>
         <option name="drilldown">row</option>

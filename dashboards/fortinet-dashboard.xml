@@ -1,6 +1,6 @@
 <form version="1.1">
-  <label>🛡️ FortiGate 보안 대시보드</label>
-  <description>Security | Traffic | Performance | Config | WCAG</description>
+  <label>🛡️ FortiGate 모니터링 대시보드</label>
+  <description>Events | Traffic | Performance | Config | WCAG</description>
 
   <!-- Global Filters -->
   <fieldset submitButton="false">
@@ -116,17 +116,17 @@
     </panel>
   </row>
 
-  <!-- Row 2: 🔒 보안 로그 -->
+  <!-- Row 2: 🔒 시스템 로그 -->
   <row>
     <panel>
       <html>
-        <h2 style="color: #6DB7C6; border-bottom: 2px solid #6DB7C6; padding-bottom: 5px;">🔒 보안 로그</h2>
+        <h2 style="color: #6DB7C6; border-bottom: 2px solid #6DB7C6; padding-bottom: 5px;">🔒 시스템 로그</h2>
       </html>
     </panel>
   </row>
   <row>
     <panel>
-      <title>📊 보안 이벤트 타임라인</title>
+      <title>📊 이벤트 타임라인</title>
       <chart>
         <search>
           <query>index=fw devname=$device_filter$ earliest=$time_picker.earliest$ latest=$time_picker.latest$
@@ -153,8 +153,8 @@
         <search>
           <query>index=fw devname=$device_filter$ (action=deny OR action=block) earliest=$time_picker.earliest$ latest=$time_picker.latest$
 | eval block_category = case(
-    match(type, "(?i)(ips|intrusion)"), "패킷 필터",
-    match(type, "(?i)(virus|malware)"), "파일 필터",
+    match(type, "(?i)traffic"), "패킷 필터",
+    match(type, "(?i)file"), "파일 필터",
     match(type, "(?i)webfilter"), "URL 필터",
     match(type, "(?i)app"), "앱 필터",
     1=1, "기타"
