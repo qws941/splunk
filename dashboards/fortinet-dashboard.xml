@@ -408,7 +408,18 @@
           <query>index=fw (level=critical OR level=alert) earliest=$time_picker.earliest$ latest=$time_picker.latest$
 | search NOT msg="*Update Fail*" NOT msg="*Login Fail*"
 | head 1
-| eval slack_message="🚨 *Critical Event Detected*\n\n• Device: " + devname + "\n• Level: " + level + "\n• Message: " + msg + "\n• Time: " + strftime(_time, "%Y-%m-%d %H:%M:%S")
+| eval emoji=case(
+    level="critical" OR level="emergency", "🔴",
+    level="alert", "🟠",
+    1=1, "⚠️"
+  )
+| eval slack_message=emoji + " *CRITICAL EVENT ALERT*\n" +
+    "━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+    "*Device:* `" + devname + "`\n" +
+    "*Severity:* " + upper(level) + "\n" +
+    "*Time:* " + strftime(_time, "%Y-%m-%d %H:%M:%S") + "\n\n" +
+    "*Error Message:*\n```" + msg + "```\n\n" +
+    "_View in Splunk:_ <https://splunk.jclee.me/app/search|Dashboard>"
 | sendalert slack param.message=slack_message
 | table devname, level, msg</query>
         </search>
@@ -423,7 +434,28 @@
           <query>index=fw (logid="0100044547" OR logid="0100044546" OR logid="0100044545") earliest=$time_picker.earliest$ latest=$time_picker.latest$
 | head 1
 | rex field=_raw "cfgpath=\"?(?&lt;cfg_path&gt;[^\"]+)\"?"
-| eval slack_message="⚙️ *Config Change Detected*\n\n• Device: " + devname + "\n• User: " + user + "\n• Config Path: " + cfg_path + "\n• Time: " + strftime(_time, "%Y-%m-%d %H:%M:%S")
+| eval change_type=case(
+    logid="0100044545", "✅ Added",
+    logid="0100044546", "🗑️ Deleted",
+    logid="0100044547", "🗑️ Deleted",
+    1=1, "📝 Modified"
+  )
+| eval category=case(
+    match(cfg_path, "firewall\.policy"), "🛡️ Firewall Policy",
+    match(cfg_path, "vpn"), "🔐 VPN",
+    match(cfg_path, "system"), "⚙️ System",
+    match(cfg_path, "user"), "👤 User/Group",
+    1=1, "📂 Other"
+  )
+| eval slack_message="⚙️ *CONFIGURATION CHANGE*\n" +
+    "━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+    "*Device:* `" + devname + "`\n" +
+    "*User:* *" + user + "*\n" +
+    "*Category:* " + category + "\n" +
+    "*Action:* " + change_type + "\n\n" +
+    "*Config Path:*\n```" + cfg_path + "```\n\n" +
+    "*Time:* " + strftime(_time, "%Y-%m-%d %H:%M:%S") + "\n" +
+    "_View in Splunk:_ <https://splunk.jclee.me/app/search|Dashboard>"
 | sendalert slack param.message=slack_message
 | table devname, user, cfg_path</query>
         </search>
