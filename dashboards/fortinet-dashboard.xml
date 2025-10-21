@@ -436,7 +436,7 @@
 | rex field=_raw "cfgpath=\"?(?&lt;cfg_path&gt;[^\"]+)\"?"
 | eval change_type=case(
     logid="0100044545", "✅ Added",
-    logid="0100044546", "🗑️ Deleted",
+    logid="0100044546", "✏️ Edited",
     logid="0100044547", "🗑️ Deleted",
     1=1, "📝 Modified"
   )
