@@ -442,7 +442,6 @@
   )
 | eval category=case(
     match(cfg_path, "firewall\.policy"), "🛡️ Firewall Policy",
-    match(cfg_path, "vpn"), "🔐 VPN",
     match(cfg_path, "system"), "⚙️ System",
     match(cfg_path, "user"), "👤 User/Group",
     1=1, "📂 Other"
