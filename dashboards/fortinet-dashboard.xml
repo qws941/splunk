@@ -38,10 +38,6 @@
       <label>📢 Slack 채널</label>
       <default>#splunk-alerts</default>
     </input>
-    <input type="text" token="custom_message">
-      <label>💬 커스텀 메시지 (선택)</label>
-      <default></default>
-    </input>
   </fieldset>
 
   <!-- Row 1: 📊 방화벽 로그 현황 -->
@@ -411,28 +407,16 @@
     </panel>
   </row>
 
-  <!-- Test 1: 단순 텍스트 알림 -->
+  <!-- Slack 알림 테스트 -->
   <row>
     <panel>
-      <title>🧪 Test 1: 단순 텍스트 메시지</title>
-      <table>
-        <search>
-          <query>| makeresults count=1
-| eval message=if(isnotnull("$custom_message$") AND "$custom_message$"!="", "$custom_message$", "🧪 Slack 테스트 메시지 - " + strftime(now(), "%Y-%m-%d %H:%M:%S"))
-| sendalert slack param.channel="$slack_channel$" param.message=message
-| table message</query>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="refresh.display">progressbar</option>
-      </table>
-    </panel>
-    <panel>
-      <title>🔴 Test 2: Critical 이벤트 알림</title>
+      <title>🔴 Critical 이벤트 알림</title>
       <table>
         <search>
           <query>index=fw (level=critical OR level=alert) earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| search NOT msg="*Update Fail*" NOT msg="*Login Fail*"
 | head 1
-| eval slack_message="🚨 *Critical Event Detected*\n\nDevice: " + devname + "\nLevel: " + level + "\nMessage: " + msg + "\nTime: " + strftime(_time, "%Y-%m-%d %H:%M:%S")
+| eval slack_message="🚨 *Critical Event Detected*\n\n• Device: " + devname + "\n• Level: " + level + "\n• Message: " + msg + "\n• Time: " + strftime(_time, "%Y-%m-%d %H:%M:%S")
 | sendalert slack param.channel="$slack_channel$" param.message=slack_message
 | table devname, level, msg</query>
         </search>
@@ -440,37 +424,14 @@
         <option name="refresh.display">progressbar</option>
       </table>
     </panel>
-  </row>
-
-  <!-- Test 3: 차단 통계 알림 -->
-  <row>
     <panel>
-      <title>🛡️ Test 3: 차단 통계 알림</title>
+      <title>⚙️ 설정 변경 알림</title>
       <table>
         <search>
-          <query>index=fw (action=deny OR action=block) earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| stats count as blocked_count by srcip
-| sort - blocked_count
-| head 5
-| streamstats count as rank
-| eval slack_message="🛡️ *차단 통계*\n\nTop 5 차단된 IP:\n• " + srcip + " (" + tostring(blocked_count) + "회)"
-| stats values(slack_message) as lines
-| eval final_message=mvjoin(lines, "\n")
-| sendalert slack param.channel="$slack_channel$" param.message=final_message
-| table final_message</query>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="refresh.display">progressbar</option>
-      </table>
-    </panel>
-    <panel>
-      <title>⚙️ Test 4: 설정 변경 알림</title>
-      <table>
-        <search>
-          <query>index=fw (logid="0100044547" OR logid="0100044546") earliest=$time_picker.earliest$ latest=$time_picker.latest$
+          <query>index=fw (logid="0100044547" OR logid="0100044546" OR logid="0100044545") earliest=$time_picker.earliest$ latest=$time_picker.latest$
 | head 1
 | rex field=_raw "cfgpath=\"?(?&lt;cfg_path&gt;[^\"]+)\"?"
-| eval slack_message="⚙️ *설정 변경 감지*\n\nDevice: " + devname + "\nUser: " + user + "\nConfig: " + cfg_path + "\nTime: " + strftime(_time, "%Y-%m-%d %H:%M:%S")
+| eval slack_message="⚙️ *Config Change Detected*\n\n• Device: " + devname + "\n• User: " + user + "\n• Config Path: " + cfg_path + "\n• Time: " + strftime(_time, "%Y-%m-%d %H:%M:%S")
 | sendalert slack param.channel="$slack_channel$" param.message=slack_message
 | table devname, user, cfg_path</query>
         </search>
@@ -480,73 +441,5 @@
     </panel>
   </row>
 
-  <!-- Test 5: 대시보드 요약 알림 -->
-  <row>
-    <panel>
-      <title>📊 Test 5: 대시보드 요약 알림 (Rich Format)</title>
-      <table>
-        <search>
-          <query>index=fw earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| stats count as total_events,
-        sum(eval(if(level="critical" OR level="alert", 1, 0))) as critical_events,
-        sum(eval(if(action="deny" OR action="block", 1, 0))) as blocked_packets,
-        dc(srcip) as unique_ips,
-        avg(cpu) as avg_cpu,
-        avg(mem) as avg_mem
-| eval slack_message="📊 *FortiGate 대시보드 요약*\n\n*통계:*\n• 전체 이벤트: " + tostring(total_events) + "\n• Critical 이벤트: " + tostring(critical_events) + "\n• 차단된 패킷: " + tostring(blocked_packets) + "\n• 활성 소스 IP: " + tostring(unique_ips) + "\n• 평균 CPU: " + tostring(round(avg_cpu, 1)) + "%\n• 평균 메모리: " + tostring(round(avg_mem, 1)) + "%\n\n_Generated at " + strftime(now(), "%Y-%m-%d %H:%M:%S") + "_"
-| sendalert slack param.channel="$slack_channel$" param.message=slack_message
-| table total_events, critical_events, blocked_packets, unique_ips</query>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="refresh.display">progressbar</option>
-      </table>
-    </panel>
-  </row>
-
-  <!-- 알림 형식 가이드 -->
-  <row>
-    <panel>
-      <html>
-        <div style="padding: 15px; background-color: #f0f8ff; border-left: 4px solid #6DB7C6; margin: 10px 0;">
-          <h4 style="color: #333; margin-top: 0;">💡 알림 형식 가이드</h4>
-          <table style="width: 100%; border-collapse: collapse; color: #666;">
-            <tr style="background-color: #e8f4f8;">
-              <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">형식</th>
-              <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">사용법</th>
-              <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">예시</th>
-            </tr>
-            <tr>
-              <td style="padding: 8px; border: 1px solid #ddd;"><strong>볼드</strong></td>
-              <td style="padding: 8px; border: 1px solid #ddd;"><code>*텍스트*</code></td>
-              <td style="padding: 8px; border: 1px solid #ddd;">*Critical Event*</td>
-            </tr>
-            <tr style="background-color: #f9f9f9;">
-              <td style="padding: 8px; border: 1px solid #ddd;"><strong>이탤릭</strong></td>
-              <td style="padding: 8px; border: 1px solid #ddd;"><code>_텍스트_</code></td>
-              <td style="padding: 8px; border: 1px solid #ddd;">_Generated at 2025-10-21_</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px; border: 1px solid #ddd;"><strong>줄바꿈</strong></td>
-              <td style="padding: 8px; border: 1px solid #ddd;"><code>\n</code></td>
-              <td style="padding: 8px; border: 1px solid #ddd;">Line 1\nLine 2</td>
-            </tr>
-            <tr style="background-color: #f9f9f9;">
-              <td style="padding: 8px; border: 1px solid #ddd;"><strong>리스트</strong></td>
-              <td style="padding: 8px; border: 1px solid #ddd;"><code>• 항목</code> 또는 <code>- 항목</code></td>
-              <td style="padding: 8px; border: 1px solid #ddd;">• Item 1\n• Item 2</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px; border: 1px solid #ddd;"><strong>이모지</strong></td>
-              <td style="padding: 8px; border: 1px solid #ddd;">유니코드 또는 <code>:emoji:</code></td>
-              <td style="padding: 8px; border: 1px solid #ddd;">🚨 :fire: :warning:</td>
-            </tr>
-          </table>
-          <p style="color: #666; margin-top: 10px; font-size: 0.9em;">
-            <strong>참고:</strong> 각 테스트 패널의 검색을 실행하면 자동으로 Slack 알림이 전송됩니다.
-          </p>
-        </div>
-      </html>
-    </panel>
-  </row>
 
 </form>
