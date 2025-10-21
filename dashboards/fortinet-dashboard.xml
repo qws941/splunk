@@ -32,7 +32,7 @@
     </input>
   </fieldset>
 
-  <!-- Row 1: 📊 핵심 KPI 지표 -->
+  <!-- Row 1: 📊 방화벽 로그 현황 -->
   <row>
     <panel>
       <title>🔴 Critical 이벤트</title>
@@ -116,11 +116,11 @@
     </panel>
   </row>
 
-  <!-- Row 2: 🔒 보안 이벤트 분석 -->
+  <!-- Row 2: 🔒 보안 로그 -->
   <row>
     <panel>
       <html>
-        <h2 style="color: #6DB7C6; border-bottom: 2px solid #6DB7C6; padding-bottom: 5px;">🔒 보안 이벤트 분석</h2>
+        <h2 style="color: #6DB7C6; border-bottom: 2px solid #6DB7C6; padding-bottom: 5px;">🔒 보안 로그</h2>
       </html>
     </panel>
   </row>
@@ -191,11 +191,11 @@
     </panel>
   </row>
 
-  <!-- Row 4: 📡 트래픽 분석 -->
+  <!-- Row 4: 📡 트래픽 로그 -->
   <row>
     <panel>
       <html>
-        <h2 style="color: #6DB7C6; border-bottom: 2px solid #6DB7C6; padding-bottom: 5px;">📡 네트워크 트래픽 분석</h2>
+        <h2 style="color: #6DB7C6; border-bottom: 2px solid #6DB7C6; padding-bottom: 5px;">📡 네트워크 트래픽 로그</h2>
       </html>
     </panel>
   </row>
@@ -259,11 +259,11 @@
     </panel>
   </row>
 
-  <!-- Row 5: ⚡ 성능 모니터링 -->
+  <!-- Row 5: ⚡ 성능 데이터 -->
   <row>
     <panel>
       <html>
-        <h2 style="color: #F7BC38; border-bottom: 2px solid #F7BC38; padding-bottom: 5px;">⚡ 디바이스 성능 모니터링</h2>
+        <h2 style="color: #F7BC38; border-bottom: 2px solid #F7BC38; padding-bottom: 5px;">⚡ 디바이스 성능 데이터</h2>
       </html>
     </panel>
   </row>
@@ -661,7 +661,7 @@ node scripts/slack-alert-cli.js \
     </panel>
   </row>
 
-  <!-- Row 8: 실시간 이벤트 스트림 -->
+  <!-- Row 8: 실시간 로그 -->
   <row>
     <panel>
       <title>📡 실시간 이벤트 스트림 (최근 15분, 30초 자동 새로고침)</title>
