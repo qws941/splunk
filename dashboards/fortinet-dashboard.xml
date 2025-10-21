@@ -345,7 +345,7 @@
   </row>
   <row>
     <panel>
-      <title>📢 객체 삭제</title>
+      <title>📢 설정 변경 이력</title>
       <table id="config_changes_table">
         <search>
           <query>index=fw devname=$device_filter$ (logid="0100044547" OR logid="0100044546" OR logid="0100044545") earliest=$time_picker.earliest$ latest=$time_picker.latest$
@@ -409,6 +409,60 @@
         <option name="rowNumbers">true</option>
         <option name="type">list</option>
       </event>
+    </panel>
+  </row>
+
+  <!-- Row 8: Slack 테스트 -->
+  <row>
+    <panel>
+      <html>
+        <div style="padding: 20px; background-color: #f8f9fa; border-left: 4px solid #65A637; margin: 10px 0;">
+          <h3 style="color: #333; margin-top: 0;">📢 Slack 알림 테스트</h3>
+          <p style="color: #666; margin-bottom: 15px;">
+            Splunk Alert Action이 정상적으로 작동하는지 테스트합니다.
+          </p>
+
+          <div style="background-color: #ffffff; padding: 15px; border-radius: 5px; border: 1px solid #ddd;">
+            <h4 style="color: #555; margin-top: 0;">🧪 테스트 방법</h4>
+            <ol style="color: #666; line-height: 1.8;">
+              <li><strong>CLI 테스트 스크립트 실행</strong>
+                <pre style="background-color: #f5f5f5; padding: 10px; border-radius: 3px; overflow-x: auto;">cd /home/jclee/app/splunk/scripts
+./test-slack-notification.sh</pre>
+              </li>
+              <li><strong>Splunk Alert Action 테스트</strong>
+                <ul>
+                  <li>Settings → Searches, reports, and alerts</li>
+                  <li>New Alert 생성</li>
+                  <li>Trigger Actions → Slack 선택</li>
+                  <li>Channel: <code>splunk-alerts</code></li>
+                  <li>Save &amp; Test</li>
+                </ul>
+              </li>
+            </ol>
+          </div>
+
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; border: 1px solid #ffc107; margin-top: 15px;">
+            <h4 style="color: #856404; margin-top: 0;">⚠️ 사전 준비</h4>
+            <ul style="color: #856404; line-height: 1.8;">
+              <li>Slack Bot Token: <code>secrets/slack_token.zip</code> (비밀번호: admin123!)</li>
+              <li>Slack App 설치: <code>plugins/slack-notification-alert_232.tgz</code></li>
+              <li>설치 스크립트: <code>scripts/install-slack-alert.sh</code></li>
+            </ul>
+          </div>
+
+          <div style="margin-top: 15px;">
+            <a href="/app/search/search?q=index%3Dfw%20severity%3Dcritical&amp;earliest=-1h&amp;latest=now"
+               style="display: inline-block; padding: 10px 20px; background-color: #65A637; color: white; text-decoration: none; border-radius: 5px; margin-right: 10px;">
+              🔍 Critical 이벤트 검색
+            </a>
+            <a href="https://git.jclee.me/gitadmin/splunk/src/branch/master/docs/SLACK_TOKEN_SETUP.md"
+               target="_blank"
+               style="display: inline-block; padding: 10px 20px; background-color: #6DB7C6; color: white; text-decoration: none; border-radius: 5px;">
+              📚 설정 가이드
+            </a>
+          </div>
+        </div>
+      </html>
     </panel>
   </row>
 </form>
