@@ -1,126 +1,256 @@
 # Splunk Dashboards
 
-## 🎯 프로덕션 대시보드
+## 🎯 프로덕션 대시보드 (권장)
 
-### fortinet-dashboard.xml ⭐ **권장**
+### fortinet-dashboard.xml ⭐
 **통합 대시보드 - 모든 기능 포함**
 
-```bash
+```
 파일: fortinet-dashboard.xml
-크기: 27KB
+크기: 31KB
 패널: 29개 (8 sections)
 인덱스: index=fw
+상태: ✅ 프로덕션 준비 완료
 ```
 
 **주요 기능**:
-- ✅ 보안 이벤트 분석 (Critical, 차단, 공격 소스)
-- ✅ 위협 인텔리전스 (멀웨어, Botnet, WebFilter)
-- ✅ 트래픽 분석 (대역폭, 프로토콜, 애플리케이션)
-- ✅ 성능 모니터링 (CPU, 메모리, 세션)
-- ✅ 설정 관리 + Slack 드릴다운 알림
-- ✅ Slack 설정 UI (Webhook URL 입력)
-- ✅ 실시간 이벤트 스트림
+- ✅ **보안 이벤트 분석** - Critical 이벤트, 차단 트래픽, 공격 소스
+- ✅ **위협 인텔리전스** - 멀웨어, Botnet, WebFilter, SSL 검사
+- ✅ **트래픽 분석** - 대역폭, 프로토콜, 애플리케이션, 서비스
+- ✅ **성능 모니터링** - CPU, 메모리, 세션, HA 상태
+- ✅ **설정 관리** - 정책 변경 추적, Slack 알림 통합
+- ✅ **실시간 이벤트** - 보안 이벤트 스트림
 
 **특징**:
-- WCAG Level AA 색상 준수
-- Global filters (장비, 시간, 심각도)
-- 설정 변경 행 클릭 → Slack 자동 알림
-- 세션 기반 Webhook URL 저장
+- 🎨 WCAG Level AA 색상 준수 (접근성)
+- 🔍 Global filters (장비, 시간, 심각도)
+- 🔔 Slack 자동 알림 (설정 변경 행 클릭)
+- 💾 세션 기반 Webhook URL 저장
 
 ---
 
-## 📦 레거시 대시보드 (개별)
+## 🚀 배포 방법
 
-### fortinet-config-management-final.xml
-**설정 관리 + Slack 통합 (구버전)**
-- 25KB, Slack 알림 기능
-- ⚠️ `fortinet-dashboard.xml`에 통합됨
-
-### splunk-advanced-dashboard.xml
-**고급 분석 대시보드**
-- 24KB, 복잡한 SPL 쿼리
-- ⚠️ `fortinet-dashboard.xml`에 통합됨
-
-### fortigate-security-overview.xml
-**보안 개요**
-- 6.5KB, 기본 보안 지표
-- ⚠️ `fortinet-dashboard.xml`에 통합됨
-
-### threat-intelligence.xml
-**위협 인텔**
-- 4.7KB, 멀웨어/Botnet
-- ⚠️ `fortinet-dashboard.xml`에 통합됨
-
-### traffic-analysis.xml
-**트래픽 분석**
-- 5.0KB, 대역폭/프로토콜
-- ⚠️ `fortinet-dashboard.xml`에 통합됨
-
-### performance-monitoring.xml
-**성능 모니터링**
-- 5.0KB, CPU/메모리
-- ⚠️ `fortinet-dashboard.xml`에 통합됨
-
----
-
-## 🚀 배포
-
+### Option 1: 자동 배포 (권장)
 ```bash
-# 통합 대시보드 배포
 cd /home/jclee/app/splunk
 node scripts/deploy-dashboards.js
+```
 
-# 또는 Splunk Web UI
-Settings → Dashboards → Import from XML
-→ fortinet-dashboard.xml 선택
+**스크립트가 자동으로**:
+1. Splunk REST API 인증
+2. `fortinet-dashboard.xml` 읽기
+3. Dashboard 생성/업데이트
+4. 권한 설정 (모든 사용자 읽기 가능)
+
+### Option 2: Splunk Web UI
+```
+1. Splunk Web → Settings → Dashboards
+2. "Create New Dashboard" → "Create from XML"
+3. dashboards/fortinet-dashboard.xml 내용 복사
+4. Save
+```
+
+### Option 3: Splunk CLI
+```bash
+# Splunk CLI 사용
+splunk add dashboard fortinet-dashboard \
+  -auth admin:password \
+  -definition dashboards/fortinet-dashboard.xml
 ```
 
 ---
 
-## 🔔 Slack 설정
+## 🔔 Slack 통합 설정
 
-### 1단계: Webhook URL 생성
+### 1단계: Slack Webhook URL 생성
+
 ```
 https://api.slack.com/apps
 → Create New App
 → Incoming Webhooks → Activate
-→ Add New Webhook → 채널 선택
+→ Add New Webhook → 채널 선택 (#splunk-alerts)
+→ Webhook URL 복사
 ```
 
 ### 2단계: 대시보드에서 설정
+
 ```
-1. fortinet-dashboard.xml 열기
-2. "🔧 Slack Webhook 설정" 패널에서 URL 입력
-3. 채널 선택 (#splunk-alerts)
-4. 최소 심각도 선택 (high 권장)
+1. Splunk에서 fortinet-dashboard 열기
+2. "🔧 Slack Webhook 설정" 패널 찾기
+3. Webhook URL 입력
+4. 채널 선택 (#splunk-alerts)
+5. 최소 심각도 선택 (high 권장)
+6. "설정 저장" 클릭
 ```
 
-### 3단계: 백그라운드 프록시 실행
+### 3단계: 백그라운드 프록시 실행 (선택사항)
+
 ```bash
+# .env 파일 설정
 cd /home/jclee/app/splunk
-echo "SLACK_WEBHOOK_URL=YOUR_URL" >> .env
+echo "SLACK_WEBHOOK_URL=https://hooks.slack.com/..." >> .env
+
+# PM2로 프록시 실행
 pm2 start index.js --name slack-proxy
 pm2 save
+
+# 또는 Docker
+docker-compose up -d
 ```
 
 ### 4단계: 테스트
+
 ```bash
 # CLI 테스트
-node scripts/slack-alert-cli.js --webhook="URL" --test
+node scripts/slack-alert-cli.js \
+  --webhook="https://hooks.slack.com/..." \
+  --test
 
 # 대시보드 테스트
-"📢 설정 변경 이력" 테이블에서 행 클릭 → Slack 알림
+1. "📢 설정 변경 이력" 테이블에서 행 클릭
+2. Slack 채널에서 알림 확인
 ```
 
 ---
 
-## 📊 인덱스 정보
+## 📦 Archive (Legacy Dashboards)
 
-- **프로덕션**: `index=fw`
-- **테스트**: `index=fortigate_security`
+**주의**: 아래 대시보드들은 `fortinet-dashboard.xml`에 통합되었습니다.
+개별 사용보다는 통합 대시보드 사용을 권장합니다.
+
+### archive/fortinet-config-management-final.xml
+- 크기: 25KB
+- 기능: 설정 관리 + Slack 통합
+- 상태: ⚠️ 통합 대시보드에 포함됨
+
+### archive/splunk-advanced-dashboard.xml
+- 크기: 24KB
+- 기능: 고급 분석 쿼리
+- 상태: ⚠️ 통합 대시보드에 포함됨
+
+### archive/fortigate-security-overview.xml
+- 크기: 6.5KB
+- 기능: 보안 개요 (8 panels)
+- 상태: ⚠️ 통합 대시보드에 포함됨
+
+### archive/threat-intelligence.xml
+- 크기: 4.7KB
+- 기능: 위협 인텔 (멀웨어, Botnet)
+- 상태: ⚠️ 통합 대시보드에 포함됨
+
+### archive/traffic-analysis.xml
+- 크기: 5.0KB
+- 기능: 트래픽 분석 (대역폭, 프로토콜)
+- 상태: ⚠️ 통합 대시보드에 포함됨
+
+### archive/performance-monitoring.xml
+- 크기: 5.0KB
+- 기능: 성능 모니터링 (CPU, 메모리)
+- 상태: ⚠️ 통합 대시보드에 포함됨
+
+### archive/fortinet-config-management-enhanced.xml
+- 크기: 18KB
+- 기능: 설정 관리 (초기 버전)
+- 상태: ⚠️ 더 나은 버전으로 대체됨
+
+### archive/fortinet-config-management-prd.xml
+- 크기: 25KB
+- 기능: 설정 관리 (PRD 버전)
+- 상태: ⚠️ Final 버전으로 대체됨
 
 ---
 
-**권장**: `fortinet-dashboard.xml` 사용
-**상태**: 프로덕션 준비 완료
-**업데이트**: 2025-10-20
+## 📊 Splunk Index 정보
+
+| 환경 | Index | 용도 |
+|------|-------|------|
+| **프로덕션** | `index=fw` | 실제 FortiGate 로그 |
+| **테스트** | `index=fortigate_security` | 개발/테스트 데이터 |
+
+**대시보드 기본 인덱스**: `index=fw`
+**변경 방법**: XML 파일에서 `index=fw`를 원하는 인덱스로 수정
+
+---
+
+## 🔧 Troubleshooting
+
+### 대시보드가 "No results found" 표시
+
+**원인**: 인덱스에 데이터가 없거나 잘못된 인덱스 사용
+
+**해결**:
+```spl
+# Splunk Search에서 데이터 확인
+index=fw earliest=-1h | head 10
+
+# 다른 인덱스 확인
+| eventcount summarize=false index=* | search count>0
+```
+
+### Slack 알림이 작동하지 않음
+
+**원인 1**: Webhook URL 잘못됨
+```bash
+# 테스트
+curl -X POST "YOUR_WEBHOOK_URL" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Test message"}'
+```
+
+**원인 2**: 프록시 서버 미실행
+```bash
+# 프록시 상태 확인
+pm2 status slack-proxy
+
+# 로그 확인
+pm2 logs slack-proxy
+```
+
+**원인 3**: 방화벽 차단
+```bash
+# Splunk 서버에서 Slack 연결 테스트
+curl -I https://hooks.slack.com
+```
+
+### 대시보드 로딩 느림
+
+**원인**: 너무 긴 시간 범위
+
+**해결**:
+- Time range를 "Last 1 hour"로 변경
+- 또는 대시보드 XML에서 `earliest=-1h` 사용
+
+---
+
+## 📚 추가 문서
+
+- **배포 가이드**: `DEPLOYMENT_GUIDE.md`
+- **통합 테스트 보고서**: `INTEGRATION_TEST_REPORT.md`
+- **최종 검증 보고서**: `FINAL_VALIDATION_REPORT.md`
+- **Slack 프록시 설정**: `../docs/PROXY_SLACK_SETUP_GUIDE.md`
+
+---
+
+## ✨ Quick Start
+
+```bash
+# 1. 대시보드 배포
+node scripts/deploy-dashboards.js
+
+# 2. Slack Webhook 설정 (선택사항)
+echo "SLACK_WEBHOOK_URL=https://hooks.slack.com/..." >> .env
+
+# 3. 프록시 실행 (선택사항)
+pm2 start index.js --name slack-proxy
+
+# 4. Splunk Web UI에서 확인
+open http://YOUR_SPLUNK:8000/app/search/fortinet_dashboard
+```
+
+---
+
+**권장 대시보드**: `fortinet-dashboard.xml`
+**상태**: ✅ 프로덕션 준비 완료
+**마지막 업데이트**: 2025-10-21
+**버전**: 1.0.0
