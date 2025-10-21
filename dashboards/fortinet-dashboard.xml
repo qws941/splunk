@@ -178,9 +178,9 @@
 | stats count as blocked_count by srcip
 | sort - blocked_count
 | head 10
-| eval 순위 = _serial
-| table 순위, srcip, blocked_count
-| rename srcip as "소스 IP", blocked_count as "차단 횟수"</query>
+| eval rank = _serial
+| table rank, srcip, blocked_count
+| rename srcip as "Source IP", blocked_count as "Blocked Count", rank as "Rank"</query>
         </search>
         <option name="drilldown">none</option>
         <option name="rowNumbers">false</option>
@@ -224,7 +224,7 @@
       <chart>
         <search>
           <query>index=fw devname=$device_filter$ earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| eval protocol = coalesce(proto, service, "기타")
+| eval protocol = coalesce(proto, service, "Other")
 | stats count by protocol
 | sort - count
 | head 10</query>
