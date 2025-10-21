@@ -418,8 +418,7 @@
     "*Device:* `" + devname + "`\n" +
     "*Severity:* " + upper(level) + "\n" +
     "*Time:* " + strftime(_time, "%Y-%m-%d %H:%M:%S") + "\n\n" +
-    "*Error Message:*\n```" + msg + "```\n\n" +
-    "_View in Splunk:_ <https://splunk.jclee.me/app/search|Dashboard>"
+    "*Error Message:*\n```" + msg + "```"
 | sendalert slack param.message=slack_message
 | table devname, level, msg</query>
         </search>
@@ -453,8 +452,7 @@
     "*Category:* " + category + "\n" +
     "*Action:* " + change_type + "\n\n" +
     "*Config Path:*\n```" + cfg_path + "```\n\n" +
-    "*Time:* " + strftime(_time, "%Y-%m-%d %H:%M:%S") + "\n" +
-    "_View in Splunk:_ <https://splunk.jclee.me/app/search|Dashboard>"
+    "*Time:* " + strftime(_time, "%Y-%m-%d %H:%M:%S")
 | sendalert slack param.message=slack_message
 | table devname, user, cfg_path</query>
         </search>
