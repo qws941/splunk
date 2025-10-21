@@ -32,6 +32,18 @@
     </input>
   </fieldset>
 
+  <!-- Slack Alert Settings -->
+  <fieldset submitButton="false">
+    <input type="text" token="slack_channel" searchWhenChanged="true">
+      <label>📢 Slack 채널</label>
+      <default>#splunk-alerts</default>
+    </input>
+    <input type="text" token="custom_message">
+      <label>💬 커스텀 메시지 (선택)</label>
+      <default></default>
+    </input>
+  </fieldset>
+
   <!-- Row 1: 📊 방화벽 로그 현황 -->
   <row>
     <panel>
@@ -175,12 +187,12 @@
       <table>
         <search>
           <query>index=fw devname=$device_filter$ (action=deny OR action=block) earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| stats count as blocked_count by srcip, srccountry
+| stats count as blocked_count by srcip
 | sort - blocked_count
 | head 10
 | eval 순위 = _serial
-| table 순위, srcip, srccountry, blocked_count
-| rename srcip as "소스 IP", srccountry as "국가", blocked_count as "차단 횟수"</query>
+| table 순위, srcip, blocked_count
+| rename srcip as "소스 IP", blocked_count as "차단 횟수"</query>
         </search>
         <option name="drilldown">none</option>
         <option name="rowNumbers">false</option>
@@ -390,79 +402,151 @@
     </panel>
   </row>
 
-  <!-- Row 7: 실시간 로그 -->
-  <row>
-    <panel>
-      <title>📡 실시간 이벤트 스트림 (최근 15분, 30초 자동 새로고침)</title>
-      <event>
-        <search>
-          <query>index=fw devname=$device_filter$ earliest=-15m
-| sort - _time
-| head 100</query>
-          <refresh>30s</refresh>
-          <refreshType>delay</refreshType>
-        </search>
-        <option name="count">15</option>
-        <option name="list.drilldown">none</option>
-        <option name="maxLines">3</option>
-        <option name="raw.drilldown">none</option>
-        <option name="rowNumbers">true</option>
-        <option name="type">list</option>
-      </event>
-    </panel>
-  </row>
-
-  <!-- Row 8: Slack 테스트 -->
+  <!-- Slack 알림 테스트 -->
   <row>
     <panel>
       <html>
-        <div style="padding: 20px; background-color: #f8f9fa; border-left: 4px solid #65A637; margin: 10px 0;">
-          <h3 style="color: #333; margin-top: 0;">📢 Slack 알림 테스트</h3>
-          <p style="color: #666; margin-bottom: 15px;">
-            Splunk Alert Action이 정상적으로 작동하는지 테스트합니다.
+        <h2 style="color: #65A637; border-bottom: 2px solid #65A637; padding-bottom: 5px;">📢 Slack 알림 테스트</h2>
+      </html>
+    </panel>
+  </row>
+
+  <!-- Test 1: 단순 텍스트 알림 -->
+  <row>
+    <panel>
+      <title>🧪 Test 1: 단순 텍스트 메시지</title>
+      <table>
+        <search>
+          <query>| makeresults count=1
+| eval message=if(isnotnull("$custom_message$") AND "$custom_message$"!="", "$custom_message$", "🧪 Slack 테스트 메시지 - " + strftime(now(), "%Y-%m-%d %H:%M:%S"))
+| sendalert slack param.channel="$slack_channel$" param.message=message
+| table message</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+    <panel>
+      <title>🔴 Test 2: Critical 이벤트 알림</title>
+      <table>
+        <search>
+          <query>index=fw (level=critical OR level=alert) earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| head 1
+| eval slack_message="🚨 *Critical Event Detected*\n\nDevice: " + devname + "\nLevel: " + level + "\nMessage: " + msg + "\nTime: " + strftime(_time, "%Y-%m-%d %H:%M:%S")
+| sendalert slack param.channel="$slack_channel$" param.message=slack_message
+| table devname, level, msg</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Test 3: 차단 통계 알림 -->
+  <row>
+    <panel>
+      <title>🛡️ Test 3: 차단 통계 알림</title>
+      <table>
+        <search>
+          <query>index=fw (action=deny OR action=block) earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count as blocked_count by srcip
+| sort - blocked_count
+| head 5
+| streamstats count as rank
+| eval slack_message="🛡️ *차단 통계*\n\nTop 5 차단된 IP:\n• " + srcip + " (" + tostring(blocked_count) + "회)"
+| stats values(slack_message) as lines
+| eval final_message=mvjoin(lines, "\n")
+| sendalert slack param.channel="$slack_channel$" param.message=final_message
+| table final_message</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+    <panel>
+      <title>⚙️ Test 4: 설정 변경 알림</title>
+      <table>
+        <search>
+          <query>index=fw (logid="0100044547" OR logid="0100044546") earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| head 1
+| rex field=_raw "cfgpath=\"?(?&lt;cfg_path&gt;[^\"]+)\"?"
+| eval slack_message="⚙️ *설정 변경 감지*\n\nDevice: " + devname + "\nUser: " + user + "\nConfig: " + cfg_path + "\nTime: " + strftime(_time, "%Y-%m-%d %H:%M:%S")
+| sendalert slack param.channel="$slack_channel$" param.message=slack_message
+| table devname, user, cfg_path</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Test 5: 대시보드 요약 알림 -->
+  <row>
+    <panel>
+      <title>📊 Test 5: 대시보드 요약 알림 (Rich Format)</title>
+      <table>
+        <search>
+          <query>index=fw earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count as total_events,
+        sum(eval(if(level="critical" OR level="alert", 1, 0))) as critical_events,
+        sum(eval(if(action="deny" OR action="block", 1, 0))) as blocked_packets,
+        dc(srcip) as unique_ips,
+        avg(cpu) as avg_cpu,
+        avg(mem) as avg_mem
+| eval slack_message="📊 *FortiGate 대시보드 요약*\n\n*통계:*\n• 전체 이벤트: " + tostring(total_events) + "\n• Critical 이벤트: " + tostring(critical_events) + "\n• 차단된 패킷: " + tostring(blocked_packets) + "\n• 활성 소스 IP: " + tostring(unique_ips) + "\n• 평균 CPU: " + tostring(round(avg_cpu, 1)) + "%\n• 평균 메모리: " + tostring(round(avg_mem, 1)) + "%\n\n_Generated at " + strftime(now(), "%Y-%m-%d %H:%M:%S") + "_"
+| sendalert slack param.channel="$slack_channel$" param.message=slack_message
+| table total_events, critical_events, blocked_packets, unique_ips</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- 알림 형식 가이드 -->
+  <row>
+    <panel>
+      <html>
+        <div style="padding: 15px; background-color: #f0f8ff; border-left: 4px solid #6DB7C6; margin: 10px 0;">
+          <h4 style="color: #333; margin-top: 0;">💡 알림 형식 가이드</h4>
+          <table style="width: 100%; border-collapse: collapse; color: #666;">
+            <tr style="background-color: #e8f4f8;">
+              <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">형식</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">사용법</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">예시</th>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;"><strong>볼드</strong></td>
+              <td style="padding: 8px; border: 1px solid #ddd;"><code>*텍스트*</code></td>
+              <td style="padding: 8px; border: 1px solid #ddd;">*Critical Event*</td>
+            </tr>
+            <tr style="background-color: #f9f9f9;">
+              <td style="padding: 8px; border: 1px solid #ddd;"><strong>이탤릭</strong></td>
+              <td style="padding: 8px; border: 1px solid #ddd;"><code>_텍스트_</code></td>
+              <td style="padding: 8px; border: 1px solid #ddd;">_Generated at 2025-10-21_</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;"><strong>줄바꿈</strong></td>
+              <td style="padding: 8px; border: 1px solid #ddd;"><code>\n</code></td>
+              <td style="padding: 8px; border: 1px solid #ddd;">Line 1\nLine 2</td>
+            </tr>
+            <tr style="background-color: #f9f9f9;">
+              <td style="padding: 8px; border: 1px solid #ddd;"><strong>리스트</strong></td>
+              <td style="padding: 8px; border: 1px solid #ddd;"><code>• 항목</code> 또는 <code>- 항목</code></td>
+              <td style="padding: 8px; border: 1px solid #ddd;">• Item 1\n• Item 2</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;"><strong>이모지</strong></td>
+              <td style="padding: 8px; border: 1px solid #ddd;">유니코드 또는 <code>:emoji:</code></td>
+              <td style="padding: 8px; border: 1px solid #ddd;">🚨 :fire: :warning:</td>
+            </tr>
+          </table>
+          <p style="color: #666; margin-top: 10px; font-size: 0.9em;">
+            <strong>참고:</strong> 각 테스트 패널의 검색을 실행하면 자동으로 Slack 알림이 전송됩니다.
           </p>
-
-          <div style="background-color: #ffffff; padding: 15px; border-radius: 5px; border: 1px solid #ddd;">
-            <h4 style="color: #555; margin-top: 0;">🧪 테스트 방법</h4>
-            <ol style="color: #666; line-height: 1.8;">
-              <li><strong>CLI 테스트 스크립트 실행</strong>
-                <pre style="background-color: #f5f5f5; padding: 10px; border-radius: 3px; overflow-x: auto;">cd /home/jclee/app/splunk/scripts
-./test-slack-notification.sh</pre>
-              </li>
-              <li><strong>Splunk Alert Action 테스트</strong>
-                <ul>
-                  <li>Settings → Searches, reports, and alerts</li>
-                  <li>New Alert 생성</li>
-                  <li>Trigger Actions → Slack 선택</li>
-                  <li>Channel: <code>splunk-alerts</code></li>
-                  <li>Save &amp; Test</li>
-                </ul>
-              </li>
-            </ol>
-          </div>
-
-          <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; border: 1px solid #ffc107; margin-top: 15px;">
-            <h4 style="color: #856404; margin-top: 0;">⚠️ 사전 준비</h4>
-            <ul style="color: #856404; line-height: 1.8;">
-              <li>Slack Bot Token: <code>secrets/slack_token.zip</code> (비밀번호: admin123!)</li>
-              <li>Slack App 설치: <code>plugins/slack-notification-alert_232.tgz</code></li>
-              <li>설치 스크립트: <code>scripts/install-slack-alert.sh</code></li>
-            </ul>
-          </div>
-
-          <div style="margin-top: 15px;">
-            <a href="/app/search/search?q=index%3Dfw%20severity%3Dcritical&amp;earliest=-1h&amp;latest=now"
-               style="display: inline-block; padding: 10px 20px; background-color: #65A637; color: white; text-decoration: none; border-radius: 5px; margin-right: 10px;">
-              🔍 Critical 이벤트 검색
-            </a>
-            <a href="https://git.jclee.me/gitadmin/splunk/src/branch/master/docs/SLACK_TOKEN_SETUP.md"
-               target="_blank"
-               style="display: inline-block; padding: 10px 20px; background-color: #6DB7C6; color: white; text-decoration: none; border-radius: 5px;">
-              📚 설정 가이드
-            </a>
-          </div>
         </div>
       </html>
     </panel>
   </row>
+
 </form>
