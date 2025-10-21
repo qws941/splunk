@@ -14,12 +14,10 @@
 ```
 
 **주요 기능**:
-- ✅ **보안 이벤트 분석** - Critical 이벤트, 차단 트래픽, 공격 소스
-- ✅ **위협 인텔리전스** - 멀웨어, Botnet, WebFilter, SSL 검사
-- ✅ **트래픽 분석** - 대역폭, 프로토콜, 애플리케이션, 서비스
+- ✅ **트래픽 분석** - 대역폭, 프로토콜, 애플리케이션, 서비스 사용량
 - ✅ **성능 모니터링** - CPU, 메모리, 세션, HA 상태
-- ✅ **설정 관리** - 정책 변경 추적, Slack 알림 통합
-- ✅ **실시간 이벤트** - 보안 이벤트 스트림
+- ✅ **설정 변경 추적** - 정책 변경 이력, Slack 알림 통합
+- ✅ **보안 로그** - FortiGate 방화벽 로그 실시간 수집
 
 **특징**:
 - 🎨 WCAG Level AA 색상 준수 (접근성)
@@ -114,53 +112,6 @@ node scripts/slack-alert-cli.js \
 
 ---
 
-## 📦 Archive (Legacy Dashboards)
-
-**주의**: 아래 대시보드들은 `fortinet-dashboard.xml`에 통합되었습니다.
-개별 사용보다는 통합 대시보드 사용을 권장합니다.
-
-### archive/fortinet-config-management-final.xml
-- 크기: 25KB
-- 기능: 설정 관리 + Slack 통합
-- 상태: ⚠️ 통합 대시보드에 포함됨
-
-### archive/splunk-advanced-dashboard.xml
-- 크기: 24KB
-- 기능: 고급 분석 쿼리
-- 상태: ⚠️ 통합 대시보드에 포함됨
-
-### archive/fortigate-security-overview.xml
-- 크기: 6.5KB
-- 기능: 보안 개요 (8 panels)
-- 상태: ⚠️ 통합 대시보드에 포함됨
-
-### archive/threat-intelligence.xml
-- 크기: 4.7KB
-- 기능: 위협 인텔 (멀웨어, Botnet)
-- 상태: ⚠️ 통합 대시보드에 포함됨
-
-### archive/traffic-analysis.xml
-- 크기: 5.0KB
-- 기능: 트래픽 분석 (대역폭, 프로토콜)
-- 상태: ⚠️ 통합 대시보드에 포함됨
-
-### archive/performance-monitoring.xml
-- 크기: 5.0KB
-- 기능: 성능 모니터링 (CPU, 메모리)
-- 상태: ⚠️ 통합 대시보드에 포함됨
-
-### archive/fortinet-config-management-enhanced.xml
-- 크기: 18KB
-- 기능: 설정 관리 (초기 버전)
-- 상태: ⚠️ 더 나은 버전으로 대체됨
-
-### archive/fortinet-config-management-prd.xml
-- 크기: 25KB
-- 기능: 설정 관리 (PRD 버전)
-- 상태: ⚠️ Final 버전으로 대체됨
-
----
-
 ## 📊 Splunk Index 정보
 
 | 환경 | Index | 용도 |
@@ -225,10 +176,8 @@ curl -I https://hooks.slack.com
 
 ## 📚 추가 문서
 
-- **배포 가이드**: `DEPLOYMENT_GUIDE.md`
-- **통합 테스트 보고서**: `INTEGRATION_TEST_REPORT.md`
-- **최종 검증 보고서**: `FINAL_VALIDATION_REPORT.md`
-- **Slack 프록시 설정**: `../docs/PROXY_SLACK_SETUP_GUIDE.md`
+- **Slack 프록시 설정**: `../PROXY_SLACK_SETUP_GUIDE.md`
+- **프로젝트 구조**: `../PROJECT_STRUCTURE.md`
 
 ---
 
