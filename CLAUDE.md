@@ -186,12 +186,30 @@ METRICS_ENABLED=true
 
 ## 🚀 Essential Commands
 
+### Configuration Validation
+
+```bash
+# 전체 설정 검증 (FAZ, Splunk HEC, Slack)
+./scripts/validate-config.sh
+
+# Slack 토큰 추출 (암호화된 ZIP에서)
+./scripts/extract-slack-token.sh
+
+# 출력 예시:
+# ✓ FAZ_HOST: your-fortianalyzer.example.com
+# ✓ Splunk HEC is healthy
+# ✗ Slack API authentication failed → 토큰 업데이트 필요
+```
+
 ### Local Development
 
 ```bash
 # 환경 설정
 cp .env.example .env
 # .env 파일 편집 후:
+
+# 설정 검증 (필수!)
+./scripts/validate-config.sh
 
 # 로컬 실행 (Node.js 18+)
 npm start
@@ -976,12 +994,17 @@ if (processor.shouldAlert(event)) {
 
 ## 📚 Additional Documentation
 
-- **파일 구조 가이드**: `FILE_ORGANIZATION.md` - 모든 파일의 용도와 사용법
-- **Cloudflare 배포 가이드**: `docs/CLOUDFLARE_DEPLOYMENT.md`
-- **프로덕션 배포 가이드**: `docs/PRD_DEPLOYMENT_GUIDE.md`
-- **최종 배포 요약**: `docs/DEPLOYMENT_SUMMARY_FINAL.md`
+### Configuration & Deployment
+- **설정 검증**: `scripts/validate-config.sh` - 환경 변수 및 연결 테스트
+- **유효한 설정 예제**: `docs/VALID_CONFIG_EXAMPLES.md` - GitHub 검색 기반 실제 설정
+- **Cloudflare 배포**: `docs/CLOUDFLARE_DEPLOYMENT.md`
+- **프로덕션 배포**: `docs/PRD_DEPLOYMENT_GUIDE.md`
 - **Slack 프록시 설정**: `PROXY_SLACK_SETUP_GUIDE.md`
+
+### Monitoring & Dashboards
+- **활성 세션수 가이드**: `docs/ACTIVE_SESSIONS_GUIDE.md` - FortiGate 세션 모니터링 상세 설명
 - **대시보드 가이드**: `README_DASHBOARDS.md`
+- **파일 구조**: `FILE_ORGANIZATION.md`
 
 ## 🔄 Git Workflow & Repository Management
 
