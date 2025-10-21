@@ -358,7 +358,7 @@
 | eval parsed_value = config_path + " / " + config_object + " [" + config_attr + "]"
 | eval change_type = case(
     logid="0100044547", "삭제",
-    logid="0100044546", "삭제",
+    logid="0100044546", "수정",
     logid="0100044545", "추가",
     1=1, "기타"
   )
