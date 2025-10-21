@@ -32,14 +32,6 @@
     </input>
   </fieldset>
 
-  <!-- Slack Alert Settings -->
-  <fieldset submitButton="false">
-    <input type="text" token="slack_channel" searchWhenChanged="true">
-      <label>📢 Slack 채널</label>
-      <default>#splunk-alerts</default>
-    </input>
-  </fieldset>
-
   <!-- Row 1: 📊 방화벽 로그 현황 -->
   <row>
     <panel>
@@ -417,7 +409,7 @@
 | search NOT msg="*Update Fail*" NOT msg="*Login Fail*"
 | head 1
 | eval slack_message="🚨 *Critical Event Detected*\n\n• Device: " + devname + "\n• Level: " + level + "\n• Message: " + msg + "\n• Time: " + strftime(_time, "%Y-%m-%d %H:%M:%S")
-| sendalert slack param.channel="$slack_channel$" param.message=slack_message
+| sendalert slack param.message=slack_message
 | table devname, level, msg</query>
         </search>
         <option name="drilldown">none</option>
@@ -432,7 +424,7 @@
 | head 1
 | rex field=_raw "cfgpath=\"?(?&lt;cfg_path&gt;[^\"]+)\"?"
 | eval slack_message="⚙️ *Config Change Detected*\n\n• Device: " + devname + "\n• User: " + user + "\n• Config Path: " + cfg_path + "\n• Time: " + strftime(_time, "%Y-%m-%d %H:%M:%S")
-| sendalert slack param.channel="$slack_channel$" param.message=slack_message
+| sendalert slack param.message=slack_message
 | table devname, user, cfg_path</query>
         </search>
         <option name="drilldown">none</option>
