@@ -28,7 +28,7 @@
       <label>Action Recommendation</label>
       <choice value="*">All Actions</choice>
       <choice value="AUTO_BLOCK">Auto-Block</choice>
-      <choice value="REVIEW_AND_BLOCK">Review & Block</choice>
+      <choice value="REVIEW_AND_BLOCK">Review &amp; Block</choice>
       <choice value="MONITOR">Monitor Only</choice>
       <default>*</default>
     </input>

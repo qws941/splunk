@@ -269,7 +269,7 @@ index=fw
           "Critical (90-100)":"#DC143C",
           "High (75-89)":"#FF6347",
           "Medium (50-74)":"#FFD700",
-          "Low (<50)":"#32CD32"
+          "Low (&lt;50)":"#32CD32"
         }</option>
         <option name="height">350</option>
       </chart>
