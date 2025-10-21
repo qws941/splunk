@@ -1,0 +1,526 @@
+<form version="1.1" theme="dark">
+  <label>🔗 Fortinet Correlation Analysis Dashboard</label>
+  <description>Advanced multi-signal threat correlation and automated response monitoring (Phase 4.1)</description>
+
+  <!-- Global Time Picker -->
+  <fieldset submitButton="true" autoRun="true">
+    <input type="time" token="time_picker">
+      <label>Time Range</label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+
+    <input type="dropdown" token="correlation_type_filter">
+      <label>Correlation Type</label>
+      <choice value="*">All Types</choice>
+      <choice value="multi_factor_threat">Multi-Factor Threat</choice>
+      <choice value="repeated_high_risk">Repeated High-Risk Events</choice>
+      <choice value="weak_signal_combo">Weak Signal Combination</choice>
+      <choice value="geo_attack_pattern">Geo + Attack Pattern</choice>
+      <choice value="time_anomaly">Time-Based Anomaly</choice>
+      <choice value="cross_event_type">Cross-Event Type</choice>
+      <default>*</default>
+    </input>
+
+    <input type="dropdown" token="action_filter">
+      <label>Action Recommendation</label>
+      <choice value="*">All Actions</choice>
+      <choice value="AUTO_BLOCK">Auto-Block</choice>
+      <choice value="REVIEW_AND_BLOCK">Review & Block</choice>
+      <choice value="MONITOR">Monitor Only</choice>
+      <default>*</default>
+    </input>
+  </fieldset>
+
+  <!-- Row 1: KPI Metrics -->
+  <row>
+    <panel>
+      <title>📊 Total Correlated Threats</title>
+      <single>
+        <search>
+          <query>
+index=summary_fw marker="correlation_detection=$correlation_type_filter$" earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats dc(src_ip) as unique_threats
+          </query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0x65A637","0xF7BC38","0xF58F39","0xD93F3C"]</option>
+        <option name="rangeValues">[10,50,100]</option>
+        <option name="underLabel">Unique IPs</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>🚫 Auto-Block Triggered</title>
+      <single>
+        <search>
+          <query>
+index=summary_fw marker="correlation_detection=$correlation_type_filter$" action_recommendation="AUTO_BLOCK" earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats dc(src_ip) as auto_blocks
+          </query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0x65A637","0xF7BC38","0xF58F39","0xD93F3C"]</option>
+        <option name="rangeValues">[5,20,50]</option>
+        <option name="underLabel">IPs Blocked</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>⚠️ Review Required</title>
+      <single>
+        <search>
+          <query>
+index=summary_fw marker="correlation_detection=$correlation_type_filter$" action_recommendation="REVIEW_AND_BLOCK" earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats dc(src_ip) as review_required
+          </query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0x65A637","0xF7BC38","0xF58F39","0xD93F3C"]</option>
+        <option name="rangeValues">[10,30,60]</option>
+        <option name="underLabel">Pending Review</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>📈 Avg Correlation Score</title>
+      <single>
+        <search>
+          <query>
+index=summary_fw marker="correlation_detection=$correlation_type_filter$" earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats avg(correlation_score) as avg_score
+| eval avg_score = round(avg_score, 2)
+          </query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0x65A637","0xF7BC38","0xF58F39","0xD93F3C"]</option>
+        <option name="rangeValues">[70,80,90]</option>
+        <option name="underLabel">Score (0-100)</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+
+  <!-- Row 2: Correlation Timeline & Distribution -->
+  <row>
+    <panel>
+      <title>📉 Correlation Detections Over Time</title>
+      <chart>
+        <search>
+          <query>
+index=summary_fw marker="correlation_detection=$correlation_type_filter$" earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| rex field=marker "correlation_detection=(?&lt;correlation_type&gt;.*)"
+| timechart span=1h count by correlation_rule
+          </query>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.axisTitleX.text">Time</option>
+        <option name="charting.axisTitleY.text">Detections</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.drilldown">all</option>
+      </chart>
+    </panel>
+
+    <panel>
+      <title>📊 Correlation Type Distribution</title>
+      <chart>
+        <search>
+          <query>
+index=summary_fw marker="correlation_detection=$correlation_type_filter$" earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count by correlation_rule
+| sort - count
+          </query>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">all</option>
+        <option name="charting.legend.placement">right</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Row 3: Top Correlated Threats -->
+  <row>
+    <panel>
+      <title>🎯 Top 20 Correlated Threat Sources (Last 24h)</title>
+      <table>
+        <search>
+          <query>
+index=summary_fw marker="correlation_detection=$correlation_type_filter$" action_recommendation="$action_filter$" earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| rex field=marker "correlation_detection=(?&lt;correlation_type&gt;.*)"
+| stats count as detections,
+    avg(correlation_score) as avg_score,
+    max(correlation_score) as max_score,
+    latest(_time) as last_detected,
+    values(correlation_rule) as rules_triggered,
+    values(action_recommendation) as actions,
+    values(country) as countries,
+    values(abuse_score) as abuse_scores
+  by src_ip
+| eval avg_score = round(avg_score, 2)
+| eval last_detected = strftime(last_detected, "%Y-%m-%d %H:%M:%S")
+| sort - max_score
+| head 20
+| rename src_ip as "Source IP",
+    detections as "Detections",
+    avg_score as "Avg Score",
+    max_score as "Max Score",
+    last_detected as "Last Detected",
+    rules_triggered as "Rules Triggered",
+    actions as "Recommendations",
+    countries as "Country",
+    abuse_scores as "Abuse Score"
+          </query>
+        </search>
+        <option name="drilldown">row</option>
+        <option name="rowNumbers">true</option>
+        <option name="wrap">false</option>
+        <format type="color" field="Max Score">
+          <colorPalette type="list">[#65A637,#F7BC38,#F58F39,#D93F3C]</colorPalette>
+          <scale type="threshold">70,80,90</scale>
+        </format>
+        <format type="color" field="Recommendations">
+          <colorPalette type="map">{"AUTO_BLOCK":#D93F3C,"REVIEW_AND_BLOCK":#F58F39,"MONITOR":#F7BC38}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 4: Multi-Factor Threat Analysis -->
+  <row>
+    <panel>
+      <title>🔍 Multi-Factor Threat Score Breakdown</title>
+      <table>
+        <search>
+          <query>
+index=summary_fw marker="correlation_detection=multi_factor_threat" earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count as event_count,
+    avg(correlation_score) as avg_correlation_score,
+    max(correlation_score) as max_correlation_score,
+    latest(failed_login_count) as failed_logins,
+    values(countries) as countries,
+    values(abuse_scores) as abuse_scores,
+    values(action_recommendation) as action
+  by src_ip
+| eval avg_correlation_score = round(avg_correlation_score, 2)
+| sort - max_correlation_score
+| head 20
+| rename src_ip as "Source IP",
+    event_count as "Events",
+    avg_correlation_score as "Avg Score",
+    max_correlation_score as "Max Score",
+    failed_logins as "Failed Logins",
+    countries as "Country",
+    abuse_scores as "Abuse Score",
+    action as "Action"
+          </query>
+        </search>
+        <option name="drilldown">row</option>
+        <option name="rowNumbers">true</option>
+        <format type="color" field="Max Score">
+          <colorPalette type="list">[#65A637,#F7BC38,#F58F39,#D93F3C]</colorPalette>
+          <scale type="threshold">75,85,95</scale>
+        </format>
+        <format type="color" field="Action">
+          <colorPalette type="map">{"AUTO_BLOCK":#D93F3C,"REVIEW_AND_BLOCK":#F58F39,"MONITOR":#F7BC38}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 5: Repeated High-Risk Events -->
+  <row>
+    <panel>
+      <title>🔄 Repeated High-Risk Event Patterns</title>
+      <table>
+        <search>
+          <query>
+index=summary_fw marker="correlation_detection=repeated_high_risk" earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count as pattern_count,
+    avg(correlation_score) as avg_score,
+    max(correlation_score) as max_score,
+    sum(event_count) as total_events,
+    values(severities) as severities,
+    values(attack_types) as attack_types,
+    values(action_recommendation) as action
+  by src_ip
+| eval avg_score = round(avg_score, 2)
+| sort - max_score
+| head 20
+| rename src_ip as "Source IP",
+    pattern_count as "Patterns",
+    avg_score as "Avg Score",
+    max_score as "Max Score",
+    total_events as "Total Events",
+    severities as "Severities",
+    attack_types as "Attack Types",
+    action as "Action"
+          </query>
+        </search>
+        <option name="drilldown">row</option>
+        <option name="rowNumbers">true</option>
+        <format type="color" field="Max Score">
+          <colorPalette type="list">[#65A637,#F7BC38,#F58F39,#D93F3C]</colorPalette>
+          <scale type="threshold">70,80,90</scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 6: Weak Signal Combinations -->
+  <row>
+    <panel>
+      <title>🔬 Weak Signal Correlation Matrix</title>
+      <table>
+        <search>
+          <query>
+index=summary_fw marker="correlation_detection=weak_signal_combo" earliest=$time_picker.earliest$ latest=$time_picker.earliest$
+| stats count as detections,
+    avg(weak_signals_count) as avg_signals,
+    max(correlation_score) as max_score,
+    values(detected_signals) as signals_detected,
+    sum(event_count) as total_events,
+    values(action_recommendation) as action
+  by src_ip
+| eval avg_signals = round(avg_signals, 1)
+| sort - max_score
+| head 20
+| rename src_ip as "Source IP",
+    detections as "Detections",
+    avg_signals as "Avg Signals",
+    max_score as "Max Score",
+    signals_detected as "Signals Detected",
+    total_events as "Total Events",
+    action as "Action"
+          </query>
+        </search>
+        <option name="drilldown">row</option>
+        <option name="rowNumbers">true</option>
+        <format type="color" field="Max Score">
+          <colorPalette type="list">[#65A637,#F7BC38,#F58F39,#D93F3C]</colorPalette>
+          <scale type="threshold">75,85,95</scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 7: Geo-Location Risk Analysis -->
+  <row>
+    <panel>
+      <title>🌍 Geographic Correlation Heatmap</title>
+      <chart>
+        <search>
+          <query>
+index=summary_fw marker="correlation_detection=$correlation_type_filter$" earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count as detections,
+    avg(correlation_score) as avg_score,
+    sum(eval(if(action_recommendation="AUTO_BLOCK", 1, 0))) as auto_blocks
+  by country
+| sort - detections
+| head 20
+| eval avg_score = round(avg_score, 2)
+          </query>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.axisTitleX.text">Country</option>
+        <option name="charting.axisTitleY.text">Detections</option>
+        <option name="charting.legend.placement">none</option>
+        <option name="charting.drilldown">all</option>
+      </chart>
+    </panel>
+
+    <panel>
+      <title>🎯 Geo + Attack Pattern Detections</title>
+      <table>
+        <search>
+          <query>
+index=summary_fw marker="correlation_detection=geo_attack_pattern" earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count as detections,
+    max(correlation_score) as max_score,
+    sum(attack_events) as total_attacks,
+    sum(critical_events) as critical_events,
+    values(attack_types) as attack_types,
+    values(action_recommendation) as action
+  by src_ip, country
+| sort - max_score
+| head 20
+| rename src_ip as "Source IP",
+    country as "Country",
+    detections as "Detections",
+    max_score as "Max Score",
+    total_attacks as "Attack Events",
+    critical_events as "Critical",
+    attack_types as "Attack Types",
+    action as "Action"
+          </query>
+        </search>
+        <option name="drilldown">row</option>
+        <option name="rowNumbers">true</option>
+        <format type="color" field="Max Score">
+          <colorPalette type="list">[#65A637,#F7BC38,#F58F39,#D93F3C]</colorPalette>
+          <scale type="threshold">75,85,95</scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 8: Time-Based Anomaly Detection -->
+  <row>
+    <panel>
+      <title>⏰ Time-Based Anomaly Spikes</title>
+      <table>
+        <search>
+          <query>
+index=summary_fw marker="correlation_detection=time_anomaly" earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count as anomalies,
+    avg(z_score) as avg_z_score,
+    max(z_score) as max_z_score,
+    avg(spike_ratio) as avg_spike_ratio,
+    max(spike_ratio) as max_spike_ratio,
+    max(correlation_score) as max_score,
+    values(action_recommendation) as action
+  by src_ip
+| eval avg_z_score = round(avg_z_score, 2)
+| eval max_z_score = round(max_z_score, 2)
+| eval avg_spike_ratio = round(avg_spike_ratio, 1) + "x"
+| eval max_spike_ratio = round(max_spike_ratio, 1) + "x"
+| sort - max_score
+| head 20
+| rename src_ip as "Source IP",
+    anomalies as "Anomalies",
+    avg_z_score as "Avg Z-Score",
+    max_z_score as "Max Z-Score",
+    avg_spike_ratio as "Avg Spike",
+    max_spike_ratio as "Max Spike",
+    max_score as "Max Score",
+    action as "Action"
+          </query>
+        </search>
+        <option name="drilldown">row</option>
+        <option name="rowNumbers">true</option>
+        <format type="color" field="Max Score">
+          <colorPalette type="list">[#65A637,#F7BC38,#F58F39,#D93F3C]</colorPalette>
+          <scale type="threshold">75,85,95</scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 9: Cross-Event Type Correlation -->
+  <row>
+    <panel>
+      <title>🎭 Sophisticated Attacker Profiles (Multiple Tactics)</title>
+      <table>
+        <search>
+          <query>
+index=summary_fw marker="correlation_detection=cross_event_type" earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count as profile_detections,
+    avg(unique_attack_types) as avg_tactics,
+    max(unique_attack_types) as max_tactics,
+    max(correlation_score) as max_score,
+    values(attack_types) as attack_types,
+    sum(event_count) as total_events,
+    values(threat_profile) as threat_profile,
+    values(action_recommendation) as action
+  by src_ip
+| eval avg_tactics = round(avg_tactics, 1)
+| sort - max_score
+| head 20
+| rename src_ip as "Source IP",
+    profile_detections as "Detections",
+    avg_tactics as "Avg Tactics",
+    max_tactics as "Max Tactics",
+    max_score as "Max Score",
+    attack_types as "Attack Types",
+    total_events as "Total Events",
+    threat_profile as "Threat Profile",
+    action as "Action"
+          </query>
+        </search>
+        <option name="drilldown">row</option>
+        <option name="rowNumbers">true</option>
+        <format type="color" field="Max Score">
+          <colorPalette type="list">[#65A637,#F7BC38,#F58F39,#D93F3C]</colorPalette>
+          <scale type="threshold">75,85,95</scale>
+        </format>
+        <format type="color" field="Max Tactics">
+          <colorPalette type="list">[#F7BC38,#F58F39,#D93F3C]</colorPalette>
+          <scale type="threshold">4,5</scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 10: Automated Response Audit Trail -->
+  <row>
+    <panel>
+      <title>🤖 Automated Response Actions Log</title>
+      <table>
+        <search>
+          <query>
+index=_internal source=*fortigate_auto_block.log earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| rex field=_raw "action=(?&lt;action&gt;\w+)\s+ip=(?&lt;blocked_ip&gt;[\d\.]+)\s+score=(?&lt;score&gt;[\d\.]+)\s+rule=(?&lt;rule&gt;[^\s]+)"
+| stats count as actions,
+    latest(_time) as last_action,
+    values(action) as action_types,
+    values(rule) as triggered_rules,
+    avg(score) as avg_score
+  by blocked_ip
+| eval last_action = strftime(last_action, "%Y-%m-%d %H:%M:%S")
+| eval avg_score = round(avg_score, 2)
+| sort - last_action
+| head 50
+| rename blocked_ip as "Blocked IP",
+    actions as "Actions",
+    last_action as "Last Action",
+    action_types as "Action Types",
+    triggered_rules as "Correlation Rules",
+    avg_score as "Avg Score"
+          </query>
+        </search>
+        <option name="drilldown">row</option>
+        <option name="rowNumbers">true</option>
+        <option name="wrap">false</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 11: Correlation Performance Metrics -->
+  <row>
+    <panel>
+      <title>⚡ Correlation Engine Performance</title>
+      <table>
+        <search>
+          <query>
+index=_internal source=*scheduler.log savedsearch_name="Correlation_*" earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| rex field=savedsearch_name "Correlation_(?&lt;correlation_type&gt;.*)"
+| stats count as executions,
+    avg(run_time) as avg_runtime,
+    max(run_time) as max_runtime,
+    sum(eval(if(status="success", 1, 0))) as successful,
+    sum(eval(if(status="failed", 1, 0))) as failed
+  by savedsearch_name
+| eval avg_runtime = round(avg_runtime, 2) + "s"
+| eval max_runtime = round(max_runtime, 2) + "s"
+| eval success_rate = round((successful / executions) * 100, 2) + "%"
+| sort - executions
+| rename savedsearch_name as "Correlation Search",
+    executions as "Executions",
+    avg_runtime as "Avg Runtime",
+    max_runtime as "Max Runtime",
+    successful as "Successful",
+    failed as "Failed",
+    success_rate as "Success Rate"
+          </query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rowNumbers">true</option>
+      </table>
+    </panel>
+  </row>
+</form>
