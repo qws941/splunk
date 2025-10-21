@@ -1,0 +1,21 @@
+ip,description,added_at,added_by
+# IP Whitelist - Trusted IPs that should NEVER be blocked
+#
+# This file prevents the automated blocking system from blocking trusted IP addresses.
+# Add internal networks, trusted partners, and critical infrastructure IPs here.
+#
+# Fields:
+# - ip: IPv4 address (e.g., 192.168.1.1)
+# - description: Purpose or owner of the IP
+# - added_at: ISO8601 timestamp when added
+# - added_by: Person or system that added the whitelist entry
+#
+# Example entries:
+# 10.0.0.1,Internal Gateway,2025-10-21T10:00:00Z,admin
+# 192.168.1.100,Security Scanner,2025-10-21T10:00:00Z,admin
+# 172.16.0.50,VPN Endpoint,2025-10-21T10:00:00Z,admin
+#
+# IMPORTANT:
+# - Add all RFC1918 private networks if blocking internal traffic is not desired
+# - Add NAT/Proxy IPs to avoid blocking legitimate users
+# - Review this list quarterly and remove outdated entries
