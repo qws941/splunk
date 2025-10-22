@@ -12,7 +12,7 @@
       </default>
     </input>
 
-    <input type="dropdown" token="correlation_type_filter">
+    <input type="dropdown" token="event_category_filter">
       <label>Correlation Type</label>
       <choice value="*">All Types</choice>
       <choice value="multi_factor_threat">Multi-Factor Threat</choice>
@@ -37,52 +37,52 @@
   <!-- Row 1: KPI Metrics -->
   <row>
     <panel>
-      <title>📊 Total Correlated Threats</title>
+      <title>🚫 Deny Events (차단된 이벤트)</title>
       <single>
         <search>
           <query>
-index=summary_fw marker="correlation_detection=$correlation_type_filter$" earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| stats dc(src_ip) as unique_threats
+index=fw action=deny earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count as deny_events
+          </query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0x65A637","0xF7BC38","0xF58F39","0xD93F3C"]</option>
+        <option name="rangeValues">[100,500,1000]</option>
+        <option name="underLabel">Total Deny Events</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>🔴 Critical Severity Events</title>
+      <single>
+        <search>
+          <query>
+index=fw severity=critical earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count as critical_events
           </query>
         </search>
         <option name="drilldown">none</option>
         <option name="rangeColors">["0x65A637","0xF7BC38","0xF58F39","0xD93F3C"]</option>
         <option name="rangeValues">[10,50,100]</option>
-        <option name="underLabel">Unique IPs</option>
+        <option name="underLabel">Critical Threats</option>
         <option name="useColors">1</option>
       </single>
     </panel>
 
     <panel>
-      <title>🚫 Auto-Block Triggered</title>
+      <title>🟡 High Severity Events</title>
       <single>
         <search>
           <query>
-index=summary_fw marker="correlation_detection=$correlation_type_filter$" action_recommendation="AUTO_BLOCK" earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| stats dc(src_ip) as auto_blocks
+index=fw severity=high earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count as high_events
           </query>
         </search>
         <option name="drilldown">none</option>
         <option name="rangeColors">["0x65A637","0xF7BC38","0xF58F39","0xD93F3C"]</option>
-        <option name="rangeValues">[5,20,50]</option>
-        <option name="underLabel">IPs Blocked</option>
-        <option name="useColors">1</option>
-      </single>
-    </panel>
-
-    <panel>
-      <title>⚠️ Review Required</title>
-      <single>
-        <search>
-          <query>
-index=summary_fw marker="correlation_detection=$correlation_type_filter$" action_recommendation="REVIEW_AND_BLOCK" earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| stats dc(src_ip) as review_required
-          </query>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="rangeColors">["0x65A637","0xF7BC38","0xF58F39","0xD93F3C"]</option>
-        <option name="rangeValues">[10,30,60]</option>
-        <option name="underLabel">Pending Review</option>
+        <option name="rangeValues">[50,200,500]</option>
+        <option name="underLabel">High Priority Threats</option>
         <option name="useColors">1</option>
       </single>
     </panel>
@@ -92,8 +92,8 @@ index=summary_fw marker="correlation_detection=$correlation_type_filter$" action
       <single>
         <search>
           <query>
-index=summary_fw marker="correlation_detection=$correlation_type_filter$" earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| stats avg(correlation_score) as avg_score
+index=fw earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats avg(severity_score) as avg_score
 | eval avg_score = round(avg_score, 2)
           </query>
         </search>
@@ -113,9 +113,9 @@ index=summary_fw marker="correlation_detection=$correlation_type_filter$" earlie
       <chart>
         <search>
           <query>
-index=summary_fw marker="correlation_detection=$correlation_type_filter$" earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| rex field=marker "correlation_detection=(?&lt;correlation_type&gt;.*)"
-| timechart span=1h count by correlation_rule
+index=fw earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| rex field=marker "correlation_detection=(?&lt;event_category&gt;.*)"
+| timechart span=1h count by attack_type
           </query>
         </search>
         <option name="charting.chart">column</option>
@@ -132,8 +132,8 @@ index=summary_fw marker="correlation_detection=$correlation_type_filter$" earlie
       <chart>
         <search>
           <query>
-index=summary_fw marker="correlation_detection=$correlation_type_filter$" earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| stats count by correlation_rule
+index=fw earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count by attack_type
 | sort - count
           </query>
         </search>
@@ -151,14 +151,14 @@ index=summary_fw marker="correlation_detection=$correlation_type_filter$" earlie
       <table>
         <search>
           <query>
-index=summary_fw marker="correlation_detection=$correlation_type_filter$" action_recommendation="$action_filter$" earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| rex field=marker "correlation_detection=(?&lt;correlation_type&gt;.*)"
+index=fw earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| rex field=marker "correlation_detection=(?&lt;event_category&gt;.*)"
 | stats count as detections,
-    avg(correlation_score) as avg_score,
-    max(correlation_score) as max_score,
+    avg(severity_score) as avg_score,
+    max(severity_score) as max_score,
     latest(_time) as last_detected,
-    values(correlation_rule) as rules_triggered,
-    values(action_recommendation) as actions,
+    values(attack_type) as rules_triggered,
+    values(action) as actions,
     values(country) as countries,
     values(abuse_score) as abuse_scores
   by src_ip
@@ -198,22 +198,22 @@ index=summary_fw marker="correlation_detection=$correlation_type_filter$" action
       <table>
         <search>
           <query>
-index=summary_fw marker="correlation_detection=multi_factor_threat" earliest=$time_picker.earliest$ latest=$time_picker.latest$
+index=fw earliest=$time_picker.earliest$ latest=$time_picker.latest$
 | stats count as event_count,
-    avg(correlation_score) as avg_correlation_score,
-    max(correlation_score) as max_correlation_score,
+    avg(severity_score) as avg_severity_score,
+    max(severity_score) as max_severity_score,
     latest(failed_login_count) as failed_logins,
     values(countries) as countries,
     values(abuse_scores) as abuse_scores,
-    values(action_recommendation) as action
+    values(action) as action
   by src_ip
-| eval avg_correlation_score = round(avg_correlation_score, 2)
-| sort - max_correlation_score
+| eval avg_severity_score = round(avg_severity_score, 2)
+| sort - max_severity_score
 | head 20
 | rename src_ip as "Source IP",
     event_count as "Events",
-    avg_correlation_score as "Avg Score",
-    max_correlation_score as "Max Score",
+    avg_severity_score as "Avg Score",
+    max_severity_score as "Max Score",
     failed_logins as "Failed Logins",
     countries as "Country",
     abuse_scores as "Abuse Score",
@@ -240,14 +240,14 @@ index=summary_fw marker="correlation_detection=multi_factor_threat" earliest=$ti
       <table>
         <search>
           <query>
-index=summary_fw marker="correlation_detection=repeated_high_risk" earliest=$time_picker.earliest$ latest=$time_picker.latest$
+index=fw earliest=$time_picker.earliest$ latest=$time_picker.latest$
 | stats count as pattern_count,
-    avg(correlation_score) as avg_score,
-    max(correlation_score) as max_score,
+    avg(severity_score) as avg_score,
+    max(severity_score) as max_score,
     sum(event_count) as total_events,
     values(severities) as severities,
     values(attack_types) as attack_types,
-    values(action_recommendation) as action
+    values(action) as action
   by src_ip
 | eval avg_score = round(avg_score, 2)
 | sort - max_score
@@ -279,13 +279,13 @@ index=summary_fw marker="correlation_detection=repeated_high_risk" earliest=$tim
       <table>
         <search>
           <query>
-index=summary_fw marker="correlation_detection=weak_signal_combo" earliest=$time_picker.earliest$ latest=$time_picker.earliest$
+index=fw earliest=$time_picker.earliest$ latest=$time_picker.earliest$
 | stats count as detections,
     avg(weak_signals_count) as avg_signals,
-    max(correlation_score) as max_score,
+    max(severity_score) as max_score,
     values(detected_signals) as signals_detected,
     sum(event_count) as total_events,
-    values(action_recommendation) as action
+    values(action) as action
   by src_ip
 | eval avg_signals = round(avg_signals, 1)
 | sort - max_score
@@ -316,10 +316,10 @@ index=summary_fw marker="correlation_detection=weak_signal_combo" earliest=$time
       <chart>
         <search>
           <query>
-index=summary_fw marker="correlation_detection=$correlation_type_filter$" earliest=$time_picker.earliest$ latest=$time_picker.latest$
+index=fw earliest=$time_picker.earliest$ latest=$time_picker.latest$
 | stats count as detections,
-    avg(correlation_score) as avg_score,
-    sum(eval(if(action_recommendation="AUTO_BLOCK", 1, 0))) as auto_blocks
+    avg(severity_score) as avg_score,
+    sum(eval(if(action="AUTO_BLOCK", 1, 0))) as auto_blocks
   by country
 | sort - detections
 | head 20
@@ -339,13 +339,13 @@ index=summary_fw marker="correlation_detection=$correlation_type_filter$" earlie
       <table>
         <search>
           <query>
-index=summary_fw marker="correlation_detection=geo_attack_pattern" earliest=$time_picker.earliest$ latest=$time_picker.latest$
+index=fw earliest=$time_picker.earliest$ latest=$time_picker.latest$
 | stats count as detections,
-    max(correlation_score) as max_score,
+    max(severity_score) as max_score,
     sum(attack_events) as total_attacks,
     sum(critical_events) as critical_events,
     values(attack_types) as attack_types,
-    values(action_recommendation) as action
+    values(action) as action
   by src_ip, country
 | sort - max_score
 | head 20
@@ -376,14 +376,14 @@ index=summary_fw marker="correlation_detection=geo_attack_pattern" earliest=$tim
       <table>
         <search>
           <query>
-index=summary_fw marker="correlation_detection=time_anomaly" earliest=$time_picker.earliest$ latest=$time_picker.latest$
+index=fw earliest=$time_picker.earliest$ latest=$time_picker.latest$
 | stats count as anomalies,
     avg(z_score) as avg_z_score,
     max(z_score) as max_z_score,
     avg(spike_ratio) as avg_spike_ratio,
     max(spike_ratio) as max_spike_ratio,
-    max(correlation_score) as max_score,
-    values(action_recommendation) as action
+    max(severity_score) as max_score,
+    values(action) as action
   by src_ip
 | eval avg_z_score = round(avg_z_score, 2)
 | eval max_z_score = round(max_z_score, 2)
@@ -418,15 +418,15 @@ index=summary_fw marker="correlation_detection=time_anomaly" earliest=$time_pick
       <table>
         <search>
           <query>
-index=summary_fw marker="correlation_detection=cross_event_type" earliest=$time_picker.earliest$ latest=$time_picker.latest$
+index=fw earliest=$time_picker.earliest$ latest=$time_picker.latest$
 | stats count as profile_detections,
     avg(unique_attack_types) as avg_tactics,
     max(unique_attack_types) as max_tactics,
-    max(correlation_score) as max_score,
+    max(severity_score) as max_score,
     values(attack_types) as attack_types,
     sum(event_count) as total_events,
     values(threat_profile) as threat_profile,
-    values(action_recommendation) as action
+    values(action) as action
   by src_ip
 | eval avg_tactics = round(avg_tactics, 1)
 | sort - max_score
@@ -498,7 +498,7 @@ index=_internal source=*fortigate_auto_block.log earliest=$time_picker.earliest$
         <search>
           <query>
 index=_internal source=*scheduler.log savedsearch_name="Correlation_*" earliest=$time_picker.earliest$ latest=$time_picker.latest$
-| rex field=savedsearch_name "Correlation_(?&lt;correlation_type&gt;.*)"
+| rex field=savedsearch_name "Correlation_(?&lt;event_category&gt;.*)"
 | stats count as executions,
     avg(run_time) as avg_runtime,
     max(run_time) as max_runtime,
