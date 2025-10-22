@@ -569,21 +569,33 @@ index=_internal source=*scheduler.log savedsearch_name="Correlation_*" earliest=
       <table>
         <search>
           <query>
-| makeresults count=1
+| makeresults count=25
+| streamstats count as event_num
 | eval srcip="192.168.100.99",
-       dstip="10.0.0.50",
-       srcport=54321,
-       dstport=443,
+       dstip="10.0.0." + (50 + (event_num % 10)),
+       srcport=50000 + event_num,
+       dstport=if(event_num &lt; 10, 22, if(event_num &lt; 20, 3389, 443)),
        proto="tcp",
        action="deny",
        policyid=100,
-       severity="critical",
-       attack="SQL Injection Attempt",
-       service="https",
+       severity="high",
+       attack=case(
+           event_num &lt; 10, "SSH brute force attempt",
+           event_num &lt; 20, "Port scan detected - reconnaissance activity",
+           1=1, "Failed login attempt - authentication failure"
+       ),
+       service=if(event_num &lt; 10, "ssh", if(event_num &lt; 20, "rdp", "https")),
        app="web",
-       msg="Slack 알림 테스트 - Dashboard 수동 실행",
-       _time=now()
-| table _time, srcip, dstip, srcport, dstport, proto, action, policyid, severity, attack, service, app, msg
+       msg=case(
+           event_num &lt; 10, "Multiple failed login attempts from " + srcip + " - brute force pattern detected",
+           event_num &lt; 20, "Port scan activity detected - probe on multiple ports from " + srcip,
+           1=1, "Authentication failed - invalid credentials from " + srcip
+       ),
+       src_ip=srcip,
+       dst_ip=dstip,
+       _time=now() - (event_num * 10)
+| fields - event_num
+| table _time, srcip, dstip, srcport, dstport, proto, action, policyid, severity, attack, service, app, msg, src_ip, dst_ip
 | collect index=fw sourcetype=fortigate
           </query>
           <earliest>-5m</earliest>
@@ -605,11 +617,19 @@ index=_internal source=*scheduler.log savedsearch_name="Correlation_*" earliest=
             <strong>✅ 동작 방식:</strong>
           </p>
           <ol style="color: #155724; font-size: 13px; margin: 10px 0 0 20px;">
-            <li>위 테이블이 <strong>즉시</strong> 테스트 이벤트를 생성합니다 (실제 데이터 불필요)</li>
-            <li>테스트 이벤트가 <code>index=fw</code>에 FortiGate 형식으로 저장됩니다</li>
-            <li>Correlation Rule이 <strong>자동으로</strong> 이벤트를 감지 및 분석합니다</li>
-            <li>상관관계 탐지 시 <strong>Slack 알림</strong>을 #splunk-alerts 채널로 전송합니다</li>
-            <li><strong>확인:</strong> Slack 채널에서 알림을 확인하세요 (약 1-2분 소요)</li>
+            <li>위 테이블이 <strong>25개 테스트 이벤트</strong>를 즉시 생성합니다 (실제 데이터 불필요)</li>
+            <li>이벤트 구성: SSH brute force (10개) + Port scan (10개) + Failed login (5개)</li>
+            <li>모든 이벤트가 <code>index=fw</code>에 FortiGate 형식으로 저장됩니다</li>
+            <li><strong>Rule 3 (Weak Signal Combination)</strong>이 패턴을 자동 감지합니다:
+              <ul style="margin: 5px 0 0 15px;">
+                <li>✓ has_failed_login: "failed login|brute force" 패턴</li>
+                <li>✓ has_port_scan: "port scan|probe" 패턴</li>
+                <li>✓ has_multiple_targets: 10개 서로 다른 대상 IP</li>
+                <li>✓ has_high_frequency: 25개 이벤트 &gt; 20</li>
+              </ul>
+            </li>
+            <li>weak_signals_count ≥ 3 조건 충족 → <strong>Slack 알림</strong> 트리거!</li>
+            <li><strong>확인:</strong> #splunk-alerts 채널 (약 5분 이내, cron 실행 대기)</li>
           </ol>
         </div>
 
