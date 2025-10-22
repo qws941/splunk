@@ -565,39 +565,62 @@ index=_internal source=*scheduler.log savedsearch_name="Correlation_*" earliest=
     </panel>
 
     <panel>
-      <title>🚀 Slack 알림 실행 (Quick Actions)</title>
+      <title>🚀 Slack 알림 테스트 실행</title>
+      <table>
+        <search>
+          <query>
+| makeresults count=1
+| eval srcip="192.168.100.99",
+       dstip="10.0.0.50",
+       srcport=54321,
+       dstport=443,
+       proto="tcp",
+       action="deny",
+       policyid=100,
+       severity="critical",
+       attack="SQL Injection Attempt",
+       service="https",
+       app="web",
+       msg="Slack 알림 테스트 - Dashboard 수동 실행",
+       _time=now()
+| table _time, srcip, dstip, srcport, dstport, proto, action, policyid, severity, attack, service, app, msg
+| collect index=fw sourcetype=fortigate
+          </query>
+          <earliest>-5m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="severity">
+          <colorPalette type="map">{"critical":"#DC4E41","high":"#F1813F","medium":"#FFD700","low":"#53A051"}</colorPalette>
+        </format>
+        <format type="color" field="action">
+          <colorPalette type="map">{"deny":"#DC4E41","allow":"#53A051"}</colorPalette>
+        </format>
+      </table>
+
       <html>
-        <div style="padding: 20px; text-align: center;">
-          <h3 style="color: #333; margin-bottom: 20px;">테스트 알림 전송</h3>
+        <div style="margin-top: 15px; padding: 15px; background: #d4edda; border: 2px solid #28a745; border-radius: 8px;">
+          <p style="color: #155724; margin: 0; font-size: 14px;">
+            <strong>✅ 동작 방식:</strong>
+          </p>
+          <ol style="color: #155724; font-size: 13px; margin: 10px 0 0 20px;">
+            <li>위 테이블이 <strong>즉시</strong> 테스트 이벤트를 생성합니다 (실제 데이터 불필요)</li>
+            <li>테스트 이벤트가 <code>index=fw</code>에 FortiGate 형식으로 저장됩니다</li>
+            <li>Correlation Rule이 <strong>자동으로</strong> 이벤트를 감지 및 분석합니다</li>
+            <li>상관관계 탐지 시 <strong>Slack 알림</strong>을 #splunk-alerts 채널로 전송합니다</li>
+            <li><strong>확인:</strong> Slack 채널에서 알림을 확인하세요 (약 1-2분 소요)</li>
+          </ol>
+        </div>
 
-          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-            <p style="color: #666; margin-bottom: 15px;">
-              아래 버튼을 클릭하면 <strong>#splunk-alerts</strong> 채널로 테스트 메시지가 전송됩니다.
-            </p>
-
-            <a href="/app/search/search?q=search%20index%3Dfortigate_security%20earliest%3D-5m%20%7C%20head%201%20%7C%20eval%20test_alert%3D%22true%22%2C%20correlation_score%3D95%2C%20correlation_rule%3D%22Manual%20Test%22%2C%20action_recommendation%3D%22AUTO_BLOCK%22%20%7C%20collect%20index%3Dsummary_fw%20marker%3D%22correlation_detection%3Dtest%22&amp;earliest=-5m&amp;latest=now"
-               target="_blank"
-               style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; border-radius: 25px; text-decoration: none; font-size: 16px; font-weight: bold; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); transition: all 0.3s;">
-              📤 Send Test Alert to Slack
-            </a>
-          </div>
-
-          <div style="background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; padding: 15px; margin-top: 20px;">
-            <p style="color: #856404; margin: 0; font-size: 14px;">
-              <strong>⚠️ 주의:</strong> Slack Bot Token과 Channel 설정이 필요합니다.<br/>
-              설정 파일: <code>/opt/splunk/etc/apps/slack_alerts/local/alert_actions.conf</code>
-            </p>
-          </div>
-
-          <div style="margin-top: 25px; padding: 20px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 8px; color: white;">
-            <h4 style="margin-top: 0;">📋 Saved Search 실행 옵션</h4>
-            <p style="font-size: 13px; margin-bottom: 15px;">
-              또는 Splunk CLI로 직접 실행:
-            </p>
-            <pre style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px; text-align: left; overflow-x: auto; font-size: 12px;">
-splunk search "| makeresults | eval message=\"Test Alert from Correlation Dashboard\", severity=\"high\", correlation_score=95"
-            </pre>
-          </div>
+        <div style="margin-top: 15px; padding: 15px; background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px;">
+          <p style="color: #856404; margin: 0; font-size: 13px;">
+            <strong>⚠️ 필수 설정:</strong><br/>
+            ✓ Slack Plugin: <code>/opt/splunk/etc/apps/slack_alerts/</code><br/>
+            ✓ Alert Actions: <code>configs/correlation-rules.conf</code> (Line 197, 358)<br/>
+            ✓ Slack Channel: <code>#splunk-alerts</code><br/>
+            ✓ Correlation Rules: 매 5분마다 자동 실행 (cron)
+          </p>
         </div>
       </html>
     </panel>
