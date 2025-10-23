@@ -1,0 +1,6 @@
+ip,whitelist_reason,added_by,added_time
+10.0.0.0/8,Internal Network,admin,2025-01-01 00:00:00
+172.16.0.0/12,Private Network,admin,2025-01-01 00:00:00
+192.168.0.0/16,Local Network,admin,2025-01-01 00:00:00
+8.8.8.8,Google DNS,admin,2025-01-01 00:00:00
+1.1.1.1,Cloudflare DNS,admin,2025-01-01 00:00:00

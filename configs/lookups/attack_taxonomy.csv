@@ -1,0 +1,11 @@
+attack_id,attack_name,category,severity,auto_block_eligible,description
+1,SQL Injection,Web Attack,critical,true,Attempts to inject SQL commands into database queries
+2,Cross-Site Scripting (XSS),Web Attack,high,true,Injection of malicious scripts into web pages
+3,Brute Force Login,Authentication,high,true,Multiple failed login attempts from same source
+4,Port Scanning,Reconnaissance,medium,false,Systematic probing of network ports
+5,DDoS Attack,Denial of Service,critical,true,Distributed denial of service attack
+6,Malware Distribution,Malware,critical,true,Distribution or hosting of malicious software
+7,Command Injection,Web Attack,critical,true,Injection of system commands through web application
+8,Directory Traversal,Web Attack,high,true,Unauthorized access to restricted directories
+9,Remote Code Execution,Exploitation,critical,true,Execution of arbitrary code on target system
+10,Credential Stuffing,Authentication,high,true,Automated login attempts with stolen credentials

@@ -1,0 +1,13 @@
+country,country_name,geo_risk_score,risk_category,notes
+CN,China,50,High,High-risk country for cyber attacks
+RU,Russia,50,High,High-risk country for APT campaigns
+KP,North Korea,50,High,State-sponsored cyber threats
+IR,Iran,50,High,Known for cyber warfare activities
+VN,Vietnam,30,Medium,Moderate risk for scanning activities
+BR,Brazil,30,Medium,Moderate malware distribution
+IN,India,30,Medium,High volume scanning sources
+US,United States,0,Low,Low risk country
+GB,United Kingdom,0,Low,Low risk country
+DE,Germany,0,Low,Low risk country
+JP,Japan,0,Low,Low risk country
+KR,South Korea,0,Low,Low risk country

@@ -1,0 +1,19 @@
+| makeresults count=1
+| eval srcip="192.168.100.99",
+       dstip="10.0.0.50",
+       srcport=50001,
+       dstport=22,
+       proto="tcp",
+       action="deny",
+       policyid=100,
+       severity="high",
+       attack="SSH brute force attempt - TEST",
+       service="ssh",
+       app="web",
+       msg="🎉 Slack 알림 테스트 (1개 메시지) - " + strftime(now(), "%Y-%m-%d %H:%M:%S"),
+       src_ip=srcip,
+       dst_ip=dstip,
+       _time=now()
+| fields - event_num
+| table _time, srcip, dstip, srcport, dstport, proto, action, policyid, severity, attack, service, app, msg, src_ip, dst_ip
+| sendalert slack param.channel="#splunk-alerts" param.message="🎉 FortiGate Security Alert - TEST (1개 메시지)"

@@ -1,0 +1,992 @@
+{
+  "visualizations": {
+    "viz_slack_control_panel": {
+      "type": "viz.markdown",
+      "options": {
+        "markdown": "# 🔔 Slack 알림 컨트롤\n\n<button id=\"enable-btn\" onclick=\"toggleSlackAlerts('enable')\" style=\"padding: 20px 40px; background: #28a745; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin: 10px;\">✅ 알림 켜기</button>\n\n<button id=\"disable-btn\" onclick=\"toggleSlackAlerts('disable')\" style=\"padding: 20px 40px; background: #dc3545; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin: 10px;\">⛔ 알림 끄기</button>\n\n<button id=\"test-btn\" onclick=\"sendTestMessage()\" style=\"padding: 12px 25px; background: #007bff; color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; margin: 10px;\">📤 테스트</button>\n\n<div id=\"status-message\" style=\"padding: 15px; background: #f8f9fa; border-radius: 8px; margin-top: 20px; text-align: center;\">버튼을 클릭하여 Slack 알림을 제어하세요</div>\n\n<script>\nrequire(['jquery', 'splunkjs/ready!'], function($, mvc) {\n    window.toggleSlackAlerts = function(action) {\n        const statusDiv = $('#status-message');\n        const enableBtn = $('#enable-btn');\n        const disableBtn = $('#disable-btn');\n        \n        enableBtn.prop('disabled', true);\n        disableBtn.prop('disabled', true);\n        \n        const actionText = action === 'enable' ? '활성화' : '비활성화';\n        statusDiv.html('<span style=\"color: #ffc107;\">⏳ Slack 알림을 ' + actionText + ' 중...</span>');\n        \n        const correlationRules = [\n            'Correlation_Multi_Factor_Threat',\n            'Correlation_Repeated_High_Risk',\n            'Correlation_Weak_Signal_Combo',\n            'Correlation_Geo_Attack_Pattern',\n            'Correlation_Time_Anomaly',\n            'Correlation_Sophisticated_Threat_APT'\n        ];\n        \n        const slackValue = action === 'enable' ? '1' : '0';\n        let successCount = 0;\n        let errorCount = 0;\n        \n        correlationRules.forEach(function(ruleName, index) {\n            setTimeout(function() {\n                $.ajax({\n                    url: '/en-US/splunkd/__raw/servicesNS/nobody/search/saved/searches/' + ruleName,\n                    type: 'POST',\n                    data: {\n                        'action.slack': slackValue\n                    },\n                    success: function() {\n                        successCount++;\n                        if (successCount + errorCount === correlationRules.length) {\n                            finishToggle(action, successCount, errorCount);\n                        }\n                    },\n                    error: function() {\n                        errorCount++;\n                        if (successCount + errorCount === correlationRules.length) {\n                            finishToggle(action, successCount, errorCount);\n                        }\n                    }\n                });\n            }, index * 200);\n        });\n    };\n    \n    function finishToggle(action, successCount, errorCount) {\n        const statusDiv = $('#status-message');\n        const enableBtn = $('#enable-btn');\n        const disableBtn = $('#disable-btn');\n        \n        enableBtn.prop('disabled', false);\n        disableBtn.prop('disabled', false);\n        \n        if (errorCount === 0) {\n            const icon = action === 'enable' ? '✅' : '⛔';\n            const actionText = action === 'enable' ? '활성화' : '비활성화';\n            statusDiv.html(\n                '<span style=\"color: #28a745; font-size: 16px;\">' +\n                icon + ' Slack 알림 ' + actionText + ' 완료!</span><br/>' +\n                '<span style=\"font-size: 14px;\">총 ' + successCount + '개 규칙 업데이트됨</span>'\n            );\n            \n            sendSlackNotification(action);\n            \n            setTimeout(function() {\n                location.reload();\n            }, 2000);\n        } else {\n            statusDiv.html(\n                '<span style=\"color: #dc3545; font-size: 16px;\">❌ 오류 발생</span><br/>' +\n                '<span style=\"font-size: 14px;\">성공: ' + successCount + ' / 실패: ' + errorCount + '</span>'\n            );\n        }\n    }\n    \n    function sendSlackNotification(action) {\n        const icon = action === 'enable' ? '✅' : '⛔';\n        const actionText = action === 'enable' ? 'ENABLED' : 'DISABLED';\n        const timestamp = new Date().toISOString().replace('T', ' ').substr(0, 19);\n        \n        const message = icon + ' *Slack Alert Status Changed* → ' + actionText + ' (6 rules) | ' + timestamp;\n        \n        const spl = '| makeresults | eval message=\"' + message + '\" | sendalert slack param.message=message';\n        \n        $.ajax({\n            url: '/en-US/splunkd/__raw/services/search/jobs',\n            type: 'POST',\n            data: {\n                search: spl,\n                exec_mode: 'oneshot',\n                output_mode: 'json'\n            }\n        });\n    }\n    \n    window.sendTestMessage = function() {\n        const statusDiv = $('#status-message');\n        statusDiv.html('<span style=\"color: #ffc107;\">⏳ 테스트 메시지 전송 중...</span>');\n        \n        const spl = '| makeresults | eval message=\"🧪 Slack 연결 테스트 - ' + new Date().toLocaleString() + '\" | sendalert slack param.message=message';\n        \n        $.ajax({\n            url: '/en-US/splunkd/__raw/services/search/jobs',\n            type: 'POST',\n            data: {\n                search: spl,\n                exec_mode: 'oneshot',\n                output_mode: 'json'\n            },\n            success: function() {\n                statusDiv.html('<span style=\"color: #28a745;\">✅ 테스트 메시지 전송 완료! #splunk-alerts 채널을 확인하세요.</span>');\n            },\n            error: function(xhr) {\n                statusDiv.html('<span style=\"color: #dc3545;\">❌ 전송 실패: ' + (xhr.responseText || 'Unknown error') + '</span>');\n            }\n        });\n    };\n});\n</script>",
+        "fontSize": "default"
+      },
+      "context": {},
+      "containerOptions": {},
+      "showProgressBar": false,
+      "showLastUpdated": false
+    },
+    "viz_slack_status_table": {
+      "type": "splunk.table",
+      "dataSources": {
+        "primary": "ds_slack_status"
+      },
+      "title": "📊 Slack 알림 상태 (6 Correlation Rules)",
+      "options": {
+        "count": 10,
+        "dataOverlayMode": "none",
+        "drilldown": "none",
+        "showRowNumbers": false,
+        "showInternalFields": false
+      },
+      "context": {}
+    },
+    "viz_slack_enabled_count": {
+      "type": "splunk.singlevalue",
+      "dataSources": {
+        "primary": "ds_slack_enabled_count"
+      },
+      "title": "📈 활성화된 규칙",
+      "options": {
+        "majorFontSize": 28,
+        "showSparklineArea": false,
+        "showTrendIndicator": false,
+        "majorColor": "#28a745",
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_fmg_managed_devices": {
+      "type": "splunk.singlevalue",
+      "options": {
+        "majorValue": "> primary | seriesByName('device_count')",
+        "unit": "devices",
+        "showSparklineAreaGraph": false
+      },
+      "dataSources": {
+        "primary": "ds_fmg_managed_devices"
+      },
+      "title": "🖥️ Connected Devices"
+    },
+    "viz_fmg_adoms": {
+      "type": "splunk.singlevalue",
+      "options": {
+        "majorValue": "> primary | seriesByName('adom_count')",
+        "unit": "domains",
+        "showSparklineAreaGraph": false
+      },
+      "dataSources": {
+        "primary": "ds_fmg_adoms"
+      },
+      "title": "📁 Administrative Domains"
+    },
+    "viz_faz_log_volume": {
+      "type": "splunk.singlevalue",
+      "options": {
+        "majorValue": "> primary | seriesByName('log_count')",
+        "unit": "logs",
+        "showSparklineAreaGraph": false
+      },
+      "dataSources": {
+        "primary": "ds_faz_log_volume"
+      },
+      "title": "📊 Device Logs (24h)"
+    },
+    "viz_faz_connected_devices": {
+      "type": "splunk.singlevalue",
+      "options": {
+        "majorValue": "> primary | seriesByName('connected_count')",
+        "unit": "devices",
+        "majorColor": "#65A637",
+        "showSparklineAreaGraph": false
+      },
+      "dataSources": {
+        "primary": "ds_faz_connected_devices"
+      },
+      "title": "✅ Active Devices"
+    },
+    "viz_fmg_admin_sessions": {
+      "type": "splunk.singlevalue",
+      "options": {
+        "majorValue": "> primary | seriesByName('session_count')",
+        "unit": "sessions",
+        "showSparklineAreaGraph": false
+      },
+      "dataSources": {
+        "primary": "ds_fmg_admin_sessions"
+      },
+      "title": "👤 Admin Sessions (24h)"
+    },
+    "viz_fmg_config_changes": {
+      "type": "splunk.singlevalue",
+      "options": {
+        "majorValue": "> primary | seriesByName('change_count')",
+        "unit": "changes",
+        "majorColor": "#F7BC38",
+        "showSparklineAreaGraph": false
+      },
+      "dataSources": {
+        "primary": "ds_fmg_config_changes"
+      },
+      "title": "🔧 Configuration Changes (24h)"
+    },
+    "viz_fmg_policy_packages": {
+      "type": "splunk.singlevalue",
+      "options": {
+        "majorValue": "> primary | seriesByName('package_count')",
+        "unit": "packages",
+        "showSparklineAreaGraph": false
+      },
+      "dataSources": {
+        "primary": "ds_fmg_policy_packages"
+      },
+      "title": "📦 Policy Packages"
+    },
+    "viz_faz_storage_usage": {
+      "type": "splunk.singlevalue",
+      "options": {
+        "majorValue": "> primary | seriesByName('storage_pct')",
+        "unit": "%",
+        "majorColor": "> majorValue | rangeValue(storageColorConfig)",
+        "showSparklineAreaGraph": false
+      },
+      "context": {
+        "storageColorConfig": [
+          {
+            "value": 0,
+            "to": 70,
+            "color": "#65A637"
+          },
+          {
+            "value": 70,
+            "to": 85,
+            "color": "#F7BC38"
+          },
+          {
+            "value": 85,
+            "color": "#D93F3C"
+          }
+        ]
+      },
+      "dataSources": {
+        "primary": "ds_faz_storage_usage"
+      },
+      "title": "💾 Storage Usage"
+    },
+    "viz_fmg_device_list": {
+      "type": "splunk.table",
+      "options": {
+        "count": 50,
+        "dataOverlayMode": "none",
+        "drilldown": "none",
+        "rowNumbers": true
+      },
+      "dataSources": {
+        "primary": "ds_fmg_device_list"
+      },
+      "title": "🖥️ Device List"
+    },
+    "viz_fmg_adom_list": {
+      "type": "splunk.table",
+      "options": {
+        "count": 20,
+        "dataOverlayMode": "none",
+        "drilldown": "none",
+        "rowNumbers": true
+      },
+      "dataSources": {
+        "primary": "ds_fmg_adom_list"
+      },
+      "title": "📁 Administrative Domains"
+    },
+    "viz_fmg_admin_activity": {
+      "type": "splunk.table",
+      "options": {
+        "count": 30,
+        "drilldown": "none",
+        "rowNumbers": true,
+        "wrap": true
+      },
+      "dataSources": {
+        "primary": "ds_fmg_admin_activity"
+      },
+      "title": "👤 Admin Activity (Last 30)"
+    },
+    "viz_fmg_config_history": {
+      "type": "splunk.table",
+      "options": {
+        "count": 30,
+        "drilldown": "none",
+        "rowNumbers": true,
+        "wrap": true
+      },
+      "dataSources": {
+        "primary": "ds_fmg_config_history"
+      },
+      "title": "🔧 Configuration History (Last 30)"
+    },
+    "viz_faz_device_status": {
+      "type": "splunk.table",
+      "options": {
+        "count": 50,
+        "dataOverlayMode": "heatmap",
+        "drilldown": "none",
+        "rowNumbers": true
+      },
+      "dataSources": {
+        "primary": "ds_faz_device_status"
+      },
+      "title": "📊 Device Log Status"
+    },
+    "viz_fmg_system_events": {
+      "type": "splunk.table",
+      "options": {
+        "count": 30,
+        "drilldown": "none",
+        "rowNumbers": true,
+        "wrap": true
+      },
+      "dataSources": {
+        "primary": "ds_fmg_system_events"
+      },
+      "title": "⚙️ System Events (Last 30)"
+    },
+    "viz_faz_log_timeline": {
+      "type": "splunk.line",
+      "options": {
+        "xField": "_time",
+        "legend": "bottom",
+        "xAxisTitleText": "Time",
+        "yAxisTitleText": "Log Count"
+      },
+      "dataSources": {
+        "primary": "ds_faz_log_timeline"
+      },
+      "title": "📈 Log Collection Timeline (Last 24h)"
+    },
+    "viz_fmg_activity_timeline": {
+      "type": "splunk.line",
+      "options": {
+        "xField": "_time",
+        "legend": "bottom",
+        "xAxisTitleText": "Time",
+        "yAxisTitleText": "Activity Count"
+      },
+      "dataSources": {
+        "primary": "ds_fmg_activity_timeline"
+      },
+      "title": "📅 Activity Timeline (Last 24h)"
+    },
+    "viz_install_history": {
+      "type": "splunk.table",
+      "options": {
+        "count": 30,
+        "drilldown": "none",
+        "rowNumbers": true,
+        "wrap": true
+      },
+      "dataSources": {
+        "primary": "ds_install_history"
+      },
+      "title": "📦 Install/Update History (Last 30)"
+    },
+    "viz_version_info": {
+      "type": "splunk.table",
+      "options": {
+        "count": 50,
+        "dataOverlayMode": "none",
+        "drilldown": "none",
+        "rowNumbers": true
+      },
+      "dataSources": {
+        "primary": "ds_version_info"
+      },
+      "title": "🔢 Device Version Information"
+    }
+  },
+  "dataSources": {
+    "ds_slack_status": {
+      "type": "ds.search",
+      "options": {
+        "query": "| rest /services/saved/searches splunk_server=local\n| search title=\"Correlation_*\"\n| eval slack_status = if(match('action.slack', \"1\"), \"✅ 활성화\", \"⛔ 비활성화\")\n| eval rule_desc = case(\n    title == \"Correlation_Multi_Factor_Threat\", \"Multi-Factor Threat (75+)\",\n    title == \"Correlation_Repeated_High_Risk\", \"Repeated High-Risk (80+)\",\n    title == \"Correlation_Weak_Signal_Combo\", \"Weak Signal Combo (80+)\",\n    title == \"Correlation_Geo_Attack_Pattern\", \"Geo + Attack (85+)\",\n    title == \"Correlation_Time_Anomaly\", \"Time Anomaly (85+)\",\n    title == \"Correlation_Sophisticated_Threat_APT\", \"APT Detection (90+)\",\n    1=1, \"Other\"\n)\n| table title, rule_desc, slack_status, cron_schedule\n| rename title as \"Rule Name\", rule_desc as \"Description\", slack_status as \"Slack Status\", cron_schedule as \"Schedule\"",
+        "queryParameters": {
+          "earliest": "-24h@h",
+          "latest": "now"
+        },
+        "refresh": "30s",
+        "refreshType": "delay"
+      },
+      "name": "Slack Status Query"
+    },
+    "ds_slack_enabled_count": {
+      "type": "ds.search",
+      "options": {
+        "query": "| rest /services/saved/searches splunk_server=local\n| search title=\"Correlation_*\"\n| eval slack_enabled = if(match('action.slack', \"1\"), 1, 0)\n| stats sum(slack_enabled) as enabled, count as total\n| eval display = enabled + \" / \" + total\n| fields display",
+        "queryParameters": {
+          "earliest": "-24h@h",
+          "latest": "now"
+        },
+        "refresh": "30s",
+        "refreshType": "delay"
+      },
+      "name": "Slack Enabled Count"
+    },
+    "ds_fmg_managed_devices": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw (logdesc=\"*device*\" OR devname=*) | stats dc(devname) as device_count",
+        "queryParameters": {
+          "earliest": "$global_time.earliest$",
+          "latest": "$global_time.latest$"
+        },
+        "refresh": "5m",
+        "refreshType": "delay"
+      },
+      "name": "FMG Managed Devices Search"
+    },
+    "ds_fmg_adoms": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw (logdesc=\"*ADOM*\" OR adom=*) | stats dc(adom) as adom_count",
+        "queryParameters": {
+          "earliest": "$global_time.earliest$",
+          "latest": "$global_time.latest$"
+        },
+        "refresh": "5m",
+        "refreshType": "delay"
+      },
+      "name": "FMG ADOMs Search"
+    },
+    "ds_faz_log_volume": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw | stats count as log_count",
+        "queryParameters": {
+          "earliest": "$global_time.earliest$",
+          "latest": "$global_time.latest$"
+        },
+        "refresh": "1m",
+        "refreshType": "delay"
+      },
+      "name": "FAZ Log Volume Search"
+    },
+    "ds_faz_connected_devices": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw | stats dc(devname) as connected_count",
+        "queryParameters": {
+          "earliest": "-5m",
+          "latest": "now"
+        },
+        "refresh": "1m",
+        "refreshType": "delay"
+      },
+      "name": "FAZ Connected Devices Search"
+    },
+    "ds_fmg_admin_sessions": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw (logdesc=\"Admin login*\" OR logdesc=\"*admin*session*\") | stats dc(user) as session_count",
+        "queryParameters": {
+          "earliest": "$global_time.earliest$",
+          "latest": "$global_time.latest$"
+        },
+        "refresh": "1m",
+        "refreshType": "delay"
+      },
+      "name": "FMG Admin Sessions Search"
+    },
+    "ds_fmg_config_changes": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw (logdesc=\"*Configuration*\" OR logdesc=\"*config*\" OR action=\"config-change\") | stats count as change_count",
+        "queryParameters": {
+          "earliest": "$global_time.earliest$",
+          "latest": "$global_time.latest$"
+        },
+        "refresh": "1m",
+        "refreshType": "delay"
+      },
+      "name": "FMG Config Changes Search"
+    },
+    "ds_fmg_policy_packages": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw (logdesc=\"*package*\" OR logdesc=\"*policy*package*\") | stats dc(package) as package_count",
+        "queryParameters": {
+          "earliest": "$global_time.earliest$",
+          "latest": "$global_time.latest$"
+        },
+        "refresh": "5m",
+        "refreshType": "delay"
+      },
+      "name": "FMG Policy Packages Search"
+    },
+    "ds_faz_storage_usage": {
+      "type": "ds.search",
+      "options": {
+        "query": "| makeresults count=1 | eval storage_pct=75",
+        "queryParameters": {
+          "earliest": "-5m",
+          "latest": "now"
+        },
+        "refresh": "5m",
+        "refreshType": "delay"
+      },
+      "name": "FAZ Storage Usage Search"
+    },
+    "ds_fmg_device_list": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw devname=* | stats latest(_time) as last_seen, dc(logid) as event_types, count as event_count by devname, devid | eval last_seen_time=strftime(last_seen, \"%Y-%m-%d %H:%M:%S\"), status=if((now() - last_seen) < 300, \"Connected\", \"Disconnected\") | sort -event_count | rename devname as \"Device Name\", devid as \"Device ID\", last_seen_time as \"Last Seen\", status as \"Status\", event_types as \"Event Types\", event_count as \"Event Count\"",
+        "queryParameters": {
+          "earliest": "$global_time.earliest$",
+          "latest": "$global_time.latest$"
+        },
+        "refresh": "1m",
+        "refreshType": "delay"
+      },
+      "name": "FMG Device List Search"
+    },
+    "ds_fmg_adom_list": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw adom=* | stats dc(devname) as device_count, dc(policyid) as policy_count, count as event_count by adom | sort -device_count | rename adom as \"ADOM Name\", device_count as \"Devices\", policy_count as \"Policies\", event_count as \"Events\"",
+        "queryParameters": {
+          "earliest": "$global_time.earliest$",
+          "latest": "$global_time.latest$"
+        },
+        "refresh": "5m",
+        "refreshType": "delay"
+      },
+      "name": "FMG ADOM List Search"
+    },
+    "ds_fmg_admin_activity": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw (logdesc=\"Admin*\" OR user=*) | eval event_time=strftime(_time, \"%Y-%m-%d %H:%M:%S\"), admin_user=coalesce(user, adminuser, \"Unknown\"), activity_type=case(match(logdesc, \"(?i)login\"), \"Login\", match(logdesc, \"(?i)logout\"), \"Logout\", match(logdesc, \"(?i)config\"), \"Config\", 1=1, \"Other\"), source_ip=coalesce(srcip, remip, \"N/A\") | table event_time, admin_user, activity_type, source_ip, logdesc | head 30 | rename event_time as \"Time\", admin_user as \"Admin User\", activity_type as \"Activity\", source_ip as \"Source IP\", logdesc as \"Description\"",
+        "queryParameters": {
+          "earliest": "$global_time.earliest$",
+          "latest": "$global_time.latest$"
+        },
+        "refresh": "30s",
+        "refreshType": "delay"
+      },
+      "name": "FMG Admin Activity Search"
+    },
+    "ds_fmg_config_history": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw (logdesc=\"*Configuration*\" OR action=\"config-change\") | eval event_time=strftime(_time, \"%Y-%m-%d %H:%M:%S\"), admin_user=coalesce(user, adminuser, \"Unknown\"), change_category=case(match(msg, \"(?i)policy\"), \"Policy\", match(msg, \"(?i)address\"), \"Address\", match(msg, \"(?i)service\"), \"Service\", match(msg, \"(?i)interface\"), \"Interface\", match(msg, \"(?i)route\"), \"Route\", 1=1, \"Other\"), device=coalesce(devname, \"Global\") | table event_time, admin_user, device, change_category, msg | head 30 | rename event_time as \"Time\", admin_user as \"Admin User\", device as \"Device\", change_category as \"Category\", msg as \"Details\"",
+        "queryParameters": {
+          "earliest": "$global_time.earliest$",
+          "latest": "$global_time.latest$"
+        },
+        "refresh": "30s",
+        "refreshType": "delay"
+      },
+      "name": "FMG Config History Search"
+    },
+    "ds_faz_device_status": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw | bin _time span=5m | stats count as log_count, latest(_time) as last_log by _time, devname | eval last_log_time=strftime(last_log, \"%H:%M:%S\"), health=case(log_count > 1000, \"Healthy\", log_count > 100, \"Normal\", log_count > 10, \"Low\", 1=1, \"Critical\") | sort -_time, -log_count | streamstats dc(_time) as time_periods by devname | where time_periods <= 12 | table devname, _time, log_count, last_log_time, health | rename devname as \"Device Name\", _time as \"Time Slot\", log_count as \"Log Count\", last_log_time as \"Last Log\", health as \"Health\"",
+        "queryParameters": {
+          "earliest": "-1h",
+          "latest": "now"
+        },
+        "refresh": "1m",
+        "refreshType": "delay"
+      },
+      "name": "FAZ Device Status Search"
+    },
+    "ds_fmg_system_events": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw (logdesc=\"*system*\" OR logdesc=\"*HA*\" OR logdesc=\"*backup*\" OR logdesc=\"*device*\") | eval event_time=strftime(_time, \"%Y-%m-%d %H:%M:%S\"), event_category=case(match(logdesc, \"(?i)HA\"), \"HA Event\", match(logdesc, \"(?i)backup\"), \"Backup\", match(logdesc, \"(?i)device.*add\"), \"Device Add\", match(logdesc, \"(?i)device.*del\"), \"Device Delete\", 1=1, \"System\") | table event_time, event_category, devname, logdesc, msg | head 30 | rename event_time as \"Time\", event_category as \"Category\", devname as \"Device\", logdesc as \"Event\", msg as \"Details\"",
+        "queryParameters": {
+          "earliest": "$global_time.earliest$",
+          "latest": "$global_time.latest$"
+        },
+        "refresh": "30s",
+        "refreshType": "delay"
+      },
+      "name": "FMG System Events Search"
+    },
+    "ds_faz_log_timeline": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw | timechart span=1h count by devname limit=10",
+        "queryParameters": {
+          "earliest": "$global_time.earliest$",
+          "latest": "$global_time.latest$"
+        },
+        "refresh": "1m",
+        "refreshType": "delay"
+      },
+      "name": "FAZ Log Timeline Search"
+    },
+    "ds_fmg_activity_timeline": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw (logdesc=\"Admin*\" OR logdesc=\"*Configuration*\" OR logdesc=\"*system*\") | eval activity_type=case(match(logdesc, \"(?i)admin\"), \"Admin Activity\", match(logdesc, \"(?i)config\"), \"Config Change\", 1=1, \"System Event\") | timechart span=1h count by activity_type",
+        "queryParameters": {
+          "earliest": "$global_time.earliest$",
+          "latest": "$global_time.latest$"
+        },
+        "refresh": "1m",
+        "refreshType": "delay"
+      },
+      "name": "FMG Activity Timeline Search"
+    },
+    "ds_install_history": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw (logdesc=\"*install*\" OR logdesc=\"*upgrade*\" OR logdesc=\"*update*\" OR msg=\"*firmware*\" OR msg=\"*package*install*\") | eval install_time=strftime(_time, \"%Y-%m-%d %H:%M:%S\"), install_type=case(match(logdesc, \"(?i)firmware\"), \"Firmware\", match(logdesc, \"(?i)upgrade\"), \"Upgrade\", match(logdesc, \"(?i)package\"), \"Package\", 1=1, \"Update\"), device=coalesce(devname, \"FMG\"), admin_user=coalesce(user, adminuser, \"System\"), status=case(match(msg, \"(?i)success\"), \"Success\", match(msg, \"(?i)fail\"), \"Failed\", match(msg, \"(?i)complete\"), \"Completed\", 1=1, \"In Progress\") | table install_time, device, install_type, admin_user, status, msg | head 30 | rename install_time as \"Time\", device as \"Device\", install_type as \"Type\", admin_user as \"Admin User\", status as \"Status\", msg as \"Details\"",
+        "queryParameters": {
+          "earliest": "$global_time.earliest$",
+          "latest": "$global_time.latest$"
+        },
+        "refresh": "1m",
+        "refreshType": "delay"
+      },
+      "name": "Install History Search"
+    },
+    "ds_version_info": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw (version=* OR fwver=* OR firmware=*) | stats latest(_time) as last_seen, latest(version) as version, latest(fwver) as firmware, values(model) as model by devname, devid | eval last_seen_time=strftime(last_seen, \"%Y-%m-%d %H:%M:%S\"), version_info=coalesce(version, firmware, \"Unknown\") | sort devname | rename devname as \"Device Name\", devid as \"Device ID\", version_info as \"Version\", model as \"Model\", last_seen_time as \"Last Seen\"",
+        "queryParameters": {
+          "earliest": "$global_time.earliest$",
+          "latest": "$global_time.latest$"
+        },
+        "refresh": "5m",
+        "refreshType": "delay"
+      },
+      "name": "Version Info Search"
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "latest": "$global_time.latest$",
+            "earliest": "$global_time.earliest$"
+          }
+        }
+      }
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "-24h@h,now"
+      },
+      "title": "⏰ Time Range"
+    },
+    "input_alert_device_events": {
+      "type": "input.dropdown",
+      "options": {
+        "items": [
+          {
+            "label": "🟢 ON",
+            "value": "C09DSD6JH2Q"
+          },
+          {
+            "label": "🔴 OFF",
+            "value": "disabled"
+          }
+        ],
+        "defaultValue": "C09DSD6JH2Q",
+        "token": "alert_device_events"
+      },
+      "title": "⚡ Device Events Alert"
+    },
+    "input_alert_admin_activity": {
+      "type": "input.dropdown",
+      "options": {
+        "items": [
+          {
+            "label": "🟢 ON",
+            "value": "C09DSD6JH2Q"
+          },
+          {
+            "label": "🔴 OFF",
+            "value": "disabled"
+          }
+        ],
+        "defaultValue": "C09DSD6JH2Q",
+        "token": "alert_admin_activity"
+      },
+      "title": "⚡ Admin Activity Alert"
+    },
+    "input_alert_config_changes": {
+      "type": "input.dropdown",
+      "options": {
+        "items": [
+          {
+            "label": "🟢 ON",
+            "value": "C09DSD6JH2Q"
+          },
+          {
+            "label": "🔴 OFF",
+            "value": "disabled"
+          }
+        ],
+        "defaultValue": "C09DSD6JH2Q",
+        "token": "alert_config_changes"
+      },
+      "title": "⚡ Config Changes Alert"
+    },
+    "input_alert_install_updates": {
+      "type": "input.dropdown",
+      "options": {
+        "items": [
+          {
+            "label": "🟢 ON",
+            "value": "C09DSD6JH2Q"
+          },
+          {
+            "label": "🔴 OFF",
+            "value": "disabled"
+          }
+        ],
+        "defaultValue": "C09DSD6JH2Q",
+        "token": "alert_install_updates"
+      },
+      "title": "⚡ Install/Update Alert"
+    },
+    "input_alert_device_events_mode": {
+      "type": "input.dropdown",
+      "options": {
+        "items": [
+          {
+            "label": "⚡ Real-time",
+            "value": "realtime"
+          },
+          {
+            "label": "📊 Threshold",
+            "value": "threshold"
+          }
+        ],
+        "defaultValue": "threshold",
+        "token": "alert_device_events_mode"
+      },
+      "title": "Device Events Mode"
+    },
+    "input_alert_device_events_threshold": {
+      "type": "input.text",
+      "options": {
+        "defaultValue": "50",
+        "token": "alert_device_events_threshold"
+      },
+      "title": "Device Events Threshold"
+    },
+    "input_alert_admin_activity_mode": {
+      "type": "input.dropdown",
+      "options": {
+        "items": [
+          {
+            "label": "⚡ Real-time",
+            "value": "realtime"
+          },
+          {
+            "label": "📊 Threshold",
+            "value": "threshold"
+          }
+        ],
+        "defaultValue": "realtime",
+        "token": "alert_admin_activity_mode"
+      },
+      "title": "Admin Activity Mode"
+    },
+    "input_alert_admin_activity_threshold": {
+      "type": "input.text",
+      "options": {
+        "defaultValue": "10",
+        "token": "alert_admin_activity_threshold"
+      },
+      "title": "Admin Activity Threshold"
+    },
+    "input_alert_config_changes_mode": {
+      "type": "input.dropdown",
+      "options": {
+        "items": [
+          {
+            "label": "⚡ Real-time",
+            "value": "realtime"
+          },
+          {
+            "label": "📊 Threshold",
+            "value": "threshold"
+          }
+        ],
+        "defaultValue": "realtime",
+        "token": "alert_config_changes_mode"
+      },
+      "title": "Config Changes Mode"
+    },
+    "input_alert_config_changes_threshold": {
+      "type": "input.text",
+      "options": {
+        "defaultValue": "5",
+        "token": "alert_config_changes_threshold"
+      },
+      "title": "Config Changes Threshold"
+    },
+    "input_alert_install_updates_mode": {
+      "type": "input.dropdown",
+      "options": {
+        "items": [
+          {
+            "label": "⚡ Real-time",
+            "value": "realtime"
+          },
+          {
+            "label": "📊 Threshold",
+            "value": "threshold"
+          }
+        ],
+        "defaultValue": "realtime",
+        "token": "alert_install_updates_mode"
+      },
+      "title": "Install/Update Mode"
+    },
+    "input_alert_install_updates_threshold": {
+      "type": "input.text",
+      "options": {
+        "defaultValue": "1",
+        "token": "alert_install_updates_threshold"
+      },
+      "title": "Install/Update Threshold"
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "options": {
+      "width": 1440,
+      "height": 3500,
+      "display": "auto-scale",
+      "backgroundImage": {
+        "sizeType": "cover"
+      }
+    },
+    "structure": [
+      {
+        "item": "viz_slack_control_panel",
+        "type": "block",
+        "position": {
+          "x": 20,
+          "y": 20,
+          "w": 1400,
+          "h": 400
+        }
+      },
+      {
+        "item": "viz_slack_enabled_count",
+        "type": "block",
+        "position": {
+          "x": 740,
+          "y": 760,
+          "w": 340,
+          "h": 200
+        }
+      },
+      {
+        "item": "viz_slack_status_table",
+        "type": "block",
+        "position": {
+          "x": 20,
+          "y": 440,
+          "w": 1400,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_fmg_managed_devices",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1000,
+          "w": 200,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_fmg_adoms",
+        "type": "block",
+        "position": {
+          "x": 200,
+          "y": 1000,
+          "w": 200,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_fmg_policy_packages",
+        "type": "block",
+        "position": {
+          "x": 400,
+          "y": 1000,
+          "w": 200,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_faz_log_volume",
+        "type": "block",
+        "position": {
+          "x": 600,
+          "y": 1000,
+          "w": 200,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_faz_connected_devices",
+        "type": "block",
+        "position": {
+          "x": 800,
+          "y": 1000,
+          "w": 200,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_faz_storage_usage",
+        "type": "block",
+        "position": {
+          "x": 1000,
+          "y": 1000,
+          "w": 200,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_fmg_admin_sessions",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1150,
+          "w": 300,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_fmg_config_changes",
+        "type": "block",
+        "position": {
+          "x": 300,
+          "y": 1150,
+          "w": 300,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_fmg_device_list",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1300,
+          "w": 1200,
+          "h": 350
+        }
+      },
+      {
+        "item": "viz_faz_log_timeline",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1650,
+          "w": 1200,
+          "h": 350
+        }
+      },
+      {
+        "item": "viz_fmg_activity_timeline",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 2000,
+          "w": 1200,
+          "h": 350
+        }
+      },
+      {
+        "item": "viz_fmg_admin_activity",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 2350,
+          "w": 400,
+          "h": 400
+        }
+      },
+      {
+        "item": "viz_fmg_config_history",
+        "type": "block",
+        "position": {
+          "x": 400,
+          "y": 2350,
+          "w": 400,
+          "h": 400
+        }
+      },
+      {
+        "item": "viz_fmg_system_events",
+        "type": "block",
+        "position": {
+          "x": 800,
+          "y": 2350,
+          "w": 400,
+          "h": 400
+        }
+      },
+      {
+        "item": "viz_fmg_adom_list",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 2750,
+          "w": 600,
+          "h": 350
+        }
+      },
+      {
+        "item": "viz_faz_device_status",
+        "type": "block",
+        "position": {
+          "x": 600,
+          "y": 2750,
+          "w": 600,
+          "h": 350
+        }
+      },
+      {
+        "item": "viz_install_history",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 3100,
+          "w": 600,
+          "h": 400
+        }
+      },
+      {
+        "item": "viz_version_info",
+        "type": "block",
+        "position": {
+          "x": 600,
+          "y": 3100,
+          "w": 600,
+          "h": 400
+        }
+      }
+    ],
+    "globalInputs": [
+      "input_global_trp",
+      "input_alert_device_events",
+      "input_alert_device_events_mode",
+      "input_alert_device_events_threshold",
+      "input_alert_admin_activity",
+      "input_alert_admin_activity_mode",
+      "input_alert_admin_activity_threshold",
+      "input_alert_config_changes",
+      "input_alert_config_changes_mode",
+      "input_alert_config_changes_threshold",
+      "input_alert_install_updates",
+      "input_alert_install_updates_mode",
+      "input_alert_install_updates_threshold"
+    ]
+  },
+  "description": "Fortinet Device Management Dashboard - Connected devices, configuration, and system monitoring",
+  "title": "🛡️ Fortinet Device Management Dashboard",
+  "version": "1.0.0"
+}

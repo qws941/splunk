@@ -1,6 +1,6 @@
 <form version="1.1" theme="dark">
   <label>🛡️ FortiGate Operations Dashboard</label>
-  <description>실무용 FortiGate 운영 대시보드 (트래픽, 정책, 차단 현황)</description>
+  <description>Production firewall operations - Traffic stats, policy analysis, and blocking status</description>
 
   <!-- Global Time Picker -->
   <fieldset submitButton="true" autoRun="true">

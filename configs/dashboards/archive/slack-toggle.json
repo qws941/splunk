@@ -1,0 +1,187 @@
+{
+  "visualizations": {
+    "viz_control_panel": {
+      "type": "viz.markdown",
+      "options": {
+        "markdown": "# 🔔 Slack 알림 컨트롤\n\n<button id=\"enable-btn\" onclick=\"toggleSlackAlerts('enable')\" style=\"padding: 20px 40px; background: #28a745; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin: 10px;\">✅ 알림 켜기</button>\n\n<button id=\"disable-btn\" onclick=\"toggleSlackAlerts('disable')\" style=\"padding: 20px 40px; background: #dc3545; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin: 10px;\">⛔ 알림 끄기</button>\n\n<div id=\"status-message\" style=\"padding: 15px; background: #f8f9fa; border-radius: 8px; margin-top: 20px; text-align: center;\">버튼을 클릭하여 Slack 알림을 제어하세요</div>\n\n<script>\nrequire(['jquery', 'splunkjs/ready!'], function($, mvc) {\n    window.toggleSlackAlerts = function(action) {\n        const statusDiv = $('#status-message');\n        const enableBtn = $('#enable-btn');\n        const disableBtn = $('#disable-btn');\n        \n        enableBtn.prop('disabled', true);\n        disableBtn.prop('disabled', true);\n        \n        const actionText = action === 'enable' ? '활성화' : '비활성화';\n        statusDiv.html('<span style=\"color: #ffc107;\">⏳ Slack 알림을 ' + actionText + ' 중...</span>');\n        \n        const correlationRules = [\n            'Correlation_Multi_Factor_Threat',\n            'Correlation_Repeated_High_Risk',\n            'Correlation_Weak_Signal_Combo',\n            'Correlation_Geo_Attack_Pattern',\n            'Correlation_Time_Anomaly',\n            'Correlation_Sophisticated_Threat_APT'\n        ];\n        \n        const slackValue = action === 'enable' ? '1' : '0';\n        let successCount = 0;\n        let errorCount = 0;\n        \n        correlationRules.forEach(function(ruleName, index) {\n            setTimeout(function() {\n                $.ajax({\n                    url: '/en-US/splunkd/__raw/servicesNS/nobody/search/saved/searches/' + ruleName,\n                    type: 'POST',\n                    data: {\n                        'action.slack': slackValue\n                    },\n                    success: function() {\n                        successCount++;\n                        if (successCount + errorCount === correlationRules.length) {\n                            finishToggle(action, successCount, errorCount);\n                        }\n                    },\n                    error: function() {\n                        errorCount++;\n                        if (successCount + errorCount === correlationRules.length) {\n                            finishToggle(action, successCount, errorCount);\n                        }\n                    }\n                });\n            }, index * 200);\n        });\n    };\n    \n    function finishToggle(action, successCount, errorCount) {\n        const statusDiv = $('#status-message');\n        const enableBtn = $('#enable-btn');\n        const disableBtn = $('#disable-btn');\n        \n        enableBtn.prop('disabled', false);\n        disableBtn.prop('disabled', false);\n        \n        if (errorCount === 0) {\n            const icon = action === 'enable' ? '✅' : '⛔';\n            const actionText = action === 'enable' ? '활성화' : '비활성화';\n            statusDiv.html(\n                '<span style=\"color: #28a745; font-size: 16px;\">' +\n                icon + ' Slack 알림 ' + actionText + ' 완료!</span><br/>' +\n                '<span style=\"font-size: 14px;\">총 ' + successCount + '개 규칙 업데이트됨</span>'\n            );\n            \n            sendSlackNotification(action);\n            \n            setTimeout(function() {\n                location.reload();\n            }, 2000);\n        } else {\n            statusDiv.html(\n                '<span style=\"color: #dc3545; font-size: 16px;\">❌ 오류 발생</span><br/>' +\n                '<span style=\"font-size: 14px;\">성공: ' + successCount + ' / 실패: ' + errorCount + '</span>'\n            );\n        }\n    }\n    \n    function sendSlackNotification(action) {\n        const icon = action === 'enable' ? '✅' : '⛔';\n        const actionText = action === 'enable' ? 'ENABLED' : 'DISABLED';\n        const timestamp = new Date().toISOString().replace('T', ' ').substr(0, 19);\n        \n        const message = icon + ' *Slack Alert Status Changed*\\\\n\\\\n' +\n                      'Status: ' + actionText + '\\\\n' +\n                      'Changed By: Web UI\\\\n' +\n                      'Timestamp: ' + timestamp + '\\\\n' +\n                      'Method: REST API (JSON)\\\\n\\\\n' +\n                      'Total Rules Updated: 6';\n        \n        const spl = '| makeresults | eval message=\"' + message + '\" | sendalert slack param.message=message';\n        \n        $.ajax({\n            url: '/en-US/splunkd/__raw/services/search/jobs',\n            type: 'POST',\n            data: {\n                search: spl,\n                exec_mode: 'oneshot',\n                output_mode: 'json'\n            }\n        });\n    }\n});\n</script>",
+        "fontSize": "default"
+      }
+    },
+    "viz_status_table": {
+      "type": "splunk.table",
+      "dataSources": {
+        "primary": "ds_status"
+      },
+      "title": "📊 현재 Slack 알림 상태 (실시간)",
+      "options": {
+        "count": 10,
+        "dataOverlayMode": "none",
+        "drilldown": "none",
+        "showRowNumbers": false,
+        "showInternalFields": false,
+        "columnFormat": {
+          "Slack Status": {
+            "data": "> table | seriesByIndex(0) | formatByType(SlackStatusColorFormat)"
+          }
+        }
+      },
+      "context": {}
+    },
+    "viz_enabled_count": {
+      "type": "splunk.singlevalue",
+      "dataSources": {
+        "primary": "ds_enabled_count"
+      },
+      "title": "📈 활성화된 규칙",
+      "options": {
+        "majorFontSize": 36,
+        "trendFontSize": 18,
+        "showSparklineArea": false,
+        "showTrendIndicator": false,
+        "majorColor": "#28a745",
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_recent_alerts": {
+      "type": "splunk.singlevalue",
+      "dataSources": {
+        "primary": "ds_recent_alerts"
+      },
+      "title": "📬 최근 24h 알림",
+      "options": {
+        "majorFontSize": 36,
+        "trendFontSize": 18,
+        "showSparklineArea": false,
+        "showTrendIndicator": false,
+        "majorColor": "#007bff",
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_test_button": {
+      "type": "viz.markdown",
+      "options": {
+        "markdown": "## 🧪 Slack 알림 테스트\n\n<button id=\"test-btn\" onclick=\"sendTestMessage()\" style=\"padding: 15px 30px; background: #007bff; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer;\">📤 테스트 메시지 전송</button>\n\n<div id=\"test-result\" style=\"margin-top: 15px; padding: 10px; border-radius: 4px; display: none;\"></div>\n\n<script>\nrequire(['jquery'], function($) {\n    window.sendTestMessage = function() {\n        const resultDiv = $('#test-result');\n        resultDiv.show().css('background', '#fff3cd').css('color', '#856404')\n                 .html('⏳ 테스트 메시지 전송 중...');\n        \n        const spl = '| makeresults | eval message=\"🧪 Slack 연결 테스트 - ' + new Date().toLocaleString() + '\" | sendalert slack param.message=message';\n        \n        $.ajax({\n            url: '/en-US/splunkd/__raw/services/search/jobs',\n            type: 'POST',\n            data: {\n                search: spl,\n                exec_mode: 'oneshot',\n                output_mode: 'json'\n            },\n            success: function() {\n                resultDiv.css('background', '#d4edda').css('color', '#155724')\n                         .html('✅ 테스트 메시지 전송 완료! #splunk-alerts 채널을 확인하세요.');\n            },\n            error: function(xhr) {\n                resultDiv.css('background', '#f8d7da').css('color', '#721c24')\n                         .html('❌ 전송 실패: ' + (xhr.responseText || 'Unknown error'));\n            }\n        });\n    };\n});\n</script>",
+        "fontSize": "default"
+      }
+    }
+  },
+  "dataSources": {
+    "ds_status": {
+      "type": "ds.search",
+      "options": {
+        "query": "| rest /services/saved/searches splunk_server=local\n| search title=\"Correlation_*\"\n| eval slack_status = if(match('action.slack', \"1\"), \"✅ 활성화\", \"⛔ 비활성화\")\n| eval rule_desc = case(\n    title == \"Correlation_Multi_Factor_Threat\", \"Multi-Factor Threat (75+)\",\n    title == \"Correlation_Repeated_High_Risk\", \"Repeated High-Risk (80+)\",\n    title == \"Correlation_Weak_Signal_Combo\", \"Weak Signal Combo (80+)\",\n    title == \"Correlation_Geo_Attack_Pattern\", \"Geo + Attack (85+)\",\n    title == \"Correlation_Time_Anomaly\", \"Time Anomaly (85+)\",\n    title == \"Correlation_Sophisticated_Threat_APT\", \"APT Detection (90+)\",\n    1=1, \"Other\"\n)\n| table title, rule_desc, slack_status, cron_schedule\n| rename title as \"Rule Name\", rule_desc as \"Description\", slack_status as \"Slack Status\", cron_schedule as \"Schedule\"",
+        "queryParameters": {
+          "earliest": "-24h@h",
+          "latest": "now"
+        },
+        "refresh": "30s",
+        "refreshType": "delay"
+      },
+      "name": "Status Query"
+    },
+    "ds_enabled_count": {
+      "type": "ds.search",
+      "options": {
+        "query": "| rest /services/saved/searches splunk_server=local\n| search title=\"Correlation_*\"\n| eval slack_enabled = if(match('action.slack', \"1\"), 1, 0)\n| stats sum(slack_enabled) as enabled, count as total\n| eval display = enabled + \" / \" + total\n| fields display",
+        "queryParameters": {
+          "earliest": "-24h@h",
+          "latest": "now"
+        },
+        "refresh": "30s",
+        "refreshType": "delay"
+      },
+      "name": "Enabled Count"
+    },
+    "ds_recent_alerts": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=_internal source=*scheduler.log action=alert_fired alert_actions=*slack* earliest=-24h\n| stats count",
+        "queryParameters": {
+          "earliest": "-24h",
+          "latest": "now"
+        }
+      },
+      "name": "Recent Alerts"
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "latest": "$global_time.latest$",
+            "earliest": "$global_time.earliest$"
+          }
+        }
+      }
+    }
+  },
+  "inputs": {},
+  "layout": {
+    "type": "absolute",
+    "options": {
+      "width": 1440,
+      "height": 1200,
+      "display": "auto-scale",
+      "backgroundImage": {
+        "sizeType": "cover"
+      }
+    },
+    "structure": [
+      {
+        "item": "viz_control_panel",
+        "type": "block",
+        "position": {
+          "x": 20,
+          "y": 20,
+          "w": 1400,
+          "h": 400
+        }
+      },
+      {
+        "item": "viz_status_table",
+        "type": "block",
+        "position": {
+          "x": 20,
+          "y": 440,
+          "w": 1400,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_test_button",
+        "type": "block",
+        "position": {
+          "x": 20,
+          "y": 760,
+          "w": 700,
+          "h": 200
+        }
+      },
+      {
+        "item": "viz_enabled_count",
+        "type": "block",
+        "position": {
+          "x": 740,
+          "y": 760,
+          "w": 340,
+          "h": 200
+        }
+      },
+      {
+        "item": "viz_recent_alerts",
+        "type": "block",
+        "position": {
+          "x": 1100,
+          "y": 760,
+          "w": 320,
+          "h": 200
+        }
+      }
+    ],
+    "globalInputs": []
+  },
+  "title": "🔔 Slack 알림 켜기/끄기 (Dashboard Studio)",
+  "description": "원클릭으로 Slack 알림 제어 - Dashboard Studio JSON 버전",
+  "version": "1.0.0"
+}

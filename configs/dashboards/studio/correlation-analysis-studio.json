@@ -1,0 +1,732 @@
+{
+  "visualizations": {
+    "viz_deny_events": {
+      "type": "splunk.singlevalue",
+      "title": "🚫 Deny Events (차단된 이벤트)",
+      "dataSources": {
+        "primary": "ds_deny_events"
+      },
+      "options": {
+        "majorColor": "> majorValue | rangeValue(majorColorEditorConfig)",
+        "trendColor": "> trendValue | rangeValue(trendColorEditorConfig)",
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_high_risk_ips": {
+      "type": "splunk.singlevalue",
+      "title": "🔴 High-Risk IPs (고위험 IP)",
+      "dataSources": {
+        "primary": "ds_high_risk_ips"
+      },
+      "options": {
+        "majorColor": "> majorValue | rangeValue(majorColorEditorConfig)",
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_critical_events": {
+      "type": "splunk.singlevalue",
+      "title": "⚠️ Critical Events (심각도 높음)",
+      "dataSources": {
+        "primary": "ds_critical_events"
+      },
+      "options": {
+        "majorColor": "> majorValue | rangeValue(majorColorEditorConfig)",
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_blocked_ips": {
+      "type": "splunk.singlevalue",
+      "title": "🛡️ Blocked IPs (자동 차단)",
+      "dataSources": {
+        "primary": "ds_blocked_ips"
+      },
+      "options": {
+        "majorColor": "#4ade80",
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_correlation_alerts": {
+      "type": "splunk.singlevalue",
+      "title": "🔗 Correlation Alerts (상관분석 알림)",
+      "dataSources": {
+        "primary": "ds_correlation_alerts"
+      },
+      "options": {
+        "majorColor": "> majorValue | rangeValue(majorColorEditorConfig)",
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_rule1_table": {
+      "type": "splunk.table",
+      "title": "Rule 1: Multi-Factor Threat Score",
+      "dataSources": {
+        "primary": "ds_rule1"
+      },
+      "options": {
+        "backgroundColor": "transparent",
+        "tableFormat": {
+          "rowBackgroundColors": "> table | seriesByIndex(0) | pick('correlation_score') | rangeValue(tableBackgroundColorsByCorrelationScore)"
+        }
+      }
+    },
+    "viz_rule1_trend": {
+      "type": "splunk.line",
+      "title": "Rule 1: Trend (15min)",
+      "dataSources": {
+        "primary": "ds_rule1_trend"
+      },
+      "options": {
+        "backgroundColor": "transparent",
+        "legendDisplay": "bottom",
+        "xAxisTitleText": "Time",
+        "yAxisTitleText": "Correlation Score"
+      }
+    },
+    "viz_rule2_table": {
+      "type": "splunk.table",
+      "title": "Rule 2: Repeated High-Risk Events",
+      "dataSources": {
+        "primary": "ds_rule2"
+      },
+      "options": {
+        "backgroundColor": "transparent",
+        "tableFormat": {
+          "rowBackgroundColors": "> table | seriesByIndex(0) | pick('correlation_score') | rangeValue(tableBackgroundColorsByCorrelationScore)"
+        }
+      }
+    },
+    "viz_rule2_trend": {
+      "type": "splunk.line",
+      "title": "Rule 2: Trend (10min)",
+      "dataSources": {
+        "primary": "ds_rule2_trend"
+      },
+      "options": {
+        "backgroundColor": "transparent",
+        "legendDisplay": "bottom"
+      }
+    },
+    "viz_rule3_table": {
+      "type": "splunk.table",
+      "title": "Rule 3: Weak Signal Combination",
+      "dataSources": {
+        "primary": "ds_rule3"
+      },
+      "options": {
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_rule3_details": {
+      "type": "splunk.table",
+      "title": "Rule 3: Signal Details",
+      "dataSources": {
+        "primary": "ds_rule3_details"
+      },
+      "options": {
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_rule4_table": {
+      "type": "splunk.table",
+      "title": "Rule 4: Geo + Attack Pattern",
+      "dataSources": {
+        "primary": "ds_rule4"
+      },
+      "options": {
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_rule4_geo": {
+      "type": "splunk.choropleth.svg",
+      "title": "Rule 4: Geographic Distribution",
+      "dataSources": {
+        "primary": "ds_rule4_geo"
+      },
+      "options": {
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_rule5_table": {
+      "type": "splunk.table",
+      "title": "Rule 5: Time-Based Anomaly",
+      "dataSources": {
+        "primary": "ds_rule5"
+      },
+      "options": {
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_rule5_timechart": {
+      "type": "splunk.line",
+      "title": "Rule 5: Event Spike Detection",
+      "dataSources": {
+        "primary": "ds_rule5_timechart"
+      },
+      "options": {
+        "backgroundColor": "transparent",
+        "legendDisplay": "bottom"
+      }
+    },
+    "viz_rule6_table": {
+      "type": "splunk.table",
+      "title": "Rule 6: Cross-Event Type Correlation (APT Detection)",
+      "dataSources": {
+        "primary": "ds_rule6"
+      },
+      "options": {
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_rule6_matrix": {
+      "type": "splunk.table",
+      "title": "Rule 6: Attack Type Matrix",
+      "dataSources": {
+        "primary": "ds_rule6_matrix"
+      },
+      "options": {
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_slack_test": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "## 🚀 Slack 알림 실행\n\n아래 검색을 실행하여 Slack 알림을 테스트하세요:\n\n```\n| makeresults count=1 \n| eval src_ip=\"192.168.1.100\", correlation_score=95, event_count=50, attack_types=\"SQL Injection, XSS, Port Scan\", action_recommendation=\"AUTO_BLOCK\", marker=\"correlation_detection=weak_signal_combo\" \n| collect index=summary_fw marker=marker\n```"
+      }
+    },
+    "viz_alert_history": {
+      "type": "splunk.table",
+      "title": "📊 Alert History (24h)",
+      "dataSources": {
+        "primary": "ds_alert_history"
+      },
+      "options": {
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_alert_success_rate": {
+      "type": "splunk.singlevalue",
+      "title": "✅ Alert Success Rate",
+      "dataSources": {
+        "primary": "ds_alert_success_rate"
+      },
+      "options": {
+        "majorColor": "> majorValue | rangeValue(successRateColorConfig)",
+        "backgroundColor": "transparent"
+      }
+    }
+  },
+  "dataSources": {
+    "ds_deny_events": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw action=deny earliest=$time_picker.earliest$ latest=$time_picker.latest$ | stats count as deny_events",
+        "queryParameters": {
+          "earliest": "$time_picker.earliest$",
+          "latest": "$time_picker.latest$"
+        }
+      },
+      "name": "Deny Events"
+    },
+    "ds_high_risk_ips": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw earliest=$time_picker.earliest$ latest=$time_picker.latest$ | lookup abuseipdb_lookup.csv ip AS src_ip OUTPUT abuse_score | where abuse_score >= 90 | stats dc(src_ip) as high_risk_ips",
+        "queryParameters": {
+          "earliest": "$time_picker.earliest$",
+          "latest": "$time_picker.latest$"
+        }
+      },
+      "name": "High-Risk IPs"
+    },
+    "ds_critical_events": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw severity=critical earliest=$time_picker.earliest$ latest=$time_picker.latest$ | stats count as critical_events",
+        "queryParameters": {
+          "earliest": "$time_picker.earliest$",
+          "latest": "$time_picker.latest$"
+        }
+      },
+      "name": "Critical Events"
+    },
+    "ds_blocked_ips": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=summary_fw marker=\"auto_block=*\" earliest=$time_picker.earliest$ latest=$time_picker.latest$ | stats dc(src_ip) as blocked_ips",
+        "queryParameters": {
+          "earliest": "$time_picker.earliest$",
+          "latest": "$time_picker.latest$"
+        }
+      },
+      "name": "Blocked IPs"
+    },
+    "ds_correlation_alerts": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=summary_fw marker=\"correlation_detection=*\" earliest=$time_picker.earliest$ latest=$time_picker.latest$ | stats count as correlation_alerts",
+        "queryParameters": {
+          "earliest": "$time_picker.earliest$",
+          "latest": "$time_picker.latest$"
+        }
+      },
+      "name": "Correlation Alerts"
+    },
+    "ds_rule1": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=summary_fw marker=\"correlation_detection=multi_factor_threat\" earliest=$time_picker.earliest$ latest=$time_picker.latest$ event_category_filter=$event_category_filter$ action_recommendation=$action_filter$ | head 20 | table _time, src_ip, correlation_score, event_count, abuse_score, country, action_recommendation | sort -correlation_score",
+        "queryParameters": {
+          "earliest": "$time_picker.earliest$",
+          "latest": "$time_picker.latest$"
+        }
+      },
+      "name": "Rule 1: Multi-Factor Threat"
+    },
+    "ds_rule1_trend": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=summary_fw marker=\"correlation_detection=multi_factor_threat\" earliest=$time_picker.earliest$ latest=$time_picker.latest$ | timechart span=15m avg(correlation_score) as avg_score max(correlation_score) as max_score",
+        "queryParameters": {
+          "earliest": "$time_picker.earliest$",
+          "latest": "$time_picker.latest$"
+        }
+      },
+      "name": "Rule 1 Trend"
+    },
+    "ds_rule2": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=summary_fw marker=\"correlation_detection=repeated_high_risk\" earliest=$time_picker.earliest$ latest=$time_picker.latest$ event_category_filter=$event_category_filter$ action_recommendation=$action_filter$ | head 20 | table _time, src_ip, correlation_score, high_risk_count, total_events, action_recommendation | sort -correlation_score",
+        "queryParameters": {
+          "earliest": "$time_picker.earliest$",
+          "latest": "$time_picker.latest$"
+        }
+      },
+      "name": "Rule 2: Repeated High-Risk"
+    },
+    "ds_rule2_trend": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=summary_fw marker=\"correlation_detection=repeated_high_risk\" earliest=$time_picker.earliest$ latest=$time_picker.latest$ | timechart span=10m avg(correlation_score) as avg_score",
+        "queryParameters": {
+          "earliest": "$time_picker.earliest$",
+          "latest": "$time_picker.latest$"
+        }
+      },
+      "name": "Rule 2 Trend"
+    },
+    "ds_rule3": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=summary_fw marker=\"correlation_detection=weak_signal_combo\" earliest=$time_picker.earliest$ latest=$time_picker.latest$ event_category_filter=$event_category_filter$ action_recommendation=$action_filter$ | head 20 | table _time, src_ip, correlation_score, signal_count, abuse_score, event_count, unique_dst_count, action_recommendation | sort -correlation_score",
+        "queryParameters": {
+          "earliest": "$time_picker.earliest$",
+          "latest": "$time_picker.latest$"
+        }
+      },
+      "name": "Rule 3: Weak Signal"
+    },
+    "ds_rule3_details": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=summary_fw marker=\"correlation_detection=weak_signal_combo\" earliest=$time_picker.earliest$ latest=$time_picker.latest$ | head 20 | table src_ip, has_low_abuse, has_failed_login, has_port_scan, has_multiple_targets, has_high_frequency",
+        "queryParameters": {
+          "earliest": "$time_picker.earliest$",
+          "latest": "$time_picker.latest$"
+        }
+      },
+      "name": "Rule 3 Signal Details"
+    },
+    "ds_rule4": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=summary_fw marker=\"correlation_detection=geo_attack_pattern\" earliest=$time_picker.earliest$ latest=$time_picker.latest$ event_category_filter=$event_category_filter$ action_recommendation=$action_filter$ | head 20 | table _time, src_ip, country, correlation_score, attack_count, geo_risk, action_recommendation | sort -correlation_score",
+        "queryParameters": {
+          "earliest": "$time_picker.earliest$",
+          "latest": "$time_picker.latest$"
+        }
+      },
+      "name": "Rule 4: Geo + Attack"
+    },
+    "ds_rule4_geo": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=summary_fw marker=\"correlation_detection=geo_attack_pattern\" earliest=$time_picker.earliest$ latest=$time_picker.latest$ | stats count by country | geom geo_countries featureIdField=country",
+        "queryParameters": {
+          "earliest": "$time_picker.earliest$",
+          "latest": "$time_picker.latest$"
+        }
+      },
+      "name": "Rule 4 Geographic"
+    },
+    "ds_rule5": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=summary_fw marker=\"correlation_detection=time_anomaly\" earliest=$time_picker.earliest$ latest=$time_picker.latest$ event_category_filter=$event_category_filter$ action_recommendation=$action_filter$ | head 20 | table _time, src_ip, correlation_score, current_count, baseline_avg, zscore, spike_ratio, action_recommendation | sort -correlation_score",
+        "queryParameters": {
+          "earliest": "$time_picker.earliest$",
+          "latest": "$time_picker.latest$"
+        }
+      },
+      "name": "Rule 5: Time Anomaly"
+    },
+    "ds_rule5_timechart": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=summary_fw marker=\"correlation_detection=time_anomaly\" earliest=$time_picker.earliest$ latest=$time_picker.latest$ | timechart span=5m sum(current_count) as events avg(baseline_avg) as baseline",
+        "queryParameters": {
+          "earliest": "$time_picker.earliest$",
+          "latest": "$time_picker.latest$"
+        }
+      },
+      "name": "Rule 5 Time Chart"
+    },
+    "ds_rule6": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=summary_fw marker=\"correlation_detection=cross_event_type\" earliest=$time_picker.earliest$ latest=$time_picker.latest$ event_category_filter=$event_category_filter$ action_recommendation=$action_filter$ | head 20 | table _time, src_ip, correlation_score, attack_type_count, attack_types, total_events, action_recommendation | sort -correlation_score",
+        "queryParameters": {
+          "earliest": "$time_picker.earliest$",
+          "latest": "$time_picker.latest$"
+        }
+      },
+      "name": "Rule 6: Cross-Event APT"
+    },
+    "ds_rule6_matrix": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=summary_fw marker=\"correlation_detection=cross_event_type\" earliest=$time_picker.earliest$ latest=$time_picker.latest$ | eval attack_list=split(attack_types, \", \") | mvexpand attack_list | stats count by src_ip, attack_list | xyseries src_ip attack_list count",
+        "queryParameters": {
+          "earliest": "$time_picker.earliest$",
+          "latest": "$time_picker.latest$"
+        }
+      },
+      "name": "Rule 6 Attack Matrix"
+    },
+    "ds_alert_history": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=summary_fw marker=\"correlation_detection=*\" earliest=-24h | stats count by marker, action_recommendation | sort -count",
+        "queryParameters": {
+          "earliest": "-24h",
+          "latest": "now"
+        }
+      },
+      "name": "Alert History"
+    },
+    "ds_alert_success_rate": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=_internal source=*scheduler.log savedsearch_name=\"Correlation_*\" | stats count(eval(result=\"success\")) as success count as total | eval success_rate=round(success/total*100, 2)",
+        "queryParameters": {
+          "earliest": "-24h",
+          "latest": "now"
+        }
+      },
+      "name": "Alert Success Rate"
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "latest": "$global_time.latest$",
+            "earliest": "$global_time.earliest$"
+          }
+        }
+      }
+    }
+  },
+  "inputs": {
+    "input_time_picker": {
+      "type": "input.timerange",
+      "options": {
+        "token": "time_picker",
+        "defaultValue": "-24h@h,now"
+      },
+      "title": "Time Range"
+    },
+    "input_event_category": {
+      "type": "input.dropdown",
+      "options": {
+        "items": [
+          {
+            "label": "All Types",
+            "value": "*"
+          },
+          {
+            "label": "Multi-Factor Threat",
+            "value": "multi_factor_threat"
+          },
+          {
+            "label": "Repeated High-Risk Events",
+            "value": "repeated_high_risk"
+          },
+          {
+            "label": "Weak Signal Combination",
+            "value": "weak_signal_combo"
+          },
+          {
+            "label": "Geo + Attack Pattern",
+            "value": "geo_attack_pattern"
+          },
+          {
+            "label": "Time-Based Anomaly",
+            "value": "time_anomaly"
+          },
+          {
+            "label": "Cross-Event Type",
+            "value": "cross_event_type"
+          }
+        ],
+        "defaultValue": "*",
+        "token": "event_category_filter"
+      },
+      "title": "Correlation Type"
+    },
+    "input_action_filter": {
+      "type": "input.dropdown",
+      "options": {
+        "items": [
+          {
+            "label": "All Actions",
+            "value": "*"
+          },
+          {
+            "label": "Auto-Block",
+            "value": "AUTO_BLOCK"
+          },
+          {
+            "label": "Review & Block",
+            "value": "REVIEW_AND_BLOCK"
+          },
+          {
+            "label": "Monitor Only",
+            "value": "MONITOR"
+          }
+        ],
+        "defaultValue": "*",
+        "token": "action_filter"
+      },
+      "title": "Action Recommendation"
+    }
+  },
+  "layout": {
+    "type": "absolute",
+    "options": {
+      "width": 1440,
+      "height": 3600,
+      "display": "auto-scale"
+    },
+    "structure": [
+      {
+        "item": "viz_deny_events",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "w": 288,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_high_risk_ips",
+        "type": "block",
+        "position": {
+          "x": 288,
+          "y": 0,
+          "w": 288,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_critical_events",
+        "type": "block",
+        "position": {
+          "x": 576,
+          "y": 0,
+          "w": 288,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_blocked_ips",
+        "type": "block",
+        "position": {
+          "x": 864,
+          "y": 0,
+          "w": 288,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_correlation_alerts",
+        "type": "block",
+        "position": {
+          "x": 1152,
+          "y": 0,
+          "w": 288,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_rule1_table",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 150,
+          "w": 720,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_rule1_trend",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 150,
+          "w": 720,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_rule2_table",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 450,
+          "w": 720,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_rule2_trend",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 450,
+          "w": 720,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_rule3_table",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 750,
+          "w": 720,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_rule3_details",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 750,
+          "w": 720,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_rule4_table",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1050,
+          "w": 720,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_rule4_geo",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 1050,
+          "w": 720,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_rule5_table",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1350,
+          "w": 720,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_rule5_timechart",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 1350,
+          "w": 720,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_rule6_table",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1650,
+          "w": 720,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_rule6_matrix",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 1650,
+          "w": 720,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_slack_test",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1950,
+          "w": 1440,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_alert_history",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 2100,
+          "w": 960,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_alert_success_rate",
+        "type": "block",
+        "position": {
+          "x": 960,
+          "y": 2100,
+          "w": 480,
+          "h": 300
+        }
+      }
+    ],
+    "globalInputs": [
+      "input_time_picker",
+      "input_event_category",
+      "input_action_filter"
+    ]
+  },
+  "description": "Advanced threat correlation engine with 6 detection rules and automated response",
+  "title": "🔗 Fortinet Correlation Analysis Dashboard"
+}
