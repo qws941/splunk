@@ -4,15 +4,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 🎯 Project Overview
 
-**FortiAnalyzer → Splunk HEC Integration with Advanced Correlation Engine**
+**FortiAnalyzer → Splunk Integration with Advanced Correlation Engine**
 
 Multi-phase security event processing system that collects FortiAnalyzer events, performs correlation analysis, automates threat response, and sends Slack notifications.
 
+### Quick Facts
+
+- **Language**: JavaScript (ES Modules, Node.js 18+)
+- **Runtime Dependencies**: 0 (zero - uses only Node.js built-ins)
+- **Architecture**: Domain-Driven Design (3 domains: Integration, Security, Defense)
+- **Deployment**: Dual mode (Local/Docker OR Cloudflare Workers)
+- **Phase**: 4.1 - Advanced Correlation Engine (Production Ready)
+- **LOC**: ~4,000 lines core JavaScript + 29 SPL queries + 1 production dashboard
+
 ### System Flow
+
 ```
 FortiAnalyzer (보안 이벤트 수집)
     ↓
-Security Event Processor (위험도 분석, 상관관계 엔진)
+    Syslog Forwarding (UDP 514 또는 TCP 6514)
+    ↓
+Splunk (index=fw)
+    ↓
+Correlation Engine (6개 규칙, configs/correlation-rules.conf)
     ├─ Multi-Factor Threat Score (abuse + geo + login + frequency)
     ├─ Repeated High-Risk Events (tstats on risk_score > 70)
     ├─ Weak Signal Combination (5 indicators)
@@ -20,134 +34,146 @@ Security Event Processor (위험도 분석, 상관관계 엔진)
     ├─ Time-Based Anomaly (Z-score > 3)
     └─ Cross-Event Type Correlation (APT detection)
     ↓
-├─→ Splunk HEC (fortigate_security 인덱스)
-│   └─ Data Model Acceleration (Fortinet_Security)
-│       └─ Summary Indexing (summary_fw)
+├─→ Data Model Acceleration (Fortinet_Security)
+│   └─ Summary Indexing (summary_fw)
 └─→ Automated Response
     ├─ FortiGate API (IP 차단, score ≥ 90)
     └─ Slack (알림, score 80-89 또는 특정 패턴)
 ```
 
----
-
-## 🏗️ Architecture (Domain-Driven Design Level 3)
-
-### Entry Points (2가지 배포 옵션)
-
-**1. `index.js` - Local/Docker 실행**
-- Node.js 직접 실행: `npm start`
-- HTTP 서버 (Health/Metrics endpoints)
-- PM2 프로세스 관리 지원
-
-**2. `src/worker.js` - Cloudflare Workers (권장 프로덕션)**
-- 서버리스 배포: `npm run deploy:worker`
-- Cron Trigger (매 1분 자동 실행)
-- 글로벌 엣지 네트워크
-
-### Core Domains
-
-**`domains/integration/`** - 외부 시스템 연동
-- `fortianalyzer-direct-connector.js` - FAZ REST API 클라이언트 (JSON-RPC)
-- `splunk-api-connector.js` - Splunk HEC 클라이언트
-- `splunk-rest-client.js` - Splunk REST API (대시보드 배포)
-- `slack-connector.js` - Slack Bot API
-- `splunk-queries.js` - 29개 프로덕션 SPL 쿼리
-- `splunk-dashboards.js` - 4개 대시보드 템플릿
-
-**`domains/security/`** - 보안 이벤트 처리 (핵심 도메인)
-- `security-event-processor.js`
-  - 이벤트 분석: severity, risk_score, event_type 분류
-  - 알림 트리거: `shouldAlert()` 조건 평가
-  - 상관관계 분석: `correlateEvent()` 다중 이벤트 연관
-  - 배치 처리: `processEventBatch()` 큐 기반 처리 (5초마다)
-
-**`domains/defense/`** - 안정성 패턴
-- `circuit-breaker.js`
-  - 상태: CLOSED → OPEN → HALF_OPEN
-  - 장애 임계값: 5번 실패 시 OPEN
-  - 복구 타임아웃: 60초
-
-### Configuration Files (`configs/`)
-
-| File | Purpose | Phase |
-|------|---------|-------|
-| `correlation-rules.conf` | 6개 상관관계 규칙 (19KB) | 4.1 |
-| `datamodels.conf` | Fortinet_Security 데이터 모델 | 3.3 |
-| `savedsearches-acceleration.conf` | Summary indexing, baselines | 3.3 |
-| `savedsearches-auto-block.conf` | 자동 차단 규칙 (3개 searches) | 3.2 |
-
-### Dashboards (`dashboards/`, `configs/dashboards/`)
-
-| Dashboard | Panels | Phase | Key Features |
-|-----------|--------|-------|--------------|
-| `fortinet-dashboard.xml` | 28 | 1-2 | 기본 FortiGate 보안 대시보드 |
-| `threat-intelligence-panels.xml` | 9 | 3.1 | AbuseIPDB, VirusTotal 통합 |
-| `automated-response-panels.xml` | 10 | 3.2 | 자동 차단 현황, 감사 추적 |
-| `correlation-analysis.xml` | 21 | 4.1 | 상관관계 분석, Slack 테스트 패널 |
-
-### Python Scripts (`scripts/`)
-
-| Script | Purpose | Usage |
-|--------|---------|-------|
-| `fortigate_auto_block.py` | FortiGate API 자동 차단 | Splunk alert action |
-| `fetch_abuseipdb_intel.py` | AbuseIPDB 위협 인텔리전스 | Cron (매시간) |
-| `fetch_virustotal_intel.py` | VirusTotal 위협 인텔리전스 | Cron (매시간) |
+**Recommended Setup**: FAZ Syslog → Splunk (가장 간단, 설정 2분)
+- Alternative: Node.js HEC client available but not required for most use cases
 
 ---
 
-## 🚀 Essential Commands
+## 🚀 Quick Start
 
-### Development & Deployment
+### Essential Commands
 
 ```bash
-# Local 실행 (Node.js 18+)
+# Local execution (Node.js 18+)
 npm start
 
-# Cloudflare Workers 개발 (hot reload)
-npm run dev:worker
+# Docker Compose (if available)
+docker-compose up -d
+docker-compose logs -f
 
-# Cloudflare Workers 배포 (프로덕션)
-npm run deploy:worker
+# Cloudflare Workers (serverless production)
+npm run dev:worker          # Local development with hot reload
+npm run deploy:worker       # Deploy to production
+npm run tail:worker         # Real-time logs
 
-# 실시간 로그 확인
-npm run tail:worker
+# Health check (Local/Docker)
+curl http://localhost:3000/health
 ```
 
-### Cloudflare Workers Secrets 설정 (최초 1회)
+### Cloudflare Workers Secrets (one-time setup)
 
 ```bash
-npm run secret:faz-host        # FortiAnalyzer 호스트
+npm run secret:faz-host        # FortiAnalyzer host
 npm run secret:faz-username    # admin
-npm run secret:faz-password    # 비밀번호
-npm run secret:splunk-host     # Splunk HEC 호스트
-npm run secret:splunk-token    # HEC 토큰
+npm run secret:faz-password    # password
+npm run secret:splunk-host     # Splunk HEC host
+npm run secret:splunk-token    # HEC token
 npm run secret:slack-token     # xoxb-<example>
 npm run secret:slack-channel   # #splunk-alerts
 ```
 
-### Dashboard Validation & Deployment
+### Dashboard Validation
 
 ```bash
-# XML 유효성 검사
+# XML validation
 python3 -c "import xml.etree.ElementTree as ET; ET.parse('configs/dashboards/correlation-analysis.xml'); print('✅ Valid')"
 
-# 전체 대시보드 검증 (커스텀 스크립트)
-python3 /tmp/validate_dashboards.py
-
-# Splunk REST API로 대시보드 배포
+# Deploy dashboard via Splunk REST API
 node scripts/deploy-dashboards.js
 ```
 
 ### Testing
 
 ```bash
-# Mock 데이터 생성 및 Splunk 전송
+# Generate mock data and send to Splunk
 node scripts/generate-mock-data.js --count=100 --send
 
-# Slack 알림 테스트
+# Test Slack notifications
 node scripts/slack-alert-cli.js --test
 node scripts/slack-alert-cli.js --channel="splunk-alerts" --message="Test"
 ```
+
+**Note on Testing**: This project has no formal automated test suite. Testing is performed via:
+- Manual testing with mock data generation scripts
+- Dashboard XML validation scripts
+- Integration testing against real FortiAnalyzer/Splunk instances
+- Slack notification test tools
+
+---
+
+## 🏗️ Architecture (Domain-Driven Design Level 3)
+
+### Entry Points (2 deployment options)
+
+**1. `index.js` - Local/Docker Execution**
+- Direct Node.js: `npm start`
+- HTTP server with health/metrics endpoints (:3000)
+- PM2 process management support
+- Continuous polling (1-minute interval)
+
+**2. `src/worker.js` - Cloudflare Workers (Recommended for Production)**
+- Serverless deployment: `npm run deploy:worker`
+- Cron-triggered execution (every 1 minute)
+- Global edge network
+- Auto-scaling, zero infrastructure management
+
+### Core Domains
+
+**`domains/integration/`** - External System Connectors
+- `fortianalyzer-direct-connector.js` - FAZ REST API client (JSON-RPC)
+- `splunk-api-connector.js` - Splunk HEC client
+- `splunk-rest-client.js` - Splunk REST API (dashboard deployment)
+- `slack-connector.js` - Slack Bot API
+- `splunk-queries.js` - 29 production SPL queries
+- `splunk-dashboards.js` - 4 dashboard templates
+
+**`domains/security/`** - Security Event Processing (Core Domain)
+- `security-event-processor.js`
+  - Event analysis: severity, risk_score, event_type classification
+  - Alert triggering: `shouldAlert()` threshold evaluation
+  - Correlation analysis: `correlateEvent()` multi-event pattern matching
+  - Batch processing: `processEventBatch()` queue-based processing (every 5 seconds)
+
+**`domains/defense/`** - Resilience Patterns
+- `circuit-breaker.js`
+  - States: CLOSED → OPEN → HALF_OPEN
+  - Failure threshold: 5 consecutive failures trigger OPEN
+  - Recovery timeout: 60 seconds before HALF_OPEN attempt
+
+### Configuration Files (`configs/`)
+
+| File | Purpose | Phase |
+|------|---------|-------|
+| `correlation-rules.conf` | 6 correlation rules (19KB) | 4.1 |
+| `datamodels.conf` | Fortinet_Security data model | 3.3 |
+| `savedsearches-acceleration.conf` | Summary indexing, baselines | 3.3 |
+| `savedsearches-auto-block.conf` | Auto-blocking rules (3 searches) | 3.2 |
+
+### Dashboard (`configs/dashboards/`)
+
+**Production Dashboard**:
+- `correlation-analysis.xml` (27KB)
+  - Data source: `index=fw` (Syslog input from FAZ)
+  - 21 panels across 13 rows
+  - 6 correlation rules visualization
+  - Automated response tracking
+  - Interactive Slack notification test panel
+  - Performance metrics
+
+### Python Scripts (`scripts/`)
+
+| Script | Purpose | Usage |
+|--------|---------|-------|
+| `fortigate_auto_block.py` | FortiGate API auto-blocking | Splunk alert action |
+| `fetch_abuseipdb_intel.py` | AbuseIPDB threat intelligence | Cron (hourly) |
+| `fetch_virustotal_intel.py` | VirusTotal threat intelligence | Cron (hourly) |
 
 ---
 
@@ -155,13 +181,12 @@ node scripts/slack-alert-cli.js --channel="splunk-alerts" --message="Test"
 
 ### Phase 3.1: Threat Intelligence Integration ✅
 **Components**:
-- Dashboard: `threat-intelligence-panels.xml` (9 panels)
 - Lookups: `abuseipdb_lookup.csv`, `virustotal_lookup.csv`
 - Scripts: `fetch_abuseipdb_intel.py`, `fetch_virustotal_intel.py`
 
 **Key Queries**:
 ```spl
-# AbuseIPDB 통합
+# AbuseIPDB integration
 | lookup abuseipdb_lookup.csv ip AS src_ip OUTPUT abuse_score, country, isp
 | where abuse_score >= 90
 
@@ -174,7 +199,6 @@ node scripts/slack-alert-cli.js --channel="splunk-alerts" --message="Test"
 
 ### Phase 3.2: Automated Response System ✅
 **Components**:
-- Dashboard: `automated-response-panels.xml` (10 panels)
 - Script: `fortigate_auto_block.py` (400 LOC)
 - Config: `savedsearches-auto-block.conf` (3 searches)
 
@@ -182,11 +206,11 @@ node scripts/slack-alert-cli.js --channel="splunk-alerts" --message="Test"
 ```python
 # fortigate_auto_block.py
 process_correlation_results()
-  → load_whitelist() (IP 제외 목록)
-  → load_blocked_ips() (중복 방지)
+  → load_whitelist() (IP exclusion list)
+  → load_blocked_ips() (prevent duplicates)
   → fg_client.block_ip(src_ip)
-      → create_address_object()  # FortiGate 주소 객체 생성
-      → create_deny_policy()     # 차단 정책 생성
+      → create_address_object()  # FortiGate address object
+      → create_deny_policy()     # Deny policy creation
   → save_blocked_ip()
   → send_slack_notification()
 ```
@@ -201,7 +225,7 @@ process_correlation_results()
 Fortinet_Security (acceleration: 7 days)
 └── Security_Events (Root Dataset)
     ├─ src_ip, dst_ip, severity, attack_name, risk_score
-    └─ index=fortigate_security sourcetype="fortinet:fortigate:traffic"
+    └─ index=fw sourcetype="fortinet:fortigate:*"
 ```
 
 **Performance**: 10x faster (tstats vs raw search), CPU -60%
@@ -210,7 +234,6 @@ Fortinet_Security (acceleration: 7 days)
 **Components**:
 - Dashboard: `correlation-analysis.xml` (21 panels, 13 rows)
 - Config: `correlation-rules.conf` (6 rules)
-- Documentation: `DASHBOARD_OPTIMIZATION_PHASE4.1_REPORT.md` (58KB)
 
 **6 Correlation Rules**:
 
@@ -218,28 +241,28 @@ Fortinet_Security (acceleration: 7 days)
 |------|------------------|-----------|----------|--------|
 | Multi-Factor Threat Score | abuse + geo + login + frequency | ≥75 | */15 min | Script |
 | Repeated High-Risk Events | tstats on risk_score > 70 | ≥80 | */10 min | Script |
-| Weak Signal Combination | 5 indicators (abuse + login + scan + targets + freq) | ≥80 | */15 min | Slack |
+| Weak Signal Combination | 5 indicators | ≥80 | */15 min | Slack |
 | Geo + Attack Pattern | High-risk country + active attack | ≥85 | */10 min | Script |
 | Time-Based Anomaly | Z-score > 3, spike ratio > 10x | ≥85 | */10 min | Script |
 | Cross-Event Type | 3+ attack types = APT | ≥90 | */15 min | Script + Slack |
 
 **Automated Response Thresholds**:
-- **90-100**: AUTO_BLOCK (FortiGate 즉시 차단)
-- **80-89**: REVIEW_AND_BLOCK (Slack 검토 요청)
-- **75-79**: MONITOR (로그만 기록)
+- **90-100**: AUTO_BLOCK (FortiGate immediate blocking)
+- **80-89**: REVIEW_AND_BLOCK (Slack review request)
+- **75-79**: MONITOR (logging only)
 
-**Dashboard Row 12, 13** (Phase 4.1 추가):
-- Slack 알림 테스트 패널 (Interactive button)
-- 알림 히스토리 (24시간)
-- 성공률 모니터링 (Color-coded single value)
+**Dashboard Row 12-13** (Phase 4.1 features):
+- Slack notification test panel (Interactive button)
+- Alert history (24 hours)
+- Success rate monitoring (Color-coded single value)
 
 ---
 
 ## 🔧 Key Implementation Patterns
 
-### 1. Zero-Dependency HTTP Client
+### 1. Zero-Dependency HTTP Client (Critical!)
 
-모든 커넥터는 Node.js 내장 `https` 모듈만 사용 (외부 라이브러리 의존성 제로):
+**All connectors use only Node.js built-in `https` module** - no external runtime dependencies:
 
 ```javascript
 import https from 'https';
@@ -264,6 +287,8 @@ function makeRequest(options, data = null) {
 }
 ```
 
+**Why this matters**: When adding new connectors or modifying existing ones, **DO NOT introduce axios, node-fetch, or any HTTP library**. Use the pattern above.
+
 ### 2. Circuit Breaker Pattern
 
 ```javascript
@@ -275,8 +300,8 @@ const breaker = new CircuitBreaker({
 });
 
 const result = await breaker.call(
-  () => fazConnector.getEvents(),           // 실제 API 호출
-  () => ({ events: [], fallback: true })    // Fallback (Circuit OPEN 시)
+  () => fazConnector.getEvents(),           // Actual API call
+  () => ({ events: [], fallback: true })    // Fallback when circuit is OPEN
 );
 ```
 
@@ -284,42 +309,58 @@ const result = await breaker.call(
 
 ```javascript
 // security-event-processor.js
-processor.addEvents(events);  // 큐에 추가
-processor.startProcessing();  // 백그라운드 배치 처리 시작 (5초마다)
+processor.addEvents(events);  // Add to queue
+processor.startProcessing();  // Background batch processing (every 5 seconds)
 
-// 처리 흐름
+// Processing flow
 addEvent() → enrichEvent() → eventQueue.push()
-  ↓ (5초마다)
+  ↓ (every 5 seconds)
 processEventBatch() → processEvent()
   ↓
-├─ correlateEvent()         # 상관관계 분석
+├─ correlateEvent()         # Correlation analysis
 ├─ shouldAlert() → triggerAlert() → Slack
 └─ sendToSplunk()
 ```
 
-### 4. ES Modules (중요!)
+### 4. ES Modules (Critical!)
 
-모든 파일은 ES Modules 사용 (`package.json:type = "module"`):
+**All files use ES Modules** (`package.json:type = "module"`):
 
 ```javascript
-// ✅ 올바른 import (.js 확장자 필수!)
+// ✅ CORRECT (.js extension is REQUIRED!)
 import Connector from './domains/integration/fortianalyzer-direct-connector.js';
 
-// ❌ 작동 안 함 (.js 확장자 누락)
+// ❌ WILL NOT WORK (.js extension missing)
 import Connector from './domains/integration/fortianalyzer-direct-connector';
 
-// ✅ Named export
+// ✅ CORRECT (Named export)
 export { SecurityEventProcessor };
 export default SecurityEventProcessor;
 ```
 
+**Common mistake**: Forgetting `.js` extension in import statements will cause runtime errors.
+
+### 5. Dual Entry Point Architecture
+
+This codebase supports **two deployment models**:
+
+| Aspect | `index.js` (Local/Docker) | `src/worker.js` (Cloudflare) |
+|--------|---------------------------|------------------------------|
+| Environment | `process.env.VAR` | `env.VAR` (function param) |
+| Imports | `import X from './domains/...'` | Inline class definitions (no imports) |
+| Scheduling | External cron/setInterval | `wrangler.toml` crons |
+
+**When modifying domain logic**:
+1. Edit files in `domains/` → `index.js` auto-reflects changes
+2. For `src/worker.js` → **manually copy class code** (it cannot import from domains/)
+
 ---
 
-## 🔔 Slack Integration (2가지 방식)
+## 🔔 Slack Integration (2 methods)
 
-### 방식 1: Splunk Plugin (action.slack) - Dashboard용 ⭐
+### Method 1: Splunk Plugin (action.slack) - For Dashboards ⭐
 
-**설정**: `/opt/splunk/etc/apps/slack_alerts/local/alert_actions.conf`
+**Configuration**: `/opt/splunk/etc/apps/slack_alerts/local/alert_actions.conf`
 
 ```ini
 [slack]
@@ -329,36 +370,36 @@ param.from_user = Splunk FortiGate Alert
 param.icon_emoji = :fire:
 ```
 
-**사용 위치**:
-- `correlation-rules.conf` 라인 197-199 (Weak Signal)
-- `correlation-rules.conf` 라인 358-360 (Sophisticated Threat)
-- Dashboard Row 12 테스트 버튼
+**Used in**:
+- `correlation-rules.conf` lines 197-199 (Weak Signal)
+- `correlation-rules.conf` lines 358-360 (Sophisticated Threat)
+- Dashboard Row 12 test button
 
-**장점**: Dashboard에서 직접 사용 가능, Splunk Web UI 설정
+**Advantage**: Directly usable from dashboard, configured via Splunk Web UI
 
-### 방식 2: Python Script Webhook - 자동 차단용
+### Method 2: Python Script Webhook - For Auto-blocking
 
-**설정**: `.env` 파일의 `SLACK_WEBHOOK_URL`
+**Configuration**: `.env` file's `SLACK_WEBHOOK_URL`
 
-**사용 위치**:
-- `fortigate_auto_block.py` 라인 155-190 (`send_slack_notification()`)
+**Used in**:
+- `fortigate_auto_block.py` lines 155-190 (`send_slack_notification()`)
 
-**장점**: 완전한 커스터마이징, Plugin 설치 불필요
+**Advantage**: Full customization, no plugin installation required
 
 ---
 
-## 📝 Correlation Rules 수정 가이드
+## 📝 Correlation Rules Modification Guide
 
-### 위치: `configs/correlation-rules.conf`
+### Location: `configs/correlation-rules.conf`
 
-#### Rule 1: Multi-Factor Threat Score 조정
+#### Rule 1: Multi-Factor Threat Score Adjustment
 
-**Score 계산 공식 수정** (라인 38-47):
+**Score calculation formula** (lines 38-47):
 ```ini
-| eval abuse_component = coalesce(abuse_score, 0) * 0.4    # 40% 가중치
-| eval geo_component = geo_risk * 0.2                      # 20% 가중치
-| eval login_failures = if(match(msg, "..."), 30, 0)       # 30점
-| eval frequency_component = case(                          # 최대 30점
+| eval abuse_component = coalesce(abuse_score, 0) * 0.4    # 40% weight
+| eval geo_component = geo_risk * 0.2                      # 20% weight
+| eval login_failures = if(match(msg, "..."), 30, 0)       # 30 points
+| eval frequency_component = case(                          # max 30 points
     event_count > 100, 30,
     event_count > 50, 20,
     event_count > 10, 10,
@@ -366,9 +407,9 @@ param.icon_emoji = :fire:
 | eval correlation_score = round(abuse_component + geo_component + login_failures + frequency_component, 2)
 ```
 
-**Threshold 조정** (라인 48-57):
+**Threshold adjustment** (lines 48-57):
 ```ini
-| where correlation_score >= 75    # 이 값을 변경 (현재: 75)
+| where correlation_score >= 75    # Change this value (current: 75)
 
 | eval action_recommendation = case(
     max_correlation_score >= 90, "AUTO_BLOCK",      # AUTO_BLOCK threshold
@@ -376,60 +417,60 @@ param.icon_emoji = :fire:
     1=1, "MONITOR")
 ```
 
-#### Rule 3: Weak Signal Combination 수정
+#### Rule 3: Weak Signal Combination Modification
 
-**5개 지표 조정** (라인 141-186):
+**5 indicators** (lines 141-186):
 ```ini
-# 1. Low abuse_score (라인 143-145)
+# 1. Low abuse_score (lines 143-145)
 | eval has_low_abuse = if(abuse_score > 0 AND abuse_score < 50, 1, 0)
 
-# 2. Failed login (라인 148-150)
+# 2. Failed login (lines 148-150)
 | eval has_failed_login = if(match(msg, "(?i)(failed.*login|authentication.*fail)"), 1, 0)
 
-# 3. Port scan (라인 153-155)
+# 3. Port scan (lines 153-155)
 | eval has_port_scan = if(match(msg, "(?i)(port.*scan|network.*scan)"), 1, 0)
 
-# 4. Multiple targets (라인 158-160)
-| eval has_multiple_targets = if(unique_dst_count > 5, 1, 0)  # 5개 이상 타겟
+# 4. Multiple targets (lines 158-160)
+| eval has_multiple_targets = if(unique_dst_count > 5, 1, 0)  # 5+ targets
 
-# 5. High frequency (라인 163-165)
-| eval has_high_frequency = if(event_count > 20, 1, 0)  # 20개 이상 이벤트
+# 5. High frequency (lines 163-165)
+| eval has_high_frequency = if(event_count > 20, 1, 0)  # 20+ events
 ```
 
 ---
 
-## 🎨 Dashboard 수정 가이드
+## 🎨 Dashboard Modification Guide
 
-### XML Entity Encoding (중요!)
+### XML Entity Encoding (Important!)
 
-XML에서 특수 문자는 HTML 엔티티로 인코딩 필수:
+Dashboard XML requires HTML entity encoding for special characters:
 
 ```xml
-<!-- ❌ 잘못된 예 (XML 파싱 오류) -->
+<!-- ❌ WRONG (XML parsing error) -->
 <choice value="REVIEW_AND_BLOCK">Review & Block</choice>
 "Low (<50)":"#32CD32"
 
-<!-- ✅ 올바른 예 -->
+<!-- ✅ CORRECT -->
 <choice value="REVIEW_AND_BLOCK">Review &amp; Block</choice>
 "Low (&lt;50)":"#32CD32"
 ```
 
-**인코딩 규칙**:
+**Encoding rules**:
 - `&` → `&amp;`
 - `<` → `&lt;`
 - `>` → `&gt;`
 - `"` → `&quot;`
 - `'` → `&apos;`
 
-### Slack 테스트 버튼 추가 (Row 12 참고)
+### Slack Test Button (Reference: Row 12)
 
-**위치**: `configs/dashboards/correlation-analysis.xml` 라인 527-604
+**Location**: `configs/dashboards/correlation-analysis.xml` lines 527-604
 
 ```xml
 <panel>
   <title>🚀 Slack 알림 실행</title>
   <html>
-    <a href="/app/search/search?q=search%20index%3Dfortigate_security..."
+    <a href="/app/search/search?q=search%20index%3Dfw..."
        target="_blank"
        style="display: inline-block; background: ...; ">
       📤 Send Test Alert to Slack
@@ -438,105 +479,110 @@ XML에서 특수 문자는 HTML 엔티티로 인코딩 필수:
 </panel>
 ```
 
-**동작 원리**:
-1. 버튼 클릭 → Splunk Search 페이지 오픈
-2. 테스트 데이터 생성 (correlation_score=95)
-3. `summary_fw` 인덱스에 저장
-4. Correlation Rule 트리거
-5. `action.slack = 1` 실행
-6. Slack #splunk-alerts 전송
+**How it works**:
+1. Button click → Opens Splunk Search page
+2. Generates test data (correlation_score=95)
+3. Saves to `summary_fw` index
+4. Triggers correlation rule
+5. Executes `action.slack = 1`
+6. Sends to Slack #splunk-alerts
 
 ---
 
 ## 🔍 Troubleshooting
 
-### 1. Dashboard XML 파싱 오류
+### 1. Dashboard XML Parsing Error
 
-**증상**: "not well-formed (invalid token): line X"
+**Symptom**: "not well-formed (invalid token): line X"
 
-**원인**: 특수 문자 미인코딩 (`&`, `<`, `>`, `"`)
+**Cause**: Special characters not encoded (`&`, `<`, `>`, `"`)
 
-**해결**:
+**Solution**:
 ```bash
-# 검증 스크립트 실행
+# Run validation script
 python3 /tmp/validate_dashboards.py
 
-# 수동 검증
-python3 -c "import xml.etree.ElementTree as ET; ET.parse('dashboards/fortinet-dashboard.xml')"
+# Manual validation
+python3 -c "import xml.etree.ElementTree as ET; ET.parse('configs/dashboards/correlation-analysis.xml')"
 ```
 
-### 2. Correlation Rule이 실행되지 않음
+### 2. Correlation Rule Not Running
 
-**확인사항**:
+**Checks**:
 ```bash
-# 1. Saved Search 존재 확인
+# 1. Verify saved search exists
 splunk btool savedsearches list --debug | grep "Correlation_"
 
-# 2. Cron 스케줄 확인
+# 2. Check cron schedule
 grep "cron_schedule" configs/correlation-rules.conf
 
-# 3. 데이터 모델 가속화 상태
+# 3. Data model acceleration status
 index=_internal source=*summarization.log | stats count by savedsearch_name
 
-# 4. summary_fw 인덱스 데이터 확인
+# 4. Verify summary_fw index data
 index=summary_fw marker="correlation_detection=*" | stats count by marker
 ```
 
-### 3. FortiGate 자동 차단 실패
+### 3. FortiGate Auto-blocking Failure
 
-**확인사항**:
+**Checks**:
 ```bash
-# 1. Python 스크립트 권한
-ls -la scripts/fortigate_auto_block.py  # -rwxr-xr-x
+# 1. Python script permissions
+ls -la scripts/fortigate_auto_block.py  # Should be -rwxr-xr-x
 
-# 2. 환경 변수 확인
+# 2. Environment variables
 grep "FORTIGATE_" .env
 
-# 3. 스크립트 로그 확인
+# 3. Script logs
 tail -f /opt/splunk/etc/apps/fortigate/logs/fortigate_auto_block.log
 
-# 4. Whitelist 확인
+# 4. Whitelist check
 cat /opt/splunk/etc/apps/fortigate/lookups/fortigate_whitelist.csv
 ```
 
-### 4. Slack 알림 미수신
+### 4. Slack Notifications Not Received
 
-**확인사항**:
+**Checks**:
 ```bash
-# 1. Bot Token 유효성
+# 1. Bot token validity
 curl -X POST https://slack.com/api/auth.test \
   -H "Authorization: Bearer SLACK_BOT_TOKEN_PLACEHOLDER"
 
-# 2. Bot 채널 초대 확인
-# Slack에서: /invite @Splunk FortiGate Alert
+# 2. Bot channel invitation
+# In Slack: /invite @Splunk FortiGate Alert
 
-# 3. OAuth Scopes 확인 (필수: chat:write, channels:read, chat:write.public)
+# 3. OAuth scopes (required: chat:write, channels:read, chat:write.public)
 # https://api.slack.com/apps → Your App → OAuth & Permissions
 
-# 4. Splunk alert action 로그
+# 4. Splunk alert action logs
 tail -f /opt/splunk/var/log/splunk/splunkd.log | grep -i slack
 ```
 
-### 5. Cloudflare Workers 배포 실패
+### 5. Cloudflare Workers Deployment Failure
 
-**확인사항**:
+**Checks**:
 ```bash
-# 1. wrangler.toml의 account_id 확인
+# 1. Verify account_id in wrangler.toml
 grep "account_id" wrangler.toml
 
-# 2. Secrets 설정 확인
+# 2. Check secrets configuration
 wrangler secret list
 
-# 3. 로컬 테스트
+# 3. Local testing
 npm run dev:worker
 
-# 4. 배포 로그 확인
+# 4. Deployment logs
 npm run deploy:worker 2>&1 | tee deploy.log
 ```
 
 ---
 
 ## 📚 Key Documentation Files
+
+### Setup Guides
+- `docs/SIMPLE_SETUP_GUIDE.md` - 2-minute setup guide (Syslog method, recommended)
+- `docs/HEC_INTEGRATION_GUIDE.md` - Alternative HEC setup methods
+- `docs/CLOUDFLARE_DEPLOYMENT.md` - Cloudflare Workers deployment
 
 ### Phase Reports (Implementation History)
 - `docs/DASHBOARD_OPTIMIZATION_PHASE3.1_REPORT.md` - Threat Intelligence (58KB)
@@ -545,31 +591,27 @@ npm run deploy:worker 2>&1 | tee deploy.log
 - `docs/DASHBOARD_OPTIMIZATION_PHASE4.1_REPORT.md` - Correlation Engine (58KB)
 
 ### System Validation
-- `docs/SYSTEM_HEALTH_VALIDATION_REPORT.md` - 전체 시스템 검증 (58KB)
-- `docs/DASHBOARD_SLACK_INTEGRATION_GUIDE.md` - Slack 통합 완전 가이드 (28KB)
-
-### Deployment Guides
-- `docs/CLOUDFLARE_DEPLOYMENT.md` - Cloudflare Workers 배포 가이드
-- `docs/PRD_DEPLOYMENT_GUIDE.md` - 프로덕션 배포 가이드
+- `docs/SYSTEM_HEALTH_VALIDATION_REPORT.md` - Full system validation (58KB)
+- `docs/DASHBOARD_SLACK_INTEGRATION_GUIDE.md` - Complete Slack integration guide (28KB)
 
 ### Configuration Examples
-- `configs/slack-alert-actions.conf.example` - Slack plugin 설정 템플릿
-- `.env.example` - 환경 변수 템플릿
+- `configs/slack-alert-actions.conf.example` - Slack plugin configuration template
+- `.env.example` - Environment variables template
 
 ---
 
 ## 🎯 Development Workflow
 
-### 1. 새로운 Correlation Rule 추가
+### 1. Adding New Correlation Rule
 
 ```bash
-# 1. correlation-rules.conf 편집
+# 1. Edit correlation-rules.conf
 vim configs/correlation-rules.conf
 
-# 2. 새로운 [Correlation_YOUR_RULE_NAME] 섹션 추가
-# 3. SPL 쿼리 작성 (tstats 사용 권장)
-# 4. action.script 또는 action.slack 설정
-# 5. cron_schedule 설정
+# 2. Add new [Correlation_YOUR_RULE_NAME] section
+# 3. Write SPL query (tstats recommended)
+# 4. Configure action.script or action.slack
+# 5. Set cron_schedule
 
 # 6. Git commit
 git add configs/correlation-rules.conf
@@ -577,21 +619,21 @@ git commit -m "feat: Add new correlation rule for ..."
 git push origin master
 ```
 
-### 2. Dashboard 패널 추가
+### 2. Adding Dashboard Panel
 
 ```bash
-# 1. Dashboard XML 백업
-cp configs/dashboards/correlation-analysis.xml configs/dashboards/correlation-analysis.xml.backup
+# 1. Back up current dashboard (use git history, don't commit backup files)
+git diff configs/dashboards/correlation-analysis.xml
 
-# 2. XML 편집
+# 2. Edit dashboard XML
 vim configs/dashboards/correlation-analysis.xml
 
-# 3. 새로운 <row> 및 <panel> 추가
-# 4. SPL 쿼리 작성
-# 5. 특수 문자 HTML 엔티티 인코딩 (& → &amp;, < → &lt;)
+# 3. Add new <row> and <panel>
+# 4. Write SPL query
+# 5. HTML entity encoding for special characters (& → &amp;, < → &lt;)
 
-# 6. XML 유효성 검사
-python3 /tmp/validate_dashboards.py
+# 6. XML validation
+python3 -c "import xml.etree.ElementTree as ET; ET.parse('configs/dashboards/correlation-analysis.xml'); print('✅ Valid')"
 
 # 7. Git commit
 git add configs/dashboards/correlation-analysis.xml
@@ -599,13 +641,13 @@ git commit -m "feat: Add new panel for ..."
 git push origin master
 ```
 
-### 3. Python Script 수정 (자동 차단 로직)
+### 3. Modifying Python Script (Auto-blocking Logic)
 
 ```bash
-# 1. 스크립트 편집
+# 1. Edit script
 vim scripts/fortigate_auto_block.py
 
-# 2. 로컬 테스트 (Mock 데이터)
+# 2. Local testing (mock data)
 echo '{"src_ip": "192.168.1.100", "correlation_score": 95}' | python3 scripts/fortigate_auto_block.py
 
 # 3. Git commit
@@ -616,45 +658,70 @@ git push origin master
 
 ---
 
-## ⚠️ Important Notes
+## ⚠️ Critical Constraints & Gotchas
 
-### Entry Point 차이점 (`index.js` vs `src/worker.js`)
+### 1. Zero Runtime Dependencies Philosophy
 
-코드 수정 시 주의사항:
+**DO NOT** add runtime dependencies (axios, lodash, etc.). Only `wrangler` is allowed as devDependency.
 
-| 측면 | `index.js` | `src/worker.js` |
-|------|-----------|-----------------|
-| **환경 변수** | `process.env.VAR_NAME` | `env.VAR_NAME` (함수 파라미터) |
-| **Import** | `import Connector from './domains/...'` | 클래스 인라인 정의 (import 불가) |
-| **Cron** | 외부 cron 또는 setInterval | `wrangler.toml` crons 설정 |
+**Rationale**:
+- Minimal attack surface
+- Cloudflare Workers compatibility
+- Fast startup time
 
-**도메인 로직 변경 시**:
-1. `domains/` 내 파일 수정 → `index.js`는 자동 반영
-2. `src/worker.js`는 **수동으로 클래스 코드 복사** 필요
+### 2. ES Modules `.js` Extension Requirement
 
-### Git Workflow
+All imports **must** include `.js` extension or they will fail at runtime.
+
+### 3. Dual Entry Point Synchronization
+
+When modifying domain classes, **both** `index.js` and `src/worker.js` must be updated:
+- `index.js`: Imports from `domains/` (automatic)
+- `src/worker.js`: Inline code (manual copy required)
+
+### 4. Git Workflow & Prohibited Commits
 
 ```bash
-# 변경사항 확인
+# Check changes
 git status
 
-# 스테이징 (백업 파일 제외)
+# Stage (auto-exclude backup files)
 git add -A
 git reset *.backup *.bak *.old
 
-# 커밋
+# Commit (Conventional Commits)
 git commit -m "feat: Add new feature"
 git commit -m "fix: Resolve XML encoding issue"
 git commit -m "docs: Update correlation rules guide"
 
-# 푸시 (자동 pre-commit hook 실행)
+# Push
 git push origin master
 ```
 
-**금지사항**:
-- ❌ `.env` 파일 커밋
-- ❌ `*.backup`, `*.bak`, `*.old` 파일 커밋
-- ❌ Root 디렉토리에 문서 생성 (README.md, CLAUDE.md, CHANGELOG.md, LICENSE 제외)
+**NEVER commit**:
+- `.env` files (contains secrets)
+- `*.backup`, `*.bak`, `*.old` files (use git history instead)
+- Documentation in root directory (except README.md, CLAUDE.md, CHANGELOG.md, LICENSE)
+
+### 5. XML Entity Encoding for Dashboards
+
+Dashboard XML requires HTML entity encoding:
+
+| Character | Encoded | Context |
+|-----------|---------|---------|
+| `&` | `&amp;` | Always |
+| `<` | `&lt;` | In text/values |
+| `>` | `&gt;` | In text/values |
+| `"` | `&quot;` | In attributes |
+
+**Example**:
+```xml
+<!-- ❌ WRONG - XML parsing error -->
+<choice value="REVIEW_AND_BLOCK">Review & Block</choice>
+
+<!-- ✅ CORRECT -->
+<choice value="REVIEW_AND_BLOCK">Review &amp; Block</choice>
+```
 
 ---
 
@@ -663,4 +730,4 @@ git push origin master
 **Next Phase**: 4.2 (Machine Learning Integration)
 **Node.js**: 18+
 **Runtime Dependencies**: 0 (Zero Dependencies)
-**Updated**: 2025-10-22
+**Updated**: 2025-01-22

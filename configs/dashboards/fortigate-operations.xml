@@ -1,0 +1,269 @@
+<form version="1.1" theme="dark">
+  <label>🛡️ FortiGate Operations Dashboard</label>
+  <description>실무용 FortiGate 운영 대시보드 (트래픽, 정책, 차단 현황)</description>
+
+  <!-- Global Time Picker -->
+  <fieldset submitButton="true" autoRun="true">
+    <input type="time" token="time_picker">
+      <label>Time Range</label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+  </fieldset>
+
+  <!-- Row 1: KPI Metrics -->
+  <row>
+    <panel>
+      <title>✅ Total Events</title>
+      <single>
+        <search>
+          <query>
+index=fw earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count
+          </query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="underLabel">Total Traffic Events</option>
+        <option name="numberPrecision">0</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>🚫 Blocked Events</title>
+      <single>
+        <search>
+          <query>
+index=fw action=deny earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count
+          </query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0x65A637","0xF7BC38","0xF58F39","0xD93F3C"]</option>
+        <option name="rangeValues">[100,500,1000]</option>
+        <option name="underLabel">Denied Traffic</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>✅ Allowed Events</title>
+      <single>
+        <search>
+          <query>
+index=fw action=accept earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count
+          </query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0xD93F3C","0xF58F39","0xF7BC38","0x65A637"]</option>
+        <option name="rangeValues">[1000,5000,10000]</option>
+        <option name="underLabel">Allowed Traffic</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>🌐 Unique Source IPs</title>
+      <single>
+        <search>
+          <query>
+index=fw earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats dc(src_ip) as unique_sources
+          </query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="underLabel">Distinct Sources</option>
+      </single>
+    </panel>
+  </row>
+
+  <!-- Row 2: Traffic Timeline -->
+  <row>
+    <panel>
+      <title>📊 Traffic Over Time (Allowed vs Blocked)</title>
+      <chart>
+        <search>
+          <query>
+index=fw earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| timechart span=1h count by action
+          </query>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.axisTitleX.text">Time</option>
+        <option name="charting.axisTitleY.text">Event Count</option>
+        <option name="charting.fieldColors">{"accept":"0x65A637","deny":"0xD93F3C"}</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Row 3: Top Sources and Destinations -->
+  <row>
+    <panel>
+      <title>🎯 Top 10 Source IPs (Most Active)</title>
+      <table>
+        <search>
+          <query>
+index=fw earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count as total_events,
+        sum(eval(if(action="deny",1,0))) as blocked,
+        sum(eval(if(action="accept",1,0))) as allowed
+  by src_ip
+| eval block_rate = round(blocked/total_events*100, 2)
+| sort -total_events
+| head 10
+| rename src_ip as "Source IP", total_events as "Total Events", blocked as "Blocked", allowed as "Allowed", block_rate as "Block Rate (%)"
+          </query>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="count">10</option>
+        <format type="color" field="Block Rate (%)">
+          <colorPalette type="minMidMax" maxColor="#D93F3C" midColor="#F7BC38" minColor="#65A637"></colorPalette>
+          <scale type="minMidMax" minValue="0" midValue="50" maxValue="100"></scale>
+        </format>
+      </table>
+    </panel>
+
+    <panel>
+      <title>🎯 Top 10 Destination IPs</title>
+      <table>
+        <search>
+          <query>
+index=fw earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count as total_events,
+        sum(eval(if(action="deny",1,0))) as blocked,
+        sum(eval(if(action="accept",1,0))) as allowed
+  by dst_ip
+| eval block_rate = round(blocked/total_events*100, 2)
+| sort -total_events
+| head 10
+| rename dst_ip as "Destination IP", total_events as "Total Events", blocked as "Blocked", allowed as "Allowed", block_rate as "Block Rate (%)"
+          </query>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="count">10</option>
+        <format type="color" field="Block Rate (%)">
+          <colorPalette type="minMidMax" maxColor="#D93F3C" midColor="#F7BC38" minColor="#65A637"></colorPalette>
+          <scale type="minMidMax" minValue="0" midValue="50" maxValue="100"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 4: Protocol and Port Statistics -->
+  <row>
+    <panel>
+      <title>🔌 Top Protocols</title>
+      <chart>
+        <search>
+          <query>
+index=fw earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count by proto
+| sort -count
+| head 10
+          </query>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.legend.placement">right</option>
+      </chart>
+    </panel>
+
+    <panel>
+      <title>🔢 Top Destination Ports</title>
+      <chart>
+        <search>
+          <query>
+index=fw earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count by dst_port
+| sort -count
+| head 10
+          </query>
+        </search>
+        <option name="charting.chart">bar</option>
+        <option name="charting.legend.placement">none</option>
+        <option name="charting.axisTitleX.text">Event Count</option>
+        <option name="charting.axisTitleY.text">Port</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Row 5: Policy Hits -->
+  <row>
+    <panel>
+      <title>📜 Top 10 Firewall Policies (Most Hit)</title>
+      <table>
+        <search>
+          <query>
+index=fw earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count as hits by policyid, policyname, action
+| sort -hits
+| head 10
+| rename policyid as "Policy ID", policyname as "Policy Name", action as "Action", hits as "Hit Count"
+          </query>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="count">10</option>
+        <format type="color" field="Action">
+          <colorPalette type="map">{"accept":"#65A637","deny":"#D93F3C"}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 6: Blocked Traffic Details -->
+  <row>
+    <panel>
+      <title>🚫 Recently Blocked Traffic (Last 100)</title>
+      <table>
+        <search>
+          <query>
+index=fw action=deny earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| table _time, src_ip, dst_ip, dst_port, proto, policyname, msg
+| sort -_time
+| head 100
+| rename _time as "Time", src_ip as "Source IP", dst_ip as "Dest IP", dst_port as "Dest Port", proto as "Protocol", policyname as "Policy", msg as "Message"
+          </query>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="count">20</option>
+        <option name="wrap">true</option>
+        <format type="color" field="Protocol">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 7: Top Blocked IPs (Potential Threats) -->
+  <row>
+    <panel>
+      <title>⚠️ Top 20 Most Blocked Source IPs (Potential Attackers)</title>
+      <table>
+        <search>
+          <query>
+index=fw action=deny earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| stats count as block_count,
+        dc(dst_ip) as unique_targets,
+        dc(dst_port) as unique_ports,
+        values(proto) as protocols
+  by src_ip
+| sort -block_count
+| head 20
+| rename src_ip as "Source IP", block_count as "Block Count", unique_targets as "Unique Targets", unique_ports as "Unique Ports", protocols as "Protocols"
+          </query>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="count">20</option>
+        <format type="color" field="Block Count">
+          <colorPalette type="minMidMax" maxColor="#D93F3C" midColor="#F7BC38" minColor="#F58F39"></colorPalette>
+          <scale type="minMidMax" minValue="0" midValue="50" maxValue="100"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+</form>
