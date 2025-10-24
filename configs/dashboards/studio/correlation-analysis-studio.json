@@ -1,45 +1,5 @@
 {
   "visualizations": {
-    "viz_slack_control_panel": {
-      "type": "viz.markdown",
-      "options": {
-        "markdown": "# 🔔 Slack 알림 컨트롤\n\n<button id=\"enable-btn\" onclick=\"toggleSlackAlerts('enable')\" style=\"padding: 20px 40px; background: #28a745; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin: 10px;\">✅ 알림 켜기</button>\n\n<button id=\"disable-btn\" onclick=\"toggleSlackAlerts('disable')\" style=\"padding: 20px 40px; background: #dc3545; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin: 10px;\">⛔ 알림 끄기</button>\n\n<button id=\"test-btn\" onclick=\"sendTestMessage()\" style=\"padding: 12px 25px; background: #007bff; color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; margin: 10px;\">📤 테스트</button>\n\n<div id=\"status-message\" style=\"padding: 15px; background: #f8f9fa; border-radius: 8px; margin-top: 20px; text-align: center;\">버튼을 클릭하여 Slack 알림을 제어하세요</div>\n\n<script>\nrequire(['jquery', 'splunkjs/ready!'], function($, mvc) {\n    window.toggleSlackAlerts = function(action) {\n        const statusDiv = $('#status-message');\n        const enableBtn = $('#enable-btn');\n        const disableBtn = $('#disable-btn');\n        \n        enableBtn.prop('disabled', true);\n        disableBtn.prop('disabled', true);\n        \n        const actionText = action === 'enable' ? '활성화' : '비활성화';\n        statusDiv.html('<span style=\"color: #ffc107;\">⏳ Slack 알림을 ' + actionText + ' 중...</span>');\n        \n        const correlationRules = [\n            'Correlation_Multi_Factor_Threat',\n            'Correlation_Repeated_High_Risk',\n            'Correlation_Weak_Signal_Combo',\n            'Correlation_Geo_Attack_Pattern',\n            'Correlation_Time_Anomaly',\n            'Correlation_Sophisticated_Threat_APT'\n        ];\n        \n        const slackValue = action === 'enable' ? '1' : '0';\n        let successCount = 0;\n        let errorCount = 0;\n        \n        correlationRules.forEach(function(ruleName, index) {\n            setTimeout(function() {\n                $.ajax({\n                    url: '/en-US/splunkd/__raw/servicesNS/nobody/search/saved/searches/' + ruleName,\n                    type: 'POST',\n                    data: {\n                        'action.slack': slackValue\n                    },\n                    success: function() {\n                        successCount++;\n                        if (successCount + errorCount === correlationRules.length) {\n                            finishToggle(action, successCount, errorCount);\n                        }\n                    },\n                    error: function() {\n                        errorCount++;\n                        if (successCount + errorCount === correlationRules.length) {\n                            finishToggle(action, successCount, errorCount);\n                        }\n                    }\n                });\n            }, index * 200);\n        });\n    };\n    \n    function finishToggle(action, successCount, errorCount) {\n        const statusDiv = $('#status-message');\n        const enableBtn = $('#enable-btn');\n        const disableBtn = $('#disable-btn');\n        \n        enableBtn.prop('disabled', false);\n        disableBtn.prop('disabled', false);\n        \n        if (errorCount === 0) {\n            const icon = action === 'enable' ? '✅' : '⛔';\n            const actionText = action === 'enable' ? '활성화' : '비활성화';\n            statusDiv.html(\n                '<span style=\"color: #28a745; font-size: 16px;\">' +\n                icon + ' Slack 알림 ' + actionText + ' 완료!</span><br/>' +\n                '<span style=\"font-size: 14px;\">총 ' + successCount + '개 규칙 업데이트됨</span>'\n            );\n            \n            sendSlackNotification(action);\n            \n            setTimeout(function() {\n                location.reload();\n            }, 2000);\n        } else {\n            statusDiv.html(\n                '<span style=\"color: #dc3545; font-size: 16px;\">❌ 오류 발생</span><br/>' +\n                '<span style=\"font-size: 14px;\">성공: ' + successCount + ' / 실패: ' + errorCount + '</span>'\n            );\n        }\n    }\n    \n    function sendSlackNotification(action) {\n        const icon = action === 'enable' ? '✅' : '⛔';\n        const actionText = action === 'enable' ? 'ENABLED' : 'DISABLED';\n        const timestamp = new Date().toISOString().replace('T', ' ').substr(0, 19);\n        \n        const message = icon + ' *Slack Alert Status Changed* → ' + actionText + ' (6 rules) | ' + timestamp;\n        \n        const spl = '| makeresults | eval message=\"' + message + '\" | sendalert slack param.message=message';\n        \n        $.ajax({\n            url: '/en-US/splunkd/__raw/services/search/jobs',\n            type: 'POST',\n            data: {\n                search: spl,\n                exec_mode: 'oneshot',\n                output_mode: 'json'\n            }\n        });\n    }\n    \n    window.sendTestMessage = function() {\n        const statusDiv = $('#status-message');\n        statusDiv.html('<span style=\"color: #ffc107;\">⏳ 테스트 메시지 전송 중...</span>');\n        \n        const spl = '| makeresults | eval message=\"🧪 Slack 연결 테스트 - ' + new Date().toLocaleString() + '\" | sendalert slack param.message=message';\n        \n        $.ajax({\n            url: '/en-US/splunkd/__raw/services/search/jobs',\n            type: 'POST',\n            data: {\n                search: spl,\n                exec_mode: 'oneshot',\n                output_mode: 'json'\n            },\n            success: function() {\n                statusDiv.html('<span style=\"color: #28a745;\">✅ 테스트 메시지 전송 완료! #splunk-alerts 채널을 확인하세요.</span>');\n            },\n            error: function(xhr) {\n                statusDiv.html('<span style=\"color: #dc3545;\">❌ 전송 실패: ' + (xhr.responseText || 'Unknown error') + '</span>');\n            }\n        });\n    };\n});\n</script>",
-        "fontSize": "default"
-      },
-      "context": {},
-      "containerOptions": {},
-      "showProgressBar": false,
-      "showLastUpdated": false
-    },
-    "viz_slack_status_table": {
-      "type": "splunk.table",
-      "dataSources": {
-        "primary": "ds_slack_status"
-      },
-      "title": "📊 Slack 알림 상태 (6 Correlation Rules)",
-      "options": {
-        "count": 10,
-        "dataOverlayMode": "none",
-        "drilldown": "none",
-        "showRowNumbers": false,
-        "showInternalFields": false
-      },
-      "context": {}
-    },
-    "viz_slack_enabled_count": {
-      "type": "splunk.singlevalue",
-      "dataSources": {
-        "primary": "ds_slack_enabled_count"
-      },
-      "title": "📈 활성화된 규칙",
-      "options": {
-        "majorFontSize": 28,
-        "showSparklineArea": false,
-        "showTrendIndicator": false,
-        "majorColor": "#28a745",
-        "backgroundColor": "transparent"
-      }
-    },
     "viz_fmg_managed_devices": {
       "type": "splunk.singlevalue",
       "options": {
@@ -289,32 +249,6 @@
     }
   },
   "dataSources": {
-    "ds_slack_status": {
-      "type": "ds.search",
-      "options": {
-        "query": "| rest /services/saved/searches splunk_server=local\n| search title=\"Correlation_*\"\n| eval slack_status = if(match('action.slack', \"1\"), \"✅ 활성화\", \"⛔ 비활성화\")\n| eval rule_desc = case(\n    title == \"Correlation_Multi_Factor_Threat\", \"Multi-Factor Threat (75+)\",\n    title == \"Correlation_Repeated_High_Risk\", \"Repeated High-Risk (80+)\",\n    title == \"Correlation_Weak_Signal_Combo\", \"Weak Signal Combo (80+)\",\n    title == \"Correlation_Geo_Attack_Pattern\", \"Geo + Attack (85+)\",\n    title == \"Correlation_Time_Anomaly\", \"Time Anomaly (85+)\",\n    title == \"Correlation_Sophisticated_Threat_APT\", \"APT Detection (90+)\",\n    1=1, \"Other\"\n)\n| table title, rule_desc, slack_status, cron_schedule\n| rename title as \"Rule Name\", rule_desc as \"Description\", slack_status as \"Slack Status\", cron_schedule as \"Schedule\"",
-        "queryParameters": {
-          "earliest": "-24h@h",
-          "latest": "now"
-        },
-        "refresh": "30s",
-        "refreshType": "delay"
-      },
-      "name": "Slack Status Query"
-    },
-    "ds_slack_enabled_count": {
-      "type": "ds.search",
-      "options": {
-        "query": "| rest /services/saved/searches splunk_server=local\n| search title=\"Correlation_*\"\n| eval slack_enabled = if(match('action.slack', \"1\"), 1, 0)\n| stats sum(slack_enabled) as enabled, count as total\n| eval display = enabled + \" / \" + total\n| fields display",
-        "queryParameters": {
-          "earliest": "-24h@h",
-          "latest": "now"
-        },
-        "refresh": "30s",
-        "refreshType": "delay"
-      },
-      "name": "Slack Enabled Count"
-    },
     "ds_fmg_managed_devices": {
       "type": "ds.search",
       "options": {
@@ -760,41 +694,11 @@
     },
     "structure": [
       {
-        "item": "viz_slack_control_panel",
-        "type": "block",
-        "position": {
-          "x": 0,
-          "y": 0,
-          "w": 960,
-          "h": 200
-        }
-      },
-      {
-        "item": "viz_slack_enabled_count",
-        "type": "block",
-        "position": {
-          "x": 960,
-          "y": 0,
-          "w": 240,
-          "h": 100
-        }
-      },
-      {
-        "item": "viz_slack_status_table",
-        "type": "block",
-        "position": {
-          "x": 1200,
-          "y": 0,
-          "w": 240,
-          "h": 200
-        }
-      },
-      {
         "item": "viz_fmg_managed_devices",
         "type": "block",
         "position": {
           "x": 0,
-          "y": 220,
+          "y": 20,
           "w": 288,
           "h": 120
         }
@@ -804,7 +708,7 @@
         "type": "block",
         "position": {
           "x": 288,
-          "y": 220,
+          "y": 20,
           "w": 288,
           "h": 120
         }
@@ -814,7 +718,7 @@
         "type": "block",
         "position": {
           "x": 576,
-          "y": 220,
+          "y": 20,
           "w": 288,
           "h": 120
         }
@@ -824,7 +728,7 @@
         "type": "block",
         "position": {
           "x": 864,
-          "y": 220,
+          "y": 20,
           "w": 288,
           "h": 120
         }
@@ -834,7 +738,7 @@
         "type": "block",
         "position": {
           "x": 1152,
-          "y": 220,
+          "y": 20,
           "w": 288,
           "h": 120
         }
@@ -844,7 +748,7 @@
         "type": "block",
         "position": {
           "x": 0,
-          "y": 360,
+          "y": 160,
           "w": 360,
           "h": 120
         }
@@ -854,7 +758,7 @@
         "type": "block",
         "position": {
           "x": 360,
-          "y": 360,
+          "y": 160,
           "w": 360,
           "h": 120
         }
@@ -864,7 +768,7 @@
         "type": "block",
         "position": {
           "x": 720,
-          "y": 360,
+          "y": 160,
           "w": 360,
           "h": 120
         }
@@ -874,7 +778,7 @@
         "type": "block",
         "position": {
           "x": 1080,
-          "y": 360,
+          "y": 160,
           "w": 360,
           "h": 120
         }
@@ -884,7 +788,7 @@
         "type": "block",
         "position": {
           "x": 0,
-          "y": 500,
+          "y": 300,
           "w": 720,
           "h": 300
         }
@@ -894,7 +798,7 @@
         "type": "block",
         "position": {
           "x": 720,
-          "y": 500,
+          "y": 300,
           "w": 720,
           "h": 300
         }
@@ -904,7 +808,7 @@
         "type": "block",
         "position": {
           "x": 0,
-          "y": 820,
+          "y": 620,
           "w": 1440,
           "h": 300
         }
@@ -914,7 +818,7 @@
         "type": "block",
         "position": {
           "x": 0,
-          "y": 1140,
+          "y": 940,
           "w": 720,
           "h": 300
         }
@@ -924,7 +828,7 @@
         "type": "block",
         "position": {
           "x": 720,
-          "y": 1140,
+          "y": 940,
           "w": 720,
           "h": 300
         }
@@ -934,7 +838,7 @@
         "type": "block",
         "position": {
           "x": 0,
-          "y": 1460,
+          "y": 1260,
           "w": 720,
           "h": 300
         }
@@ -944,7 +848,7 @@
         "type": "block",
         "position": {
           "x": 720,
-          "y": 1460,
+          "y": 1260,
           "w": 720,
           "h": 300
         }
@@ -954,7 +858,7 @@
         "type": "block",
         "position": {
           "x": 0,
-          "y": 1780,
+          "y": 1580,
           "w": 720,
           "h": 300
         }
@@ -964,7 +868,7 @@
         "type": "block",
         "position": {
           "x": 720,
-          "y": 1780,
+          "y": 1580,
           "w": 720,
           "h": 300
         }
@@ -986,7 +890,7 @@
       "input_alert_install_updates_threshold"
     ]
   },
-  "description": "FortiManager/FortiAnalyzer statistics with Slack alert control",
-  "title": "🎯 FortiGate Management & Slack Control",
+  "description": "FortiManager/FortiAnalyzer operational statistics and monitoring",
+  "title": "🖥️ FortiGate Management Dashboard",
   "version": "1.0.0"
 }
