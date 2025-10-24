@@ -19,10 +19,10 @@ A security event processing system with three deployment modes and zero runtime 
 - **Development Period**: 2025-10-21 to 2025-10-23 (30 commits in 3 days)
 
 ### 📊 Project Statistics
-- **Total Dashboard Files**: 14 (10 XML Legacy + 4 JSON Studio)
-- **Production Dashboards**: 2 XML (`correlation-analysis.xml`, `fortigate-operations.xml`)
+- **Total Dashboard Files**: 15 (11 XML + 4 JSON Studio)
+- **Production Dashboards**: 3 XML (`correlation-analysis.xml`, `fortigate-operations.xml`, `slack-control.xml`)
 - **Configuration Files**: 15 (~4,600 lines)
-- **Correlation Rules**: 7 (6 active + 1 master view)
+- **Correlation Rules**: 6 active (correlation-rules.conf)
 - **Primary Index**: `index=fw` (Syslog data, 104 references)
 - **Summary Index**: `index=summary_fw` (Correlation results, 18 references)
 
@@ -89,6 +89,16 @@ python3 -c "import xml.etree.ElementTree as ET; ET.parse('configs/dashboards/cor
 # Deploy dashboards via REST API
 node scripts/deploy-dashboards.js
 
+# Deploy Slack control dashboard (3 methods)
+# Method 1: Web UI - Settings → User Interface → Views → New View → Upload XML
+# Method 2: REST API
+curl -k -u admin:password \
+  -d "eai:data=$(cat configs/dashboards/slack-control.xml)" \
+  https://splunk.jclee.me:8089/servicesNS/nobody/search/data/ui/views/slack_control
+
+# Method 3: File system copy
+sudo cp configs/dashboards/slack-control.xml /opt/splunk/etc/apps/search/local/data/ui/views/
+
 # Test correlation rules manually
 splunk search "| savedsearch Correlation_Multi_Factor_Threat_Score"
 
@@ -120,14 +130,14 @@ index=summary_fw marker="correlation_detection=*" earliest=-24h | stats count by
 
 ## 📁 File Organization & Classification
 
-### Dashboard Files (14 total)
+### Dashboard Files (15 total)
 
 #### 🖥️ Production XML Dashboards (Classic, Splunk 6.x+)
 | File | Lines | Purpose |
 |------|-------|---------|
 | `correlation-analysis.xml` | 729 | **PRIMARY** - 6 correlation rules + auto-response |
-| `fortigate-operations.xml` | 269 | **PRIMARY** - Firewall operations monitoring |
-| `slack-alert-control.xml` | 218 | Slack notification ON/OFF control panel |
+| `fortigate-operations.xml` | 269 | Firewall operations monitoring |
+| `slack-control.xml` | 213 | **PRIMARY** - Slack alert ON/OFF control via REST API |
 
 #### 🎨 Dashboard Studio JSON (Modern, Splunk 9.0+)
 | File | Lines | Purpose |
@@ -562,6 +572,40 @@ export default {
 
 ## 🎨 Common Development Tasks
 
+### Managing Slack Alerts for Correlation Rules
+
+The `slack-control.xml` dashboard provides web-based control of Slack notifications without manual configuration edits.
+
+**Key Implementation Details:**
+- **Dashboard Type**: Simple XML (Classic) - JavaScript-enabled
+- **REST API**: `/servicesNS/nobody/search/saved/searches/{rule_name}`
+- **Parameter**: `action.slack` (1=enabled, 0=disabled)
+- **CDATA Wrapping**: JavaScript must be wrapped in `<![CDATA[...]]>` for XML compatibility
+- **Rate Limiting**: Staggered updates (200ms delay) prevent API throttling
+- **Permissions Required**: `edit_search_schedule_priority` capability
+
+**Controlled Rules:**
+1. Correlation_Multi_Factor_Threat_Score
+2. Correlation_Repeated_High_Risk_Events
+3. Correlation_Weak_Signal_Combination
+4. Correlation_Geo_Attack_Pattern
+5. Correlation_Time_Based_Anomaly
+6. Correlation_Cross_Event_Type
+
+**Common Use Cases:**
+```bash
+# Maintenance window - disable all alerts
+# Use dashboard: Click "🔴 Disable All Alerts"
+
+# Test single rule
+# Use dashboard: Enable only "Correlation_Geo_Attack_Pattern"
+
+# Emergency alert storm
+# Use dashboard: Disable specific noisy rule
+
+# Deployment guide: configs/dashboards/README-slack-control.md
+```
+
 ### Adding New API Endpoint (React Dashboard)
 
 ```bash
@@ -906,7 +950,8 @@ grep "FORTIGATE_" .env
 - **Dashboard Deployment**: `docs/SPLUNK_DASHBOARD_DEPLOYMENT.md` - Dashboard deployment methods
 - **Dashboard Organization**: `configs/dashboards/README.md` - Dashboard reference guide
 
-**Slack Integration** (4 docs):
+**Slack Integration** (5 docs):
+- **Slack Control Dashboard**: `configs/dashboards/README-slack-control.md` - **NEW: Web-based alert ON/OFF**
 - `docs/DASHBOARD_SLACK_INTEGRATION_GUIDE.md` - Integration overview
 - `docs/SLACK_ADVANCED_ALERT_DEPLOYMENT.md` - Advanced alerting
 - `docs/SLACK_ALERT_FORMATTING_GUIDE.md` - Message formatting
@@ -945,9 +990,9 @@ grep -rh "index=" configs/ | grep -oE 'index=[a-z_]+' | sort | uniq -c | sort -r
 
 ---
 
-**Version**: 2.0.0
+**Version**: 2.0.1
 **Last Updated**: 2025-10-24
 **Architecture**: Triple-mode (React + Legacy + Workers)
 **Dependencies**: Backend: 0 (Node.js built-ins only) | Frontend: 318 packages (dev only)
 **Repository**: https://github.com/qws941/splunk.git
-**Latest Commit**: 0a0ee15 (2025-10-23)
+**Latest Features**: Slack alert control dashboard (slack-control.xml) - Web-based ON/OFF controls
