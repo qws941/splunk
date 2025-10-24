@@ -215,7 +215,7 @@
     "ds_fmg_config_changes": {
       "type": "ds.search",
       "options": {
-        "query": "index=fw sourcetype=fmg:config earliest=$time_range.earliest$ latest=$time_range.latest$\n| stats count as change_count",
+        "query": "`fmg_config_search` earliest=$time_range.earliest$ latest=$time_range.latest$\n| stats count as change_count",
         "enableSmartSources": true
       },
       "name": "ds_fmg_config_changes"
@@ -223,7 +223,7 @@
     "ds_fmg_active_admins": {
       "type": "ds.search",
       "options": {
-        "query": "index=fw sourcetype=fmg:audit earliest=$time_range.earliest$ latest=$time_range.latest$\n| stats dc(admin_user) as admin_count",
+        "query": "`fmg_audit_search` earliest=$time_range.earliest$ latest=$time_range.latest$\n| stats dc(admin_user) as admin_count",
         "enableSmartSources": true
       },
       "name": "ds_fmg_active_admins"
@@ -231,7 +231,7 @@
     "ds_fmg_device_inventory": {
       "type": "ds.search",
       "options": {
-        "query": "index=fw sourcetype=fmg:device\n| dedup device_name\n| stats count as total_devices,\n    sum(eval(if(connection_status=\"up\",1,0))) as connected_devices",
+        "query": "`fmg_device_search`\n| dedup device_name\n| stats count as total_devices,\n    sum(eval(if(connection_status=\"up\",1,0))) as connected_devices",
         "enableSmartSources": true
       },
       "name": "ds_fmg_device_inventory"
@@ -239,7 +239,7 @@
     "ds_faz_security_events": {
       "type": "ds.search",
       "options": {
-        "query": "index=fw sourcetype=faz:event severity=\"critical\" earliest=$time_range.earliest$ latest=$time_range.latest$\n| stats count as event_count",
+        "query": "`faz_critical_events` earliest=$time_range.earliest$ latest=$time_range.latest$\n| stats count as event_count",
         "enableSmartSources": true
       },
       "name": "ds_faz_security_events"
@@ -247,7 +247,7 @@
     "ds_fmg_config_timeline": {
       "type": "ds.search",
       "options": {
-        "query": "index=fw sourcetype=fmg:config device_name=$device_filter$ earliest=$time_range.earliest$ latest=$time_range.latest$\n| timechart count by config_operation",
+        "query": "`fmg_config_search` device_name=$device_filter$ earliest=$time_range.earliest$ latest=$time_range.latest$\n| timechart count by config_operation",
         "enableSmartSources": true
       },
       "name": "ds_fmg_config_timeline"
@@ -255,7 +255,7 @@
     "ds_fmg_recent_changes": {
       "type": "ds.search",
       "options": {
-        "query": "index=fw sourcetype=fmg:config device_name=$device_filter$ earliest=$time_range.earliest$ latest=$time_range.latest$\n| eval change_time = strftime(_time, \"%Y-%m-%d %H:%M:%S\")\n| table change_time, admin_user, device_name, config_operation, config_object, adom\n| rename change_time as \"Time\", admin_user as \"Administrator\", device_name as \"Device\", config_operation as \"Operation\", config_object as \"Object\", adom as \"ADOM\"\n| head 50",
+        "query": "`fmg_config_search` device_name=$device_filter$ earliest=$time_range.earliest$ latest=$time_range.latest$\n| `format_timestamp`\n| table formatted_time, admin_user, device_name, config_operation, config_object, adom\n| rename formatted_time as \"Time\", admin_user as \"Administrator\", device_name as \"Device\", config_operation as \"Operation\", config_object as \"Object\", adom as \"ADOM\"\n| head 50",
         "enableSmartSources": true
       },
       "name": "ds_fmg_recent_changes"
@@ -263,7 +263,7 @@
     "ds_faz_critical_events_timeline": {
       "type": "ds.search",
       "options": {
-        "query": "index=fw sourcetype=faz:event severity=\"critical\" device_name=$device_filter$ earliest=$time_range.earliest$ latest=$time_range.latest$\n| timechart count",
+        "query": "`faz_critical_events` device_name=$device_filter$ earliest=$time_range.earliest$ latest=$time_range.latest$\n| timechart count",
         "enableSmartSources": true
       },
       "name": "ds_faz_critical_events_timeline"
@@ -271,7 +271,7 @@
     "ds_faz_top_critical_threats": {
       "type": "ds.search",
       "options": {
-        "query": "index=fw sourcetype=faz:utm severity=\"critical\" device_name=$device_filter$ earliest=$time_range.earliest$ latest=$time_range.latest$\n| stats count as event_count,\n    latest(_time) as last_seen,\n    values(action) as actions\n  by attack_name\n| eval last_seen_time = strftime(last_seen, \"%Y-%m-%d %H:%M:%S\")\n| sort -event_count\n| head 10\n| table attack_name, event_count, last_seen_time, actions\n| rename attack_name as \"Threat Name\", event_count as \"Count\", last_seen_time as \"Last Seen\", actions as \"Actions Taken\"",
+        "query": "`faz_critical_utm` device_name=$device_filter$ earliest=$time_range.earliest$ latest=$time_range.latest$\n| stats count as event_count,\n    latest(_time) as last_seen,\n    values(action) as actions\n  by attack_name\n| `format_timestamp`\n| eval last_seen_time = strftime(last_seen, \"%Y-%m-%d %H:%M:%S\")\n| sort -event_count\n| head 10\n| table attack_name, event_count, last_seen_time, actions\n| rename attack_name as \"Threat Name\", event_count as \"Count\", last_seen_time as \"Last Seen\", actions as \"Actions Taken\"",
         "enableSmartSources": true
       },
       "name": "ds_faz_top_critical_threats"
@@ -279,7 +279,7 @@
     "ds_faz_blocked_ips": {
       "type": "ds.search",
       "options": {
-        "query": "index=fw sourcetype=faz:event action=\"blocked\" device_name=$device_filter$ earliest=$time_range.earliest$ latest=$time_range.latest$\n| stats count as block_count,\n    values(dst_ip) as target_ips,\n    values(log_subtype) as event_types\n  by src_ip\n| sort -block_count\n| head 20\n| rename src_ip as \"Source IP\", block_count as \"Block Count\", target_ips as \"Targets\", event_types as \"Event Types\"",
+        "query": "`faz_blocked_events` device_name=$device_filter$ earliest=$time_range.earliest$ latest=$time_range.latest$\n| stats count as block_count,\n    values(dst_ip) as target_ips,\n    values(log_subtype) as event_types\n  by src_ip\n| sort -block_count\n| head 20\n| rename src_ip as \"Source IP\", block_count as \"Block Count\", target_ips as \"Targets\", event_types as \"Event Types\"",
         "enableSmartSources": true
       },
       "name": "ds_faz_blocked_ips"
@@ -287,7 +287,7 @@
     "ds_fmg_device_list": {
       "type": "ds.search",
       "options": {
-        "query": "index=fw sourcetype=fmg:device\n| dedup device_name\n| eval status_icon = case(\n    connection_status=\"up\", \"✅\",\n    connection_status=\"down\", \"❌\",\n    1=1, \"⚠️\")\n| eval ha_icon = case(\n    ha_mode=\"standalone\", \"🖥️\",\n    ha_mode=\"active-active\", \"🔄\",\n    ha_mode=\"active-passive\", \"🔁\",\n    1=1, \"❓\")\n| table status_icon, device_name, serial_number, device_ip, os_version, ha_icon, ha_mode, connection_status\n| rename status_icon as \"Status\", device_name as \"Device Name\", serial_number as \"Serial\", device_ip as \"IP Address\", os_version as \"FortiOS Version\", ha_icon as \"HA\", ha_mode as \"HA Mode\", connection_status as \"Connection\"\n| sort device_name",
+        "query": "`fmg_device_search`\n| dedup device_name\n| `add_status_icon`\n| eval ha_icon = case(\n    ha_mode=\"standalone\", \"🖥️\",\n    ha_mode=\"active-active\", \"🔄\",\n    ha_mode=\"active-passive\", \"🔁\",\n    1=1, \"❓\")\n| table status_icon, device_name, serial_number, device_ip, os_version, ha_icon, ha_mode, connection_status\n| rename status_icon as \"Status\", device_name as \"Device Name\", serial_number as \"Serial\", device_ip as \"IP Address\", os_version as \"FortiOS Version\", ha_icon as \"HA\", ha_mode as \"HA Mode\", connection_status as \"Connection\"\n| sort device_name",
         "enableSmartSources": true
       },
       "name": "ds_fmg_device_list"
@@ -295,7 +295,7 @@
     "ds_faz_traffic_top_talkers": {
       "type": "ds.search",
       "options": {
-        "query": "index=fw sourcetype=faz:traffic earliest=-1h latest=now\n| stats sum(bytes_sent) as total_sent,\n    sum(bytes_received) as total_received,\n    sum(eval(bytes_sent+bytes_received)) as total_bytes,\n    count as session_count\n  by src_ip, service\n| eval total_mb = round(total_bytes/1024/1024, 2)\n| eval total_sent_mb = round(total_sent/1024/1024, 2)\n| eval total_received_mb = round(total_received/1024/1024, 2)\n| sort -total_mb\n| head 20\n| table src_ip, service, total_mb, total_sent_mb, total_received_mb, session_count\n| rename src_ip as \"Source IP\", service as \"Service\", total_mb as \"Total (MB)\", total_sent_mb as \"Sent (MB)\", total_received_mb as \"Received (MB)\", session_count as \"Sessions\"",
+        "query": "`faz_traffic_search` `time_last_hour`\n| stats sum(bytes_sent) as total_sent,\n    sum(bytes_received) as total_received,\n    sum(eval(bytes_sent+bytes_received)) as total_bytes,\n    count as session_count\n  by src_ip, service\n| eval total_mb = round(total_bytes/1024/1024, 2)\n| eval total_sent_mb = round(total_sent/1024/1024, 2)\n| eval total_received_mb = round(total_received/1024/1024, 2)\n| sort -total_mb\n| head 20\n| table src_ip, service, total_mb, total_sent_mb, total_received_mb, session_count\n| rename src_ip as \"Source IP\", service as \"Service\", total_mb as \"Total (MB)\", total_sent_mb as \"Sent (MB)\", total_received_mb as \"Received (MB)\", session_count as \"Sessions\"",
         "enableSmartSources": true
       },
       "name": "ds_faz_traffic_top_talkers"
@@ -303,7 +303,7 @@
     "ds_fmg_admin_activity": {
       "type": "ds.search",
       "options": {
-        "query": "index=fw sourcetype=fmg:audit earliest=$time_range.earliest$ latest=$time_range.latest$\n| eval activity_time = strftime(_time, \"%Y-%m-%d %H:%M:%S\")\n| eval status_icon = if(status=\"success\", \"✅\", \"❌\")\n| table activity_time, status_icon, admin_user, ui_type, admin_action, status, msg\n| rename activity_time as \"Time\", status_icon as \"Status\", admin_user as \"Administrator\", ui_type as \"Interface\", admin_action as \"Action\", status as \"Result\", msg as \"Message\"\n| head 50",
+        "query": "`fmg_audit_search` earliest=$time_range.earliest$ latest=$time_range.latest$\n| `format_timestamp`\n| `add_status_icon`\n| table formatted_time, status_icon, admin_user, ui_type, admin_action, status, msg\n| rename formatted_time as \"Time\", status_icon as \"Status\", admin_user as \"Administrator\", ui_type as \"Interface\", admin_action as \"Action\", status as \"Result\", msg as \"Message\"\n| head 50",
         "enableSmartSources": true
       },
       "name": "ds_fmg_admin_activity"
