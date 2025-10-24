@@ -213,6 +213,58 @@
         "majorColor": "> majorValue | rangeValue(successRateColorConfig)",
         "backgroundColor": "transparent"
       }
+    },
+    "viz_slack_status": {
+      "type": "splunk.singlevalue",
+      "title": "🔔 Slack Alerts Status",
+      "dataSources": {
+        "primary": "ds_slack_status"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('status')",
+        "majorColor": "> majorValue | matchValue(statusColors)",
+        "backgroundColor": "transparent"
+      },
+      "context": {
+        "statusColors": {
+          "Enabled": "#4ade80",
+          "Disabled": "#ef4444"
+        }
+      }
+    },
+    "viz_slack_master_toggle": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "## 🎛️ Slack Alert Master Control\n\n**[Enable All](/app/search/search?q=%7C%20makeresults%20%7C%20eval%20alert_name%3D%22all%22%2C%20enabled%3D1%2C%20updated_by%3D%22admin%22%2C%20updated_time%3Dnow()%20%7C%20outputlookup%20slack_alert_toggle%20append%3Dtrue)** | **[Disable All](/app/search/search?q=%7C%20makeresults%20%7C%20eval%20alert_name%3D%22all%22%2C%20enabled%3D0%2C%20updated_by%3D%22admin%22%2C%20updated_time%3Dnow()%20%7C%20outputlookup%20slack_alert_toggle%20append%3Dtrue)**\n\nIndividual rule controls below:"
+      }
+    },
+    "viz_slack_rule_toggles": {
+      "type": "splunk.table",
+      "title": "📋 Rule-specific Slack Controls",
+      "dataSources": {
+        "primary": "ds_rule_slack_toggles"
+      },
+      "options": {
+        "backgroundColor": "transparent",
+        "tableFormat": {
+          "rowBackgroundColors": "> table | seriesByIndex(0) | pick('enabled') | matchValue(rowColorsByEnabled)"
+        }
+      },
+      "context": {
+        "rowColorsByEnabled": {
+          "1": "#1a472a",
+          "0": "#4a1a1a"
+        }
+      },
+      "eventHandlers": [
+        {
+          "type": "drilldown.customUrl",
+          "options": {
+            "url": "/app/search/search?q=%7C%20makeresults%20%7C%20eval%20alert_name%3D%22$row.alert_name$%22%2C%20enabled%3D$toggle_value$%2C%20updated_by%3D%22admin%22%2C%20updated_time%3Dnow()%20%7C%20outputlookup%20slack_alert_toggle%20append%3Dtrue",
+            "newTab": false
+          }
+        }
+      ]
     }
   },
   "dataSources": {
@@ -424,6 +476,28 @@
         }
       },
       "name": "Alert Success Rate"
+    },
+    "ds_slack_status": {
+      "type": "ds.search",
+      "options": {
+        "query": "| inputlookup slack_alert_toggle | where alert_name=\"all\" | head 1 | eval status=if(enabled=1, \"Enabled\", \"Disabled\") | table status",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "now"
+        }
+      },
+      "name": "Slack Status"
+    },
+    "ds_rule_slack_toggles": {
+      "type": "ds.search",
+      "options": {
+        "query": "| inputlookup slack_alert_toggle | where alert_name!=\"all\" | eval status=if(enabled=1, \"✅ ON\", \"⛔ OFF\"), toggle_link=if(enabled=1, \"[Disable]\", \"[Enable]\") | table alert_name, status, updated_by, updated_time | rename alert_name as \"Rule Name\", status as \"Slack Alert\", updated_by as \"Updated By\", updated_time as \"Last Updated\"",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "now"
+        }
+      },
+      "name": "Rule Slack Toggles"
     }
   },
   "defaults": {
@@ -516,16 +590,46 @@
     "type": "absolute",
     "options": {
       "width": 1440,
-      "height": 3600,
+      "height": 3950,
       "display": "auto-scale"
     },
     "structure": [
+      {
+        "item": "viz_slack_status",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "w": 360,
+          "h": 100
+        }
+      },
+      {
+        "item": "viz_slack_master_toggle",
+        "type": "block",
+        "position": {
+          "x": 360,
+          "y": 0,
+          "w": 1080,
+          "h": 100
+        }
+      },
+      {
+        "item": "viz_slack_rule_toggles",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 100,
+          "w": 1440,
+          "h": 250
+        }
+      },
       {
         "item": "viz_deny_events",
         "type": "block",
         "position": {
           "x": 0,
-          "y": 0,
+          "y": 350,
           "w": 288,
           "h": 150
         }
@@ -535,7 +639,7 @@
         "type": "block",
         "position": {
           "x": 288,
-          "y": 0,
+          "y": 350,
           "w": 288,
           "h": 150
         }
@@ -545,7 +649,7 @@
         "type": "block",
         "position": {
           "x": 576,
-          "y": 0,
+          "y": 350,
           "w": 288,
           "h": 150
         }
@@ -555,7 +659,7 @@
         "type": "block",
         "position": {
           "x": 864,
-          "y": 0,
+          "y": 350,
           "w": 288,
           "h": 150
         }
@@ -565,7 +669,7 @@
         "type": "block",
         "position": {
           "x": 1152,
-          "y": 0,
+          "y": 350,
           "w": 288,
           "h": 150
         }
@@ -575,7 +679,7 @@
         "type": "block",
         "position": {
           "x": 0,
-          "y": 150,
+          "y": 500,
           "w": 720,
           "h": 300
         }
@@ -585,7 +689,7 @@
         "type": "block",
         "position": {
           "x": 720,
-          "y": 150,
+          "y": 500,
           "w": 720,
           "h": 300
         }
@@ -595,7 +699,7 @@
         "type": "block",
         "position": {
           "x": 0,
-          "y": 450,
+          "y": 800,
           "w": 720,
           "h": 300
         }
@@ -605,7 +709,7 @@
         "type": "block",
         "position": {
           "x": 720,
-          "y": 450,
+          "y": 800,
           "w": 720,
           "h": 300
         }
@@ -615,7 +719,7 @@
         "type": "block",
         "position": {
           "x": 0,
-          "y": 750,
+          "y": 1100,
           "w": 720,
           "h": 300
         }
@@ -625,7 +729,7 @@
         "type": "block",
         "position": {
           "x": 720,
-          "y": 750,
+          "y": 1100,
           "w": 720,
           "h": 300
         }
@@ -635,7 +739,7 @@
         "type": "block",
         "position": {
           "x": 0,
-          "y": 1050,
+          "y": 1400,
           "w": 720,
           "h": 300
         }
@@ -645,7 +749,7 @@
         "type": "block",
         "position": {
           "x": 720,
-          "y": 1050,
+          "y": 1400,
           "w": 720,
           "h": 300
         }
@@ -655,7 +759,7 @@
         "type": "block",
         "position": {
           "x": 0,
-          "y": 1350,
+          "y": 1700,
           "w": 720,
           "h": 300
         }
@@ -665,7 +769,7 @@
         "type": "block",
         "position": {
           "x": 720,
-          "y": 1350,
+          "y": 1700,
           "w": 720,
           "h": 300
         }
@@ -675,7 +779,7 @@
         "type": "block",
         "position": {
           "x": 0,
-          "y": 1650,
+          "y": 2000,
           "w": 720,
           "h": 300
         }
@@ -685,7 +789,7 @@
         "type": "block",
         "position": {
           "x": 720,
-          "y": 1650,
+          "y": 2000,
           "w": 720,
           "h": 300
         }
@@ -695,7 +799,7 @@
         "type": "block",
         "position": {
           "x": 0,
-          "y": 1950,
+          "y": 2300,
           "w": 1440,
           "h": 150
         }
@@ -705,7 +809,7 @@
         "type": "block",
         "position": {
           "x": 0,
-          "y": 2100,
+          "y": 2450,
           "w": 960,
           "h": 300
         }
@@ -715,7 +819,7 @@
         "type": "block",
         "position": {
           "x": 960,
-          "y": 2100,
+          "y": 2450,
           "w": 480,
           "h": 300
         }
