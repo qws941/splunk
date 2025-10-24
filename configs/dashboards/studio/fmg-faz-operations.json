@@ -1,0 +1,487 @@
+{
+  "visualizations": {
+    "viz_fmg_config_changes": {
+      "type": "splunk.singlevalue",
+      "options": {
+        "majorValue": "> primary | seriesByName('change_count')",
+        "unit": "changes",
+        "majorColor": "#F7BC38",
+        "showSparklineAreaGraph": true,
+        "sparklineDisplay": "before"
+      },
+      "dataSources": {
+        "primary": "ds_fmg_config_changes"
+      },
+      "title": "🔧 FMG Config Changes (24h)"
+    },
+    "viz_fmg_active_admins": {
+      "type": "splunk.singlevalue",
+      "options": {
+        "majorValue": "> primary | seriesByName('admin_count')",
+        "unit": "admins",
+        "majorColor": "#6DB7C6",
+        "showSparklineAreaGraph": false
+      },
+      "dataSources": {
+        "primary": "ds_fmg_active_admins"
+      },
+      "title": "👥 Active Administrators"
+    },
+    "viz_fmg_device_inventory": {
+      "type": "splunk.singlevalue",
+      "options": {
+        "majorValue": "> primary | seriesByName('connected_devices')",
+        "trellis": {
+          "enabled": false
+        },
+        "unit": "devices",
+        "majorColor": "> majorValue | rangeValue(deviceColorConfig)",
+        "showSparklineAreaGraph": false
+      },
+      "context": {
+        "deviceColorConfig": [
+          {
+            "value": 0,
+            "to": 60,
+            "color": "#D93F3C"
+          },
+          {
+            "value": 60,
+            "to": 75,
+            "color": "#F7BC38"
+          },
+          {
+            "value": 75,
+            "color": "#65A637"
+          }
+        ]
+      },
+      "dataSources": {
+        "primary": "ds_fmg_device_inventory"
+      },
+      "title": "🖥️ Connected Devices / 80"
+    },
+    "viz_faz_security_events": {
+      "type": "splunk.singlevalue",
+      "options": {
+        "majorValue": "> primary | seriesByName('event_count')",
+        "unit": "events",
+        "majorColor": "#D93F3C",
+        "showSparklineAreaGraph": true,
+        "sparklineDisplay": "before"
+      },
+      "dataSources": {
+        "primary": "ds_faz_security_events"
+      },
+      "title": "🚨 FAZ Critical Alerts Only"
+    },
+    "viz_fmg_config_timeline": {
+      "type": "splunk.column",
+      "options": {
+        "stackMode": "stacked",
+        "xField": "_time",
+        "yField": "count",
+        "splitByField": "config_operation",
+        "legendDisplay": "right",
+        "seriesColors": ["#65A637", "#6DB7C6", "#F7BC38", "#F58F39", "#D93F3C"]
+      },
+      "dataSources": {
+        "primary": "ds_fmg_config_timeline"
+      },
+      "title": "📝 FMG Configuration Changes Timeline"
+    },
+    "viz_fmg_recent_changes": {
+      "type": "splunk.table",
+      "options": {
+        "count": 20,
+        "dataOverlayMode": "none",
+        "drilldown": "none",
+        "rowNumbers": true,
+        "tableFormat": {
+          "rowBackgroundColors": "> table | seriesByIndex(0) | pick(tableRowBackgroundColorsByBackgroundColor)"
+        }
+      },
+      "context": {
+        "tableRowBackgroundColorsByBackgroundColor": {
+          "create": "#E5F5E5",
+          "update": "#FFF9E5",
+          "delete": "#FFE5E5"
+        }
+      },
+      "dataSources": {
+        "primary": "ds_fmg_recent_changes"
+      },
+      "title": "🔄 Recent Configuration Changes (Last 50)"
+    },
+    "viz_faz_critical_events_timeline": {
+      "type": "splunk.line",
+      "options": {
+        "xField": "_time",
+        "yField": "count",
+        "legendDisplay": "off",
+        "seriesColors": ["#D93F3C"]
+      },
+      "dataSources": {
+        "primary": "ds_faz_critical_events_timeline"
+      },
+      "title": "🚨 Critical Events Timeline (Alerts Only)"
+    },
+    "viz_faz_top_critical_threats": {
+      "type": "splunk.table",
+      "options": {
+        "count": 10,
+        "dataOverlayMode": "none",
+        "drilldown": "none",
+        "rowNumbers": true
+      },
+      "dataSources": {
+        "primary": "ds_faz_top_critical_threats"
+      },
+      "title": "🔥 Top Critical Threats (Action Required)"
+    },
+    "viz_faz_blocked_ips": {
+      "type": "splunk.table",
+      "options": {
+        "count": 10,
+        "dataOverlayMode": "heatmap",
+        "drilldown": "none",
+        "rowNumbers": true
+      },
+      "dataSources": {
+        "primary": "ds_faz_blocked_ips"
+      },
+      "title": "🚫 FAZ Top Blocked Source IPs"
+    },
+    "viz_fmg_device_list": {
+      "type": "splunk.table",
+      "options": {
+        "count": 20,
+        "dataOverlayMode": "none",
+        "drilldown": "none",
+        "rowNumbers": true,
+        "tableFormat": {
+          "rowBackgroundColors": "> table | seriesByIndex(0) | pick(connectionStatusColors)"
+        }
+      },
+      "context": {
+        "connectionStatusColors": {
+          "✅": "#E5F5E5",
+          "❌": "#FFE5E5",
+          "⚠️": "#FFF9E5"
+        }
+      },
+      "dataSources": {
+        "primary": "ds_fmg_device_list"
+      },
+      "title": "🖥️ FMG Device Inventory & Health"
+    },
+    "viz_faz_traffic_top_talkers": {
+      "type": "splunk.table",
+      "options": {
+        "count": 20,
+        "dataOverlayMode": "heatmap",
+        "drilldown": "none",
+        "rowNumbers": true
+      },
+      "dataSources": {
+        "primary": "ds_faz_traffic_top_talkers"
+      },
+      "title": "📡 FAZ Traffic Top Talkers (Last Hour)"
+    },
+    "viz_fmg_admin_activity": {
+      "type": "splunk.table",
+      "options": {
+        "count": 20,
+        "dataOverlayMode": "none",
+        "drilldown": "none",
+        "rowNumbers": true,
+        "tableFormat": {
+          "rowBackgroundColors": "> table | seriesByIndex(0) | pick(statusColors)"
+        }
+      },
+      "context": {
+        "statusColors": {
+          "✅": "#E5F5E5",
+          "❌": "#FFE5E5"
+        }
+      },
+      "dataSources": {
+        "primary": "ds_fmg_admin_activity"
+      },
+      "title": "👤 FMG Admin Activity Audit"
+    }
+  },
+  "dataSources": {
+    "ds_fmg_config_changes": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw sourcetype=fmg:config earliest=$time_range.earliest$ latest=$time_range.latest$\n| stats count as change_count",
+        "enableSmartSources": true
+      },
+      "name": "ds_fmg_config_changes"
+    },
+    "ds_fmg_active_admins": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw sourcetype=fmg:audit earliest=$time_range.earliest$ latest=$time_range.latest$\n| stats dc(admin_user) as admin_count",
+        "enableSmartSources": true
+      },
+      "name": "ds_fmg_active_admins"
+    },
+    "ds_fmg_device_inventory": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw sourcetype=fmg:device\n| dedup device_name\n| stats count as total_devices,\n    sum(eval(if(connection_status=\"up\",1,0))) as connected_devices",
+        "enableSmartSources": true
+      },
+      "name": "ds_fmg_device_inventory"
+    },
+    "ds_faz_security_events": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw sourcetype=faz:event severity=\"critical\" earliest=$time_range.earliest$ latest=$time_range.latest$\n| stats count as event_count",
+        "enableSmartSources": true
+      },
+      "name": "ds_faz_security_events"
+    },
+    "ds_fmg_config_timeline": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw sourcetype=fmg:config device_name=$device_filter$ earliest=$time_range.earliest$ latest=$time_range.latest$\n| timechart count by config_operation",
+        "enableSmartSources": true
+      },
+      "name": "ds_fmg_config_timeline"
+    },
+    "ds_fmg_recent_changes": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw sourcetype=fmg:config device_name=$device_filter$ earliest=$time_range.earliest$ latest=$time_range.latest$\n| eval change_time = strftime(_time, \"%Y-%m-%d %H:%M:%S\")\n| table change_time, admin_user, device_name, config_operation, config_object, adom\n| rename change_time as \"Time\", admin_user as \"Administrator\", device_name as \"Device\", config_operation as \"Operation\", config_object as \"Object\", adom as \"ADOM\"\n| head 50",
+        "enableSmartSources": true
+      },
+      "name": "ds_fmg_recent_changes"
+    },
+    "ds_faz_critical_events_timeline": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw sourcetype=faz:event severity=\"critical\" device_name=$device_filter$ earliest=$time_range.earliest$ latest=$time_range.latest$\n| timechart count",
+        "enableSmartSources": true
+      },
+      "name": "ds_faz_critical_events_timeline"
+    },
+    "ds_faz_top_critical_threats": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw sourcetype=faz:utm severity=\"critical\" device_name=$device_filter$ earliest=$time_range.earliest$ latest=$time_range.latest$\n| stats count as event_count,\n    latest(_time) as last_seen,\n    values(action) as actions\n  by attack_name\n| eval last_seen_time = strftime(last_seen, \"%Y-%m-%d %H:%M:%S\")\n| sort -event_count\n| head 10\n| table attack_name, event_count, last_seen_time, actions\n| rename attack_name as \"Threat Name\", event_count as \"Count\", last_seen_time as \"Last Seen\", actions as \"Actions Taken\"",
+        "enableSmartSources": true
+      },
+      "name": "ds_faz_top_critical_threats"
+    },
+    "ds_faz_blocked_ips": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw sourcetype=faz:event action=\"blocked\" device_name=$device_filter$ earliest=$time_range.earliest$ latest=$time_range.latest$\n| stats count as block_count,\n    values(dst_ip) as target_ips,\n    values(log_subtype) as event_types\n  by src_ip\n| sort -block_count\n| head 20\n| rename src_ip as \"Source IP\", block_count as \"Block Count\", target_ips as \"Targets\", event_types as \"Event Types\"",
+        "enableSmartSources": true
+      },
+      "name": "ds_faz_blocked_ips"
+    },
+    "ds_fmg_device_list": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw sourcetype=fmg:device\n| dedup device_name\n| eval status_icon = case(\n    connection_status=\"up\", \"✅\",\n    connection_status=\"down\", \"❌\",\n    1=1, \"⚠️\")\n| eval ha_icon = case(\n    ha_mode=\"standalone\", \"🖥️\",\n    ha_mode=\"active-active\", \"🔄\",\n    ha_mode=\"active-passive\", \"🔁\",\n    1=1, \"❓\")\n| table status_icon, device_name, serial_number, device_ip, os_version, ha_icon, ha_mode, connection_status\n| rename status_icon as \"Status\", device_name as \"Device Name\", serial_number as \"Serial\", device_ip as \"IP Address\", os_version as \"FortiOS Version\", ha_icon as \"HA\", ha_mode as \"HA Mode\", connection_status as \"Connection\"\n| sort device_name",
+        "enableSmartSources": true
+      },
+      "name": "ds_fmg_device_list"
+    },
+    "ds_faz_traffic_top_talkers": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw sourcetype=faz:traffic earliest=-1h latest=now\n| stats sum(bytes_sent) as total_sent,\n    sum(bytes_received) as total_received,\n    sum(eval(bytes_sent+bytes_received)) as total_bytes,\n    count as session_count\n  by src_ip, service\n| eval total_mb = round(total_bytes/1024/1024, 2)\n| eval total_sent_mb = round(total_sent/1024/1024, 2)\n| eval total_received_mb = round(total_received/1024/1024, 2)\n| sort -total_mb\n| head 20\n| table src_ip, service, total_mb, total_sent_mb, total_received_mb, session_count\n| rename src_ip as \"Source IP\", service as \"Service\", total_mb as \"Total (MB)\", total_sent_mb as \"Sent (MB)\", total_received_mb as \"Received (MB)\", session_count as \"Sessions\"",
+        "enableSmartSources": true
+      },
+      "name": "ds_faz_traffic_top_talkers"
+    },
+    "ds_fmg_admin_activity": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw sourcetype=fmg:audit earliest=$time_range.earliest$ latest=$time_range.latest$\n| eval activity_time = strftime(_time, \"%Y-%m-%d %H:%M:%S\")\n| eval status_icon = if(status=\"success\", \"✅\", \"❌\")\n| table activity_time, status_icon, admin_user, ui_type, admin_action, status, msg\n| rename activity_time as \"Time\", status_icon as \"Status\", admin_user as \"Administrator\", ui_type as \"Interface\", admin_action as \"Action\", status as \"Result\", msg as \"Message\"\n| head 50",
+        "enableSmartSources": true
+      },
+      "name": "ds_fmg_admin_activity"
+    }
+  },
+  "inputs": {
+    "input_time_range": {
+      "type": "input.timerange",
+      "options": {
+        "token": "time_range",
+        "defaultValue": "-24h@h,now"
+      },
+      "title": "Time Range"
+    },
+    "input_device_filter": {
+      "type": "input.dropdown",
+      "options": {
+        "items": [
+          {
+            "label": "All Devices (80)",
+            "value": "*"
+          }
+        ],
+        "defaultValue": "*",
+        "token": "device_filter"
+      },
+      "title": "Device Filter",
+      "dataSources": {
+        "primary": "ds_device_filter_options"
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "options": {
+      "width": 1440,
+      "height": 2400,
+      "display": "auto-scale"
+    },
+    "structure": [
+      {
+        "item": "viz_fmg_config_changes",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "w": 360,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_fmg_active_admins",
+        "type": "block",
+        "position": {
+          "x": 360,
+          "y": 0,
+          "w": 360,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_fmg_device_inventory",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 0,
+          "w": 360,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_faz_security_events",
+        "type": "block",
+        "position": {
+          "x": 1080,
+          "y": 0,
+          "w": 360,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_fmg_config_timeline",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 150,
+          "w": 1440,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_fmg_recent_changes",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 450,
+          "w": 1440,
+          "h": 400
+        }
+      },
+      {
+        "item": "viz_faz_critical_events_timeline",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 850,
+          "w": 1440,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_faz_top_critical_threats",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1150,
+          "w": 720,
+          "h": 400
+        }
+      },
+      {
+        "item": "viz_faz_blocked_ips",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 1150,
+          "w": 720,
+          "h": 400
+        }
+      },
+      {
+        "item": "viz_fmg_device_list",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1550,
+          "w": 1440,
+          "h": 400
+        }
+      },
+      {
+        "item": "viz_faz_traffic_top_talkers",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1950,
+          "w": 1440,
+          "h": 400
+        }
+      },
+      {
+        "item": "viz_fmg_admin_activity",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 2350,
+          "w": 1440,
+          "h": 400
+        }
+      }
+    ],
+    "globalInputs": [
+      "input_time_range",
+      "input_device_filter"
+    ]
+  },
+  "title": "🔧 FMG/FAZ Operations Dashboard",
+  "description": "Simplified operations monitoring - Config changes, Alerts, Device status (80 FortiGates)",
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "latest": "$time_range.latest$",
+            "earliest": "$time_range.earliest$"
+          }
+        }
+      }
+    }
+  }
+}
