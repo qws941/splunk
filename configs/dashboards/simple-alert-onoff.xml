@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<form version="1.1" theme="dark">
+  <label>🔔 Simple Alert ON/OFF</label>
+  <description>간단한 테스트 알림 ON/OFF 버튼</description>
+
+  <row>
+    <panel>
+      <title>Test Alert Control</title>
+      <html>
+        <div style="padding: 30px; text-align: center;">
+          <h2 style="margin-bottom: 20px;">🧪 Test Slack Alert</h2>
+
+          <div id="status" style="margin: 20px 0; padding: 20px; background: #f0f0f0; border-radius: 8px; font-size: 18px;">
+            Status: <span id="alert-status" style="font-weight: bold;">Loading...</span>
+          </div>
+
+          <div style="margin: 30px 0; display: flex; justify-content: center; gap: 20px;">
+            <button id="btn-enable" onclick="setAlert('enable')"
+              style="padding: 20px 40px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold;">
+              ✅ Enable Alert
+            </button>
+
+            <button id="btn-disable" onclick="setAlert('disable')"
+              style="padding: 20px 40px; background: #dc3545; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold;">
+              ❌ Disable Alert
+            </button>
+          </div>
+
+          <div style="margin-top: 30px;">
+            <button onclick="checkStatus()"
+              style="padding: 12px 30px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
+              🔄 Check Status
+            </button>
+          </div>
+
+          <div id="message" style="margin-top: 20px; padding: 15px; border-radius: 6px; display: none;"></div>
+        </div>
+
+        <script><![CDATA[
+require(['jquery', 'splunkjs/ready!'], function($, mvc) {
+    const ALERT_NAME = 'Test_Simple_Slack_Alert';
+
+    // 현재 상태 확인
+    window.checkStatus = function() {
+        $('#alert-status').text('Checking...');
+
+        $.ajax({
+            url: '/en-US/splunkd/__raw/servicesNS/nobody/search/saved/searches/' + ALERT_NAME,
+            type: 'GET',
+            success: function(response) {
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(response, 'text/xml');
+                const slackEnabled = $(xmlDoc).find('s\\:key[name="action.slack"]').text();
+
+                if (slackEnabled === '1') {
+                    $('#alert-status').text('🟢 ENABLED').css('color', '#28a745');
+                } else {
+                    $('#alert-status').text('🔴 DISABLED').css('color', '#dc3545');
+                }
+            },
+            error: function() {
+                $('#alert-status').text('❓ Unknown').css('color', '#6c757d');
+                showMessage('Error checking status', 'error');
+            }
+        });
+    };
+
+    // 알림 ON/OFF 설정
+    window.setAlert = function(action) {
+        const slackValue = (action === 'enable') ? '1' : '0';
+        const actionText = (action === 'enable') ? 'Enabling' : 'Disabling';
+
+        showMessage(actionText + ' alert...', 'info');
+
+        $.ajax({
+            url: '/en-US/splunkd/__raw/servicesNS/nobody/search/saved/searches/' + ALERT_NAME,
+            type: 'POST',
+            data: {
+                'action.slack': slackValue
+            },
+            success: function() {
+                const successText = (action === 'enable') ? '✅ Alert enabled!' : '❌ Alert disabled!';
+                showMessage(successText, 'success');
+                checkStatus();
+            },
+            error: function(xhr) {
+                showMessage('❌ Error: ' + xhr.statusText, 'error');
+            }
+        });
+    };
+
+    // 메시지 표시
+    function showMessage(text, type) {
+        const colors = {
+            'success': '#d4edda',
+            'error': '#f8d7da',
+            'info': '#d1ecf1'
+        };
+
+        $('#message')
+            .text(text)
+            .css({
+                'background': colors[type] || '#f8f9fa',
+                'display': 'block'
+            });
+    }
+
+    // 초기 상태 확인
+    checkStatus();
+});
+        ]]></script>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>📝 Alert Configuration</title>
+      <table>
+        <search>
+          <query>
+| rest /services/saved/searches
+| search title="Test_Simple_Slack_Alert"
+| eval Status=if('action.slack'=1, "🟢 ENABLED", "🔴 DISABLED")
+| eval Schedule=if(disabled=0, "✅ Active", "❌ Inactive")
+| eval Channel='action.slack.param.channel'
+| table title, Status, Schedule, Channel, cron_schedule
+| rename title as "Alert Name", cron_schedule as "Cron Schedule"
+          </query>
+          <earliest>-5m</earliest>
+          <latest>now</latest>
+        </search>
+      </table>
+    </panel>
+  </row>
+
+</form>
