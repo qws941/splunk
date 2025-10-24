@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<form version="1.1" theme="dark">
+  <label>🔧 FMG/FAZ Operations Dashboard</label>
+  <description>FortiManager Configuration Management &amp; FortiAnalyzer Security Monitoring (80 FortiGates)</description>
+
+  <!-- Time Range Picker -->
+  <fieldset submitButton="true" autoRun="true">
+    <input type="time" token="time_range">
+      <label>Time Range</label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="dropdown" token="device_filter">
+      <label>Device Filter</label>
+      <choice value="*">All Devices (80)</choice>
+      <default>*</default>
+      <fieldForLabel>device_name</fieldForLabel>
+      <fieldForValue>device_name</fieldForValue>
+      <search>
+        <query>index=fw sourcetype=fmg:device | dedup device_name | sort device_name | table device_name</query>
+        <earliest>-5m</earliest>
+        <latest>now</latest>
+      </search>
+    </input>
+  </fieldset>
+
+  <!-- ==========================================
+       FMG Statistics Row
+       ========================================== -->
+  <row>
+    <panel>
+      <title>📊 FMG Statistics (Last 24h)</title>
+      <single>
+        <title>Total Config Changes</title>
+        <search>
+          <query>
+index=fw sourcetype=fmg:config earliest=$time_range.earliest$ latest=$time_range.latest$
+| stats count
+          </query>
+        </search>
+        <option name="colorBy">value</option>
+        <option name="colorMode">block</option>
+        <option name="drilldown">all</option>
+        <option name="numberPrecision">0</option>
+        <option name="rangeColors">["0x65A637","0x6DB7C6","0xF7BC38","0xF58F39","0xD93F3C"]</option>
+        <option name="rangeValues">[0,50,100,200]</option>
+        <option name="showSparkline">1</option>
+        <option name="showTrendIndicator">1</option>
+        <option name="trendColorInterpretation">standard</option>
+        <option name="trendDisplayMode">absolute</option>
+        <option name="underLabel">Configuration Changes</option>
+        <option name="useColors">1</option>
+        <option name="useThousandSeparators">1</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>👥 Active Admins</title>
+      <single>
+        <search>
+          <query>
+index=fw sourcetype=fmg:audit earliest=$time_range.earliest$ latest=$time_range.latest$
+| stats dc(admin_user) as admin_count
+          </query>
+        </search>
+        <option name="colorBy">value</option>
+        <option name="colorMode">block</option>
+        <option name="numberPrecision">0</option>
+        <option name="rangeColors">["0x65A637","0x6DB7C6","0xF7BC38"]</option>
+        <option name="rangeValues">[0,5]</option>
+        <option name="underLabel">Unique Administrators</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>🖥️ Device Inventory</title>
+      <single>
+        <search>
+          <query>
+index=fw sourcetype=fmg:device
+| dedup device_name
+| stats count as total_devices,
+    sum(eval(if(connection_status="up",1,0))) as connected_devices
+| eval status_text = connected_devices . " / " . total_devices
+| table status_text
+          </query>
+        </search>
+        <option name="colorBy">value</option>
+        <option name="colorMode">none</option>
+        <option name="underLabel">Connected / Total Devices</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>🚨 FAZ Security Events</title>
+      <single>
+        <search>
+          <query>
+index=fw sourcetype=faz:event severity IN ("critical","high") earliest=$time_range.earliest$ latest=$time_range.latest$
+| stats count
+          </query>
+        </search>
+        <option name="colorBy">value</option>
+        <option name="colorMode">block</option>
+        <option name="numberPrecision">0</option>
+        <option name="rangeColors">["0x65A637","0xF7BC38","0xF58F39","0xD93F3C"]</option>
+        <option name="rangeValues">[0,100,500]</option>
+        <option name="underLabel">High/Critical Severity</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+
+  <!-- ==========================================
+       FMG Configuration Changes Timeline
+       ========================================== -->
+  <row>
+    <panel>
+      <title>📝 FMG Configuration Changes Timeline</title>
+      <chart>
+        <search>
+          <query>
+index=fw sourcetype=fmg:config device_name=$device_filter$ earliest=$time_range.earliest$ latest=$time_range.latest$
+| timechart count by config_operation
+          </query>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.axisTitleX.text">Time</option>
+        <option name="charting.axisTitleY.text">Config Changes</option>
+        <option name="charting.legend.placement">right</option>
+        <option name="charting.drilldown">all</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- ==========================================
+       FMG Recent Configuration Changes Table
+       ========================================== -->
+  <row>
+    <panel>
+      <title>🔄 Recent Configuration Changes (Last 50)</title>
+      <table>
+        <search>
+          <query>
+index=fw sourcetype=fmg:config device_name=$device_filter$ earliest=$time_range.earliest$ latest=$time_range.latest$
+| eval change_time = strftime(_time, "%Y-%m-%d %H:%M:%S")
+| table change_time, admin_user, device_name, config_operation, config_object, adom
+| rename change_time as "Time", admin_user as "Administrator", device_name as "Device", config_operation as "Operation", config_object as "Object", adom as "ADOM"
+| head 50
+          </query>
+        </search>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">cell</option>
+        <option name="rowNumbers">true</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- ==========================================
+       FAZ Security Events by Severity
+       ========================================== -->
+  <row>
+    <panel>
+      <title>🚨 FAZ Security Events by Severity</title>
+      <chart>
+        <search>
+          <query>
+index=fw sourcetype=faz:event device_name=$device_filter$ earliest=$time_range.earliest$ latest=$time_range.latest$
+| timechart count by severity
+          </query>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.axisTitleX.text">Time</option>
+        <option name="charting.axisTitleY.text">Event Count</option>
+        <option name="charting.legend.placement">right</option>
+        <option name="charting.seriesColors">[0x65A637,0xF7BC38,0xF58F39,0xD93F3C]</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- ==========================================
+       FAZ Top Threats &amp; Top Blocked IPs
+       ========================================== -->
+  <row>
+    <panel>
+      <title>🔥 FAZ Top Threats (UTM Events)</title>
+      <table>
+        <search>
+          <query>
+index=fw sourcetype=faz:utm device_name=$device_filter$ earliest=$time_range.earliest$ latest=$time_range.latest$
+| stats count as event_count by attack_name, severity, action
+| sort -event_count
+| head 20
+| rename attack_name as "Threat Name", severity as "Severity", action as "Action", event_count as "Count"
+          </query>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">cell</option>
+        <option name="rowNumbers">true</option>
+      </table>
+    </panel>
+
+    <panel>
+      <title>🚫 FAZ Top Blocked Source IPs</title>
+      <table>
+        <search>
+          <query>
+index=fw sourcetype=faz:event action="blocked" device_name=$device_filter$ earliest=$time_range.earliest$ latest=$time_range.latest$
+| stats count as block_count,
+    values(dst_ip) as target_ips,
+    values(log_subtype) as event_types
+  by src_ip
+| sort -block_count
+| head 20
+| rename src_ip as "Source IP", block_count as "Block Count", target_ips as "Targets", event_types as "Event Types"
+          </query>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">cell</option>
+        <option name="rowNumbers">true</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- ==========================================
+       Device Inventory &amp; HA Status
+       ========================================== -->
+  <row>
+    <panel>
+      <title>🖥️ FMG Device Inventory &amp; Health</title>
+      <table>
+        <search>
+          <query>
+index=fw sourcetype=fmg:device
+| dedup device_name
+| eval status_icon = case(
+    connection_status="up", "✅",
+    connection_status="down", "❌",
+    1=1, "⚠️")
+| eval ha_icon = case(
+    ha_mode="standalone", "🖥️",
+    ha_mode="active-active", "🔄",
+    ha_mode="active-passive", "🔁",
+    1=1, "❓")
+| table status_icon, device_name, serial_number, device_ip, os_version, ha_icon, ha_mode, connection_status
+| rename status_icon as "Status", device_name as "Device Name", serial_number as "Serial", device_ip as "IP Address", os_version as "FortiOS Version", ha_icon as "HA", ha_mode as "HA Mode", connection_status as "Connection"
+| sort device_name
+          </query>
+        </search>
+        <option name="count">20</option>
+        <option name="drilldown">cell</option>
+        <option name="rowNumbers">true</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- ==========================================
+       FAZ Traffic Analysis (Top Talkers)
+       ========================================== -->
+  <row>
+    <panel>
+      <title>📡 FAZ Traffic Top Talkers (Last Hour)</title>
+      <table>
+        <search>
+          <query>
+index=fw sourcetype=faz:traffic earliest=-1h latest=now
+| stats sum(bytes_sent) as total_sent,
+    sum(bytes_received) as total_received,
+    sum(eval(bytes_sent+bytes_received)) as total_bytes,
+    count as session_count
+  by src_ip, service
+| eval total_mb = round(total_bytes/1024/1024, 2)
+| eval total_sent_mb = round(total_sent/1024/1024, 2)
+| eval total_received_mb = round(total_received/1024/1024, 2)
+| sort -total_mb
+| head 20
+| table src_ip, service, total_mb, total_sent_mb, total_received_mb, session_count
+| rename src_ip as "Source IP", service as "Service", total_mb as "Total (MB)", total_sent_mb as "Sent (MB)", total_received_mb as "Received (MB)", session_count as "Sessions"
+          </query>
+        </search>
+        <option name="count">20</option>
+        <option name="drilldown">cell</option>
+        <option name="rowNumbers">true</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- ==========================================
+       FMG Admin Activity Audit
+       ========================================== -->
+  <row>
+    <panel>
+      <title>👤 FMG Admin Activity Audit</title>
+      <table>
+        <search>
+          <query>
+index=fw sourcetype=fmg:audit earliest=$time_range.earliest$ latest=$time_range.latest$
+| eval activity_time = strftime(_time, "%Y-%m-%d %H:%M:%S")
+| eval status_icon = if(status="success", "✅", "❌")
+| table activity_time, status_icon, admin_user, ui_type, admin_action, status, msg
+| rename activity_time as "Time", status_icon as "Status", admin_user as "Administrator", ui_type as "Interface", admin_action as "Action", status as "Result", msg as "Message"
+| head 50
+          </query>
+        </search>
+        <option name="count">20</option>
+        <option name="drilldown">cell</option>
+        <option name="rowNumbers">true</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>
+
+</form>
