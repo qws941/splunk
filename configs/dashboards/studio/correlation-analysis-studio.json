@@ -752,7 +752,7 @@
     "type": "grid",
     "options": {
       "width": 1440,
-      "height": 3500,
+      "height": 2200,
       "display": "auto-scale",
       "backgroundImage": {
         "sizeType": "cover"
@@ -763,30 +763,30 @@
         "item": "viz_slack_control_panel",
         "type": "block",
         "position": {
-          "x": 20,
-          "y": 20,
-          "w": 1400,
-          "h": 400
+          "x": 0,
+          "y": 0,
+          "w": 960,
+          "h": 200
         }
       },
       {
         "item": "viz_slack_enabled_count",
         "type": "block",
         "position": {
-          "x": 740,
-          "y": 760,
-          "w": 340,
-          "h": 200
+          "x": 960,
+          "y": 0,
+          "w": 240,
+          "h": 100
         }
       },
       {
         "item": "viz_slack_status_table",
         "type": "block",
         "position": {
-          "x": 20,
-          "y": 440,
-          "w": 1400,
-          "h": 300
+          "x": 1200,
+          "y": 0,
+          "w": 240,
+          "h": 200
         }
       },
       {
@@ -794,79 +794,89 @@
         "type": "block",
         "position": {
           "x": 0,
-          "y": 1000,
-          "w": 200,
-          "h": 150
+          "y": 220,
+          "w": 288,
+          "h": 120
         }
       },
       {
         "item": "viz_fmg_adoms",
         "type": "block",
         "position": {
-          "x": 200,
-          "y": 1000,
-          "w": 200,
-          "h": 150
-        }
-      },
-      {
-        "item": "viz_fmg_policy_packages",
-        "type": "block",
-        "position": {
-          "x": 400,
-          "y": 1000,
-          "w": 200,
-          "h": 150
-        }
-      },
-      {
-        "item": "viz_faz_log_volume",
-        "type": "block",
-        "position": {
-          "x": 600,
-          "y": 1000,
-          "w": 200,
-          "h": 150
-        }
-      },
-      {
-        "item": "viz_faz_connected_devices",
-        "type": "block",
-        "position": {
-          "x": 800,
-          "y": 1000,
-          "w": 200,
-          "h": 150
-        }
-      },
-      {
-        "item": "viz_faz_storage_usage",
-        "type": "block",
-        "position": {
-          "x": 1000,
-          "y": 1000,
-          "w": 200,
-          "h": 150
+          "x": 288,
+          "y": 220,
+          "w": 288,
+          "h": 120
         }
       },
       {
         "item": "viz_fmg_admin_sessions",
         "type": "block",
         "position": {
-          "x": 0,
-          "y": 1150,
-          "w": 300,
-          "h": 150
+          "x": 576,
+          "y": 220,
+          "w": 288,
+          "h": 120
+        }
+      },
+      {
+        "item": "viz_fmg_policy_packages",
+        "type": "block",
+        "position": {
+          "x": 864,
+          "y": 220,
+          "w": 288,
+          "h": 120
         }
       },
       {
         "item": "viz_fmg_config_changes",
         "type": "block",
         "position": {
-          "x": 300,
-          "y": 1150,
-          "w": 300,
-          "h": 150
+          "x": 1152,
+          "y": 220,
+          "w": 288,
+          "h": 120
+        }
+      },
+      {
+        "item": "viz_faz_log_volume",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 360,
+          "w": 360,
+          "h": 120
+        }
+      },
+      {
+        "item": "viz_faz_connected_devices",
+        "type": "block",
+        "position": {
+          "x": 360,
+          "y": 360,
+          "w": 360,
+          "h": 120
+        }
+      },
+      {
+        "item": "viz_faz_storage_usage",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 360,
+          "w": 360,
+          "h": 120
+        }
+      },
+      {
+        "item": "viz_version_info",
+        "type": "block",
+        "position": {
+          "x": 1080,
+          "y": 360,
+          "w": 360,
+          "h": 120
         }
       },
       {
@@ -874,19 +884,29 @@
         "type": "block",
         "position": {
           "x": 0,
-          "y": 1300,
-          "w": 1200,
-          "h": 350
+          "y": 500,
+          "w": 720,
+          "h": 300
         }
       },
       {
-        "item": "viz_faz_log_timeline",
+        "item": "viz_fmg_adom_list",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 500,
+          "w": 720,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_faz_device_status",
         "type": "block",
         "position": {
           "x": 0,
-          "y": 1650,
-          "w": 1200,
-          "h": 350
+          "y": 820,
+          "w": 1440,
+          "h": 300
         }
       },
       {
@@ -894,9 +914,19 @@
         "type": "block",
         "position": {
           "x": 0,
-          "y": 2000,
-          "w": 1200,
-          "h": 350
+          "y": 1140,
+          "w": 720,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_faz_log_timeline",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 1140,
+          "w": 720,
+          "h": 300
         }
       },
       {
@@ -904,69 +934,39 @@
         "type": "block",
         "position": {
           "x": 0,
-          "y": 2350,
-          "w": 400,
-          "h": 400
+          "y": 1460,
+          "w": 720,
+          "h": 300
         }
       },
       {
         "item": "viz_fmg_config_history",
         "type": "block",
         "position": {
-          "x": 400,
-          "y": 2350,
-          "w": 400,
-          "h": 400
+          "x": 720,
+          "y": 1460,
+          "w": 720,
+          "h": 300
         }
       },
       {
         "item": "viz_fmg_system_events",
         "type": "block",
         "position": {
-          "x": 800,
-          "y": 2350,
-          "w": 400,
-          "h": 400
-        }
-      },
-      {
-        "item": "viz_fmg_adom_list",
-        "type": "block",
-        "position": {
           "x": 0,
-          "y": 2750,
-          "w": 600,
-          "h": 350
-        }
-      },
-      {
-        "item": "viz_faz_device_status",
-        "type": "block",
-        "position": {
-          "x": 600,
-          "y": 2750,
-          "w": 600,
-          "h": 350
+          "y": 1780,
+          "w": 720,
+          "h": 300
         }
       },
       {
         "item": "viz_install_history",
         "type": "block",
         "position": {
-          "x": 0,
-          "y": 3100,
-          "w": 600,
-          "h": 400
-        }
-      },
-      {
-        "item": "viz_version_info",
-        "type": "block",
-        "position": {
-          "x": 600,
-          "y": 3100,
-          "w": 600,
-          "h": 400
+          "x": 720,
+          "y": 1780,
+          "w": 720,
+          "h": 300
         }
       }
     ],
