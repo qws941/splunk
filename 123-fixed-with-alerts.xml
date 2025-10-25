@@ -232,189 +232,41 @@
     </panel>
   </row>
 
-  <!-- Row 4: 주소/서비스 객체 관리 -->
-  <row>
-    <panel span="6">
-      <title>주소 객체 변경 (FMG/FAZ 통합)</title>
-      <table>
-        <search>
-          <query>
-            index=fw (cfgpath="firewall.address" OR cfgpath="firewall.addrgrp")
-            | eval obj_hash = md5(cfgobj . user . _time)
-            | stats first(_time) as _time, first(cfgobj) as cfgobj, first(cfgattr) as cfgattr, first(user) as user, first(action) as action, first(devname) as devname by obj_hash
-            | rex field=cfgattr "subnet\[(?&lt;subnet&gt;[^\]]+)\]"
-            | rex field=cfgattr "member\[(?&lt;member&gt;[^\]]+)\]"
-            | eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
-            | eval source = case(
-                match(devname, "FMG"), "FMG",
-                match(devname, "FAZ"), "FAZ",
-                1=1, "FG")
-            | eval value = coalesce(subnet, member, cfgattr)
-            | table timestamp, source, user, action, cfgobj, value
-            | rename timestamp AS "시간",
-                     source AS "시스템",
-                     user AS "관리자",
-                     action AS "작업",
-                     cfgobj AS "객체명",
-                     value AS "값"
-            | sort -시간
-            | head 15
-          </query>
-          <earliest>$time_picker.earliest$</earliest>
-          <latest>$time_picker.latest$</latest>
-        </search>
-        <option name="count">15</option>
-      </table>
-    </panel>
-    <panel span="6">
-      <title>서비스 객체 변경 (FMG/FAZ 통합)</title>
-      <table>
-        <search>
-          <query>
-            index=fw (cfgpath="firewall.service*")
-            | eval obj_hash = md5(cfgobj . user . _time)
-            | stats first(_time) as _time, first(cfgobj) as cfgobj, first(cfgattr) as cfgattr, first(user) as user, first(action) as action, first(devname) as devname by obj_hash
-            | rex field=cfgattr "tcp-portrange\[(?&lt;tcp&gt;[^\]]+)\]"
-            | rex field=cfgattr "udp-portrange\[(?&lt;udp&gt;[^\]]+)\]"
-            | eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
-            | eval source = case(
-                match(devname, "FMG"), "FMG",
-                match(devname, "FAZ"), "FAZ",
-                1=1, "FG")
-            | eval ports = case(
-                isnotnull(tcp), "TCP:" + tcp,
-                isnotnull(udp), "UDP:" + udp,
-                1=1, cfgattr)
-            | table timestamp, source, user, action, cfgobj, ports
-            | rename timestamp AS "시간",
-                     source AS "시스템",
-                     user AS "관리자",
-                     action AS "작업",
-                     cfgobj AS "서비스명",
-                     ports AS "포트"
-            | sort -시간
-            | head 15
-          </query>
-          <earliest>$time_picker.earliest$</earliest>
-          <latest>$time_picker.latest$</latest>
-        </search>
-        <option name="count">15</option>
-      </table>
-    </panel>
-  </row>
 
-  <!-- Row 5: 차단 트래픽 분석 -->
+    <!-- Row 4: 설정 변경 로그 -->
   <row>
-    <panel span="8">
-      <title>차단된 트래픽 상세 (실시간)</title>
+    <panel>
+      <title>📝 주소 객체 변경 (설정 변경 로그)</title>
       <table>
         <search>
           <query>
-            index=fw type="traffic" (action="deny" OR action="drop") devname=$device_type$
-            | eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
-            | eval block_reason = case(
-                match(msg, "policy"), "정책 위반",
-                match(msg, "Invalid"), "유효하지 않은 패킷",
-                match(msg, "Denied"), "명시적 차단",
-                match(msg, "spoofing"), "IP 스푸핑",
-                match(msg, "blacklist"), "블랙리스트",
-                1=1, coalesce(msg, "기타"))
-            | table timestamp, srcip, srcport, dstip, dstport, service, policyid, block_reason, devname
-            | rename timestamp AS "시간",
-                     srcip AS "출발지IP",
-                     srcport AS "출발지포트",
-                     dstip AS "목적지IP",
-                     dstport AS "목적지포트",
-                     service AS "서비스",
-                     policyid AS "정책ID",
-                     block_reason AS "차단사유",
-                     devname AS "장비"
-            | sort -시간
-            | head 20
+index=fw earliest=-7d
+| search cfgpath=* OR msg="*address*" OR msg="*object*" OR msg="*config*" OR msg="*policy*"
+| eval change_desc = coalesce(cfgpath, msg, "설정 변경")
+| eval change_user = coalesce(user, "system")  
+| eval change_action = coalesce(action, "modify")
+| eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
+| eval source = case(
+    match(devname, "FMG"), "FMG",
+    match(devname, "FAZ"), "FAZ",
+    1=1, "FG")
+| table timestamp, source, change_user, change_action, change_desc, devname
+| rename timestamp AS "시간",
+         source AS "시스템",
+         change_user AS "관리자",
+         change_action AS "작업",
+         change_desc AS "변경내용",
+         devname AS "장비"
+| sort -시간
+| head 30
           </query>
-          <earliest>$time_picker.earliest$</earliest>
-          <latest>$time_picker.latest$</latest>
+          <earliest>-7d@d</earliest>
+          <latest>now</latest>
+          <refresh>5m</refresh>
         </search>
-        <option name="count">20</option>
-        <option name="drilldown">cell</option>
-        <format type="color" field="차단사유">
-          <colorPalette type="map">{"정책 위반":#DC4E41,"유효하지 않은 패킷":#F8BE34,"명시적 차단":#F1D86F,"IP 스푸핑":#FF6B6B,"블랙리스트":#8B0000}</colorPalette>
-        </format>
-      </table>
-    </panel>
-    <panel span="4">
-      <title>차단 사유 분포</title>
-      <chart>
-        <search>
-          <query>
-            index=fw type="traffic" (action="deny" OR action="drop")
-            | eval reason = case(
-                match(msg, "policy"), "정책",
-                match(msg, "Invalid"), "무효패킷",
-                match(msg, "spoofing"), "스푸핑",
-                match(msg, "blacklist"), "블랙리스트",
-                match(msg, "unauthorized"), "미인가",
-                1=1, "기타")
-            | stats count by reason
-            | sort -count
-          </query>
-          <earliest>$time_picker.earliest$</earliest>
-          <latest>$time_picker.latest$</latest>
-        </search>
-        <option name="charting.chart">pie</option>
-        <option name="charting.legend.placement">right</option>
-      </chart>
-    </panel>
-  </row>
-
-  <!-- Row 6: NAT/PAT 모니터링 -->
-  <row>
-    <panel span="6">
-      <title>NAT 정책 사용 현황</title>
-      <table>
-        <search>
-          <query>
-            index=fw type="traffic" (transip=* OR nat=* OR natsourceip=*)
-            | stats count as sessions,
-                    dc(srcip) as unique_src,
-                    sum(sentbyte) as sent,
-                    sum(rcvdbyte) as rcvd by transip, policyid
-            | eval total_gb = round((sent+rcvd)/1073741824, 2)
-            | sort -sessions
-            | head 10
-            | rename transip AS "NAT IP",
-                     policyid AS "정책ID",
-                     sessions AS "세션수",
-                     unique_src AS "소스수",
-                     total_gb AS "트래픽(GB)"
-          </query>
-          <earliest>$time_picker.earliest$</earliest>
-          <latest>$time_picker.latest$</latest>
-        </search>
-        <option name="count">10</option>
-      </table>
-    </panel>
-    <panel span="6">
-      <title>포트 포워딩 현황</title>
-      <table>
-        <search>
-          <query>
-            index=fw type="traffic" (transdport=* OR dstport=*) action="accept"
-            | where transdport!=dstport
-            | stats count as connections,
-                    dc(srcip) as clients by dstip, dstport, transdport
-            | sort -connections
-            | head 10
-            | rename dstip AS "목적지IP",
-                     dstport AS "외부포트",
-                     transdport AS "내부포트",
-                     connections AS "연결수",
-                     clients AS "클라이언트수"
-          </query>
-          <earliest>$time_picker.earliest$</earliest>
-          <latest>$time_picker.latest$</latest>
-        </search>
-        <option name="count">10</option>
+        <option name="count">30</option>
+        <option name="wrap">true</option>
+        <option name="drilldown">none</option>
       </table>
     </panel>
   </row>
