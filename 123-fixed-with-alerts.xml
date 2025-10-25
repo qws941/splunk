@@ -546,88 +546,44 @@ index=fw type="traffic" (action="deny" OR action="drop" OR action="blocked")
       <html>
         <p style="background: #fff3cd; padding: 10px; border-radius: 4px; margin: 10px;">
           <strong>📌 주요 기능:</strong> 대시보드 각 패널에 대한 Slack 알림을 실시간으로 ON/OFF 제어 + 테스트 메시지 전송<br/>
-          <strong>🎯 지원 알림:</strong> 차단율 높음, 설정 변경, 정책 변경, 객체 변경, NAT 변경, 포트 포워딩, 비정상 트래픽
+          <strong>🎯 지원 알림:</strong> 차단율 높음, 설정 변경, 정책 변경, 객체 변경, NAT 변경, 포트 포워딩, 비정상 트래픽<br/>
+          <strong>🔑 토큰 타입:</strong> xoxb-* (Bot Token) 사용 권장 - Slack App → OAuth &amp; Permissions → Bot User OAuth Token
         </p>
-
-        <div style="margin: 20px; padding: 15px; background: #f8f9fa; border-radius: 4px;">
-          <h3 style="margin-top: 0;">🧪 테스트 알림 전송</h3>
-          <p style="margin-bottom: 10px;">Slack 채널로 테스트 메시지를 전송합니다.</p>
-
-          <div style="margin-bottom: 10px;">
-            <label for="test-alert-type" style="display: inline-block; width: 100px;">알림 종류:</label>
-            <select id="test-alert-type" style="padding: 5px; width: 200px;">
-              <option value="High_Block_Rate">🔴 차단율 높음</option>
-              <option value="Config_Changes">⚙️ 설정 변경</option>
-              <option value="Policy_Changes">📋 정책 변경</option>
-              <option value="Object_Changes">🔧 객체 변경</option>
-              <option value="NAT_Changes">🔀 NAT 변경</option>
-              <option value="Port_Forward_Changes">🚪 포트 포워딩</option>
-              <option value="High_Traffic_Source">📊 출발지 과다</option>
-              <option value="High_Traffic_Dest">📊 목적지 과다</option>
-              <option value="Unusual_Ports">⚠️ 비정상 포트</option>
-            </select>
-          </div>
-
-          <div style="margin-bottom: 10px;">
-            <label for="test-message" style="display: inline-block; width: 100px; vertical-align: top;">메시지:</label>
-            <textarea id="test-message" style="padding: 5px; width: 400px; height: 60px;" placeholder="테스트 메시지 내용 (선택사항)">🧪 테스트 알림입니다.\n\n시간: {{현재시간}}\n장비: FortiGate-TEST\n상태: 정상</textarea>
-          </div>
-
-          <button id="send-test-alert" style="padding: 8px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
-            📨 테스트 알림 전송
-          </button>
-          <span id="test-result" style="margin-left: 15px; font-weight: bold;"></span>
-        </div>
-
-        <script><![CDATA[
-          require([
-            "jquery",
-            "splunkjs/mvc",
-            "splunkjs/mvc/simplexml/ready!"
-          ], function($, mvc) {
-
-            // 테스트 알림 전송 버튼
-            $("#send-test-alert").click(function() {
-              var alertType = $("#test-alert-type").val();
-              var message = $("#test-message").val();
-              var currentTime = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
-
-              // 메시지에 현재시간 템플릿 치환
-              message = message.replace('{{현재시간}}', currentTime);
-
-              $("#test-result").html('<span style="color: #ffa500;">⏳ 전송 중...</span>');
-
-              // Slack webhook으로 테스트 메시지 전송
-              var searchQuery = '| makeresults count=1 ' +
-                '| eval alert_type="' + alertType + '", ' +
-                'test_message="' + message.replace(/\n/g, '\\n').replace(/"/g, '\\"') + '", ' +
-                'timestamp="' + currentTime + '" ' +
-                '| sendalert slack param.channel="#splunk-alerts" ' +
-                'param.message="🧪 *Test Alert: " + alert_type + "*\\n\\n" + test_message';
-
-              var searchManager = new splunkjs.mvc.SearchManager({
-                id: "test-alert-search-" + Date.now(),
-                search: searchQuery,
-                earliest_time: "now",
-                latest_time: "now",
-                autostart: true
-              });
-
-              searchManager.on("search:done", function() {
-                $("#test-result").html('<span style="color: #28a745;">✅ 전송 완료! Slack 채널을 확인하세요.</span>');
-                setTimeout(function() {
-                  $("#test-result").html('');
-                }, 5000);
-              });
-
-              searchManager.on("search:error", function() {
-                $("#test-result").html('<span style="color: #dc3545;">❌ 전송 실패. Slack 설정을 확인하세요.</span>');
-              });
-            });
-
-          });
-        ]]></script>
       </html>
+    </panel>
+  </row>
+
+  <!-- ========================================== -->
+  <!-- 🧪 Slack Test Alert Panel (Search-based) -->
+  <!-- ========================================== -->
+  <row>
+    <panel>
+      <title>🧪 Slack 테스트 알림 전송</title>
+      <html>
+        <p style="margin: 10px; padding: 10px; background: #e7f3ff; border-radius: 4px;">
+          <strong>💡 사용 방법:</strong><br/>
+          1. 아래 검색창에서 "Search" 버튼 클릭<br/>
+          2. Slack #splunk-alerts 채널에서 테스트 메시지 확인<br/>
+          3. 전송 실패 시 /opt/splunk/etc/apps/slack_alerts/local/alert_actions.conf 확인<br/>
+          <strong>🔑 필수 설정:</strong> param.token = xoxb-YOUR-BOT-TOKEN (Bot Token 사용)
+        </p>
+      </html>
+      <table>
+        <search>
+          <query>| makeresults count=1
+| eval alert_type="TEST_ALERT",
+       test_message="🧪 *테스트 알림*\n\n시간: " + strftime(now(), "%Y-%m-%d %H:%M:%S") + "\n장비: FortiGate-TEST\n상태: 정상\n\n✅ Slack Alert Action 정상 작동",
+       timestamp=strftime(now(), "%Y-%m-%d %H:%M:%S"),
+       _time=now()
+| sendalert slack param.channel="#splunk-alerts" param.message=test_message
+| table timestamp, alert_type, test_message
+| rename timestamp AS "전송시간", alert_type AS "알림타입", test_message AS "메시지내용"</query>
+          <earliest>-5m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
     </panel>
   </row>
 
