@@ -571,10 +571,7 @@ index=fw type="traffic" (action="deny" OR action="drop" OR action="blocked")
       <table>
         <search>
           <query>| makeresults count=1
-| eval alert_type="TEST_ALERT",
-       test_message="🧪 *테스트 알림*\n\n시간: " + strftime(now(), "%Y-%m-%d %H:%M:%S") + "\n장비: FortiGate-TEST\n상태: 정상\n\n✅ Slack Alert Action 정상 작동",
-       timestamp=strftime(now(), "%Y-%m-%d %H:%M:%S"),
-       _time=now()
+| eval alert_type="TEST_ALERT", test_message="🧪 테스트 알림 - 시간: " + strftime(now(), "%Y-%m-%d %H:%M:%S") + " | 장비: FortiGate-TEST | 상태: 정상", timestamp=strftime(now(), "%Y-%m-%d %H:%M:%S"), _time=now()
 | sendalert slack param.channel="#splunk-alerts" param.message=test_message
 | table timestamp, alert_type, test_message
 | rename timestamp AS "전송시간", alert_type AS "알림타입", test_message AS "메시지내용"</query>
