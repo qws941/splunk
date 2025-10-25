@@ -554,33 +554,46 @@ index=fw type="traffic" (action="deny" OR action="drop" OR action="blocked")
   </row>
 
   <!-- ========================================== -->
-  <!-- 🧪 Slack Test Alert Panel (Search-based) -->
+  <!-- 🧪 Slack Test Alert Instructions          -->
   <!-- ========================================== -->
   <row>
     <panel>
-      <title>🧪 Slack 테스트 알림 전송</title>
+      <title>🧪 Slack 테스트 알림 생성 가이드</title>
       <html>
-        <p style="margin: 10px; padding: 10px; background: #e7f3ff; border-radius: 4px;">
-          <strong>💡 사용 방법:</strong><br/>
-          1. 아래 검색창에서 "Search" 버튼 클릭<br/>
-          2. Slack #splunk-alerts 채널에서 테스트 메시지 확인<br/>
-          3. 전송 실패 시 /opt/splunk/etc/apps/slack_alerts/local/alert_actions.conf 확인<br/>
-          <strong>🔑 필수 설정:</strong> param.token = xoxb-YOUR-BOT-TOKEN (Bot Token 사용)
-        </p>
+        <div style="margin: 10px; padding: 15px; background: #e7f3ff; border-radius: 4px;">
+          <h4 style="margin-top: 0;">📋 UI에서 설정이 되어 있다면 Alert를 생성하세요</h4>
+
+          <p><strong>⚙️ 현재 상태:</strong> Settings → Alert Actions → Slack <span style="color: green; font-weight: bold;">✅ 설정됨</span></p>
+
+          <h4>1️⃣ Search &amp; Reporting에서 테스트 쿼리 실행</h4>
+          <pre style="background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 4px; overflow-x: auto;">| makeresults count=1
+| eval message="🧪 테스트 알림 - 시간: " + strftime(now(), "%Y-%m-%d %H:%M:%S") + " | 장비: FortiGate-TEST | 상태: 정상"
+| table message</pre>
+
+          <h4>2️⃣ Save As → Alert 선택</h4>
+          <ul>
+            <li><strong>Title:</strong> Slack_Test_Alert</li>
+            <li><strong>Alert type:</strong> Real-time (즉시 실행용)</li>
+            <li><strong>Trigger:</strong> Number of Results &gt; 0</li>
+          </ul>
+
+          <h4>3️⃣ Add Actions → Slack</h4>
+          <ul>
+            <li><strong>Channel:</strong> #splunk-alerts</li>
+            <li><strong>Message:</strong> $result.message$</li>
+          </ul>
+
+          <h4>4️⃣ Alert 실행</h4>
+          <pre style="background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 4px; overflow-x: auto;">Settings → Searches, Reports, and Alerts
+→ Slack_Test_Alert
+→ Actions → Run</pre>
+
+          <p style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 4px;">
+            <strong>💡 Tip:</strong> 또는 아래 쿼리를 실행하여 Alert 생성 여부 확인<br/>
+            <code>| rest /services/saved/searches | search title="Slack_Test_Alert" | table title, actions</code>
+          </p>
+        </div>
       </html>
-      <table>
-        <search>
-          <query>| makeresults count=1
-| eval alert_type="TEST_ALERT", test_message="🧪 테스트 알림 - 시간: " + strftime(now(), "%Y-%m-%d %H:%M:%S") + " | 장비: FortiGate-TEST | 상태: 정상", timestamp=strftime(now(), "%Y-%m-%d %H:%M:%S"), _time=now()
-| sendalert slack param.channel="#splunk-alerts" param.message=test_message
-| table timestamp, alert_type, test_message
-| rename timestamp AS "전송시간", alert_type AS "알림타입", test_message AS "메시지내용"</query>
-          <earliest>-5m</earliest>
-          <latest>now</latest>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="refresh.display">progressbar</option>
-      </table>
     </panel>
   </row>
 
