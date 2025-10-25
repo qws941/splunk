@@ -1,0 +1,598 @@
+<form version="1.1" theme="dark">
+  <label>[security]main_dashboard_v1</label>
+  <!-- 전역 필터 설정 -->
+  <!-- Row 1: 방화벽 운영 현황 -->
+  <!-- Row 2: 방화벽 정책 분석 (FortiGate/FortiManager 통합) -->
+  <!-- Row 3: 방화벽 규칙 변경 추적 -->
+  <!-- Row 4: 주소/서비스 객체 관리 -->
+  <!-- Row 5: 차단 트래픽 분석 -->
+  <!-- Row 6: NAT/PAT 모니터링 -->
+  <!-- Row 7: 인터페이스별 트래픽 -->
+  <!-- Row 8: Top 통신 현황 -->
+  <!-- Row 9: FortiAnalyzer 로그 분석 -->
+  <!-- Row 10: 실시간 방화벽 이벤트 -->
+  <fieldset submitButton="true" autoRun="true">
+    <input type="time" token="time_picker" searchWhenChanged="true">
+      <label>시간 범위</label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="dropdown" token="device_type" searchWhenChanged="true">
+      <label>장비 유형</label>
+      <choice value="*">전체</choice>
+      <choice value="FortiGate*">FortiGate</choice>
+      <choice value="FortiManager*">FortiManager</choice>
+      <choice value="FortiAnalyzer*">FortiAnalyzer</choice>
+      <default>*</default>
+    </input>
+    <input type="dropdown" token="action_filter" searchWhenChanged="true">
+      <label>방화벽 동작</label>
+      <choice value="*">전체</choice>
+      <choice value="accept">허용</choice>
+      <choice value="deny">차단</choice>
+      <choice value="drop">드롭</choice>
+      <default>*</default>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <single>
+        <title>전체 트래픽</title>
+        <search>
+          <query>
+            index=fw type="traffic" devname=$device_type$
+            | dedup sessionid devname
+            | stats count
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="numberPrecision">0</option>
+        <option name="useThousandSeparators">1</option>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <title>허용 트래픽</title>
+        <search>
+          <query>
+            index=fw type="traffic" action="accept" devname=$device_type$
+            | dedup sessionid devname
+            | stats count
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorBy">value</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x53A051"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <title>차단 트래픽</title>
+        <search>
+          <query>
+            index=fw type="traffic" (action="deny" OR action="drop" OR action="blocked") devname=$device_type$
+            | dedup sessionid devname
+            | stats count
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorBy">value</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xDC4E41"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <title>활성 정책 수</title>
+        <search>
+          <query>
+            index=fw type="traffic" policyid=* devname=$device_type$
+            | dedup policyid devname
+            | stats dc(policyid) as policies
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <title>차단율 (%)</title>
+        <search>
+          <query>
+            index=fw type="traffic" devname=$device_type$
+            | dedup sessionid devname
+            | eval blocked = if(action="deny" OR action="drop", 1, 0)
+            | stats sum(blocked) as blocked_count, count as total
+            | eval percentage = round((blocked_count/total)*100, 2)
+            | fields percentage
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="numberPrecision">2</option>
+        <option name="unit">%</option>
+        <option name="colorBy">value</option>
+        <option name="rangeColors">["0x53A051","0xF8BE34","0xDC4E41"]</option>
+        <option name="rangeValues">[0,10,30]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+  <row>
+    <panel span="12">
+      <title>방화벽 정책 사용 현황 (FG/FMG 통합)</title>
+      <table>
+        <search>
+          <query>
+            index=fw type="traffic" policyid=* action=$action_filter$ devname=$device_type$
+            | dedup sessionid devname
+            | eval source = case(
+                match(devname, "FMG|FortiManager"), "FMG",
+                match(devname, "FG|FortiGate"), "FG",
+                match(devname, "FAZ|FortiAnalyzer"), "FAZ",
+                1=1, "기타")
+            | stats count as hits,
+                    sum(sentbyte) as sent,
+                    sum(rcvdbyte) as rcvd,
+                    dc(srcip) as src_count,
+                    dc(dstip) as dst_count,
+                    values(action) as actions by policyid, policyname, source
+            | eval total_gb = round((sent+rcvd)/1073741824, 2)
+            | sort -hits
+            | head 30
+            | rename policyid AS "정책ID",
+                     policyname AS "정책명",
+                     source AS "관리장비",
+                     hits AS "매칭횟수",
+                     total_gb AS "트래픽(GB)",
+                     src_count AS "소스IP수",
+                     dst_count AS "목적지IP수",
+                     actions AS "동작"
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="count">30</option>
+        <option name="drilldown">cell</option>
+        <format type="color" field="관리장비">
+          <colorPalette type="map">{"FG":#4ECDC4,"FMG":#45B7D1,"FAZ":#96CEB4}</colorPalette>
+        </format>
+        <format type="color" field="동작">
+          <colorPalette type="map">{"accept":#53A051,"deny":#DC4E41,"drop":#F8BE34}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel span="12">
+      <title>방화벽 정책 변경 이력 (FMG/FAZ 중복제거)</title>
+      <table>
+        <search>
+          <query>
+            index=fw (cfgpath="firewall.policy" OR cfgpath="firewall.rule" OR logid="0100044547" OR logid="0100044546")
+            | rex field=_raw "cfgobj=\"(?&lt;policy_obj&gt;[^\"]+)\""
+            | rex field=_raw "cfgattr=\"(?&lt;policy_attr&gt;[^\"]+)\""
+            | rex field=ui "(?&lt;access&gt;\w+)\((?&lt;ip&gt;[^\)]+)\)"
+            
+            | eval config_hash = md5(cfgpath . policy_obj . policy_attr . user)
+            | dedup config_hash _time span=1m
+            
+            | eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
+            | eval mgmt_source = case(
+                match(devname, "FMG|FortiManager"), "FortiManager",
+                match(devname, "FAZ|FortiAnalyzer"), "FortiAnalyzer",
+                match(devname, "FG|FortiGate"), "FortiGate",
+                1=1, devname)
+            
+            | rex field=policy_attr "srcintf\[(?&lt;src_intf&gt;[^\]]+)\]"
+            | rex field=policy_attr "dstintf\[(?&lt;dst_intf&gt;[^\]]+)\]"
+            | rex field=policy_attr "srcaddr\[(?&lt;src_addr&gt;[^\]]+)\]"
+            | rex field=policy_attr "dstaddr\[(?&lt;dst_addr&gt;[^\]]+)\]"
+            | rex field=policy_attr "service\[(?&lt;service&gt;[^\]]+)\]"
+            | rex field=policy_attr "action\[(?&lt;fw_action&gt;[^\]]+)\]"
+            
+            | eval change_detail = case(
+                isnotnull(src_intf), "소스인터페이스: " + src_intf,
+                isnotnull(dst_intf), "목적지인터페이스: " + dst_intf,
+                isnotnull(src_addr), "소스주소: " + src_addr,
+                isnotnull(dst_addr), "목적지주소: " + dst_addr,
+                isnotnull(service), "서비스: " + service,
+                isnotnull(fw_action), "동작: " + fw_action,
+                isnotnull(policy_attr), policy_attr,
+                1=1, "-")
+            
+            | table timestamp, mgmt_source, user, action, policy_obj, change_detail, access, ip
+            | rename timestamp AS "시간",
+                     mgmt_source AS "관리시스템",
+                     user AS "관리자",
+                     action AS "작업",
+                     policy_obj AS "정책객체",
+                     change_detail AS "변경내용",
+                     access AS "접속방법",
+                     ip AS "접속IP"
+            | sort -시간
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="count">20</option>
+        <option name="drilldown">cell</option>
+        <option name="wrap">true</option>
+        <format type="color" field="관리시스템">
+          <colorPalette type="map">{"FortiManager":#4ECDC4,"FortiAnalyzer":#45B7D1,"FortiGate":#96CEB4}</colorPalette>
+        </format>
+        <format type="color" field="작업">
+          <colorPalette type="map">{"Delete":#DC4E41,"Add":#53A051,"Edit":#F8BE34,"Set":#87CEEB}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel span="6">
+      <title>주소 객체 변경 (FMG/FAZ 통합)</title>
+      <table>
+        <search>
+          <query>
+            index=fw (cfgpath="firewall.address" OR cfgpath="firewall.addrgrp")
+            | dedup cfgobj user _time span=1m
+            | rex field=cfgattr "subnet\[(?&lt;subnet&gt;[^\]]+)\]"
+            | rex field=cfgattr "member\[(?&lt;member&gt;[^\]]+)\]"
+            | eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
+            | eval source = case(
+                match(devname, "FMG"), "FMG",
+                match(devname, "FAZ"), "FAZ",
+                1=1, "FG")
+            | eval value = coalesce(subnet, member, cfgattr)
+            | table timestamp, source, user, action, cfgobj, value
+            | rename timestamp AS "시간",
+                     source AS "시스템",
+                     user AS "관리자",
+                     action AS "작업",
+                     cfgobj AS "객체명",
+                     value AS "값"
+            | sort -시간
+            | head 15
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="count">15</option>
+      </table>
+    </panel>
+    <panel span="6">
+      <title>서비스 객체 변경 (FMG/FAZ 통합)</title>
+      <table>
+        <search>
+          <query>
+            index=fw (cfgpath="firewall.service*")
+            | dedup cfgobj user _time span=1m
+            | rex field=cfgattr "tcp-portrange\[(?&lt;tcp&gt;[^\]]+)\]"
+            | rex field=cfgattr "udp-portrange\[(?&lt;udp&gt;[^\]]+)\]"
+            | eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
+            | eval source = case(
+                match(devname, "FMG"), "FMG",
+                match(devname, "FAZ"), "FAZ",
+                1=1, "FG")
+            | eval ports = case(
+                isnotnull(tcp), "TCP:" + tcp,
+                isnotnull(udp), "UDP:" + udp,
+                1=1, cfgattr)
+            | table timestamp, source, user, action, cfgobj, ports
+            | rename timestamp AS "시간",
+                     source AS "시스템",
+                     user AS "관리자",
+                     action AS "작업",
+                     cfgobj AS "서비스명",
+                     ports AS "포트"
+            | sort -시간
+            | head 15
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="count">15</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel span="8">
+      <title>차단된 트래픽 상세 (실시간)</title>
+      <table>
+        <search>
+          <query>
+            index=fw type="traffic" (action="deny" OR action="drop") devname=$device_type$
+            | dedup sessionid devname
+            | eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
+            | eval block_reason = case(
+                match(msg, "policy"), "정책 위반",
+                match(msg, "Invalid"), "유효하지 않은 패킷",
+                match(msg, "Denied"), "명시적 차단",
+                match(msg, "spoofing"), "IP 스푸핑",
+                match(msg, "blacklist"), "블랙리스트",
+                1=1, coalesce(msg, "기타"))
+            | table timestamp, srcip, srcport, dstip, dstport, service, policyid, block_reason, devname
+            | rename timestamp AS "시간",
+                     srcip AS "출발지IP",
+                     srcport AS "출발지포트",
+                     dstip AS "목적지IP",
+                     dstport AS "목적지포트",
+                     service AS "서비스",
+                     policyid AS "정책ID",
+                     block_reason AS "차단사유",
+                     devname AS "장비"
+            | sort -시간
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="count">20</option>
+        <option name="drilldown">cell</option>
+        <format type="color" field="차단사유">
+          <colorPalette type="map">{"정책 위반":#DC4E41,"유효하지 않은 패킷":#F8BE34,"명시적 차단":#F1D86F,"IP 스푸핑":#FF6B6B,"블랙리스트":#8B0000}</colorPalette>
+        </format>
+      </table>
+    </panel>
+    <panel span="4">
+      <title>차단 사유 분포</title>
+      <chart>
+        <search>
+          <query>
+            index=fw type="traffic" (action="deny" OR action="drop")
+            | dedup sessionid
+            | eval reason = case(
+                match(msg, "policy"), "정책",
+                match(msg, "Invalid"), "무효패킷",
+                match(msg, "spoofing"), "스푸핑",
+                match(msg, "blacklist"), "블랙리스트",
+                match(msg, "unauthorized"), "미인가",
+                1=1, "기타")
+            | stats count by reason
+            | sort -count
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.legend.placement">right</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel span="6">
+      <title>NAT 정책 사용 현황</title>
+      <table>
+        <search>
+          <query>
+            index=fw type="traffic" (transip=* OR nat=* OR natsourceip=*)
+            | dedup sessionid
+            | stats count as sessions,
+                    dc(srcip) as unique_src,
+                    sum(sentbyte) as sent,
+                    sum(rcvdbyte) as rcvd by transip, policyid
+            | eval total_gb = round((sent+rcvd)/1073741824, 2)
+            | sort -sessions
+            | head 10
+            | rename transip AS "NAT IP",
+                     policyid AS "정책ID",
+                     sessions AS "세션수",
+                     unique_src AS "소스수",
+                     total_gb AS "트래픽(GB)"
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="count">10</option>
+      </table>
+    </panel>
+    <panel span="6">
+      <title>포트 포워딩 현황</title>
+      <table>
+        <search>
+          <query>
+            index=fw type="traffic" (transdport=* OR dstport=*) action="accept"
+            | dedup sessionid
+            | where transdport!=dstport
+            | stats count as connections,
+                    dc(srcip) as clients by dstip, dstport, transdport
+            | sort -connections
+            | head 10
+            | rename dstip AS "목적지IP",
+                     dstport AS "외부포트",
+                     transdport AS "내부포트",
+                     connections AS "연결수",
+                     clients AS "클라이언트수"
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="count">10</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel span="6">
+      <title>인터페이스별 In/Out 트래픽</title>
+      <chart>
+        <search>
+          <query>
+            index=fw type="traffic" devname=$device_type$
+            | dedup sessionid
+            | eval in_mb = rcvdbyte/1048576
+            | eval out_mb = sentbyte/1048576
+            | stats sum(in_mb) as "수신(MB)", sum(out_mb) as "송신(MB)" by srcintf
+            | sort -"수신(MB)"
+            | head 10
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.stackMode">default</option>
+        <option name="charting.axisTitleY.text">트래픽 (MB)</option>
+        <option name="charting.axisTitleX.text">인터페이스</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+    <panel span="6">
+      <title>시간대별 허용/차단 추이</title>
+      <chart>
+        <search>
+          <query>
+            index=fw type="traffic" devname=$device_type$
+            | dedup sessionid
+            | eval action_type = case(
+                action="accept", "허용",
+                action="deny" OR action="drop", "차단",
+                1=1, "기타")
+            | timechart span=1h count by action_type
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.fieldColors">{"허용":"#53A051","차단":"#DC4E41","기타":"#F8BE34"}</option>
+        <option name="charting.axisTitleY.text">트래픽 수</option>
+        <option name="charting.axisTitleX.text">시간</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel span="4">
+      <title>Top 10 출발지 IP</title>
+      <table>
+        <search>
+          <query>
+            index=fw type="traffic" action=$action_filter$ devname=$device_type$
+            | dedup sessionid
+            | stats count as connections,
+                    sum(sentbyte) as sent,
+                    dc(dstip) as destinations by srcip
+            | eval sent_gb = round(sent/1073741824, 2)
+            | sort -connections
+            | head 10
+            | rename srcip AS "출발지IP",
+                     connections AS "연결수",
+                     sent_gb AS "송신(GB)",
+                     destinations AS "목적지수"
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">cell</option>
+      </table>
+    </panel>
+    <panel span="4">
+      <title>Top 10 목적지 IP</title>
+      <table>
+        <search>
+          <query>
+            index=fw type="traffic" action=$action_filter$ devname=$device_type$
+            | dedup sessionid
+            | stats count as connections,
+                    sum(rcvdbyte) as received,
+                    dc(srcip) as sources by dstip
+            | eval received_gb = round(received/1073741824, 2)
+            | sort -connections
+            | head 10
+            | rename dstip AS "목적지IP",
+                     connections AS "연결수",
+                     received_gb AS "수신(GB)",
+                     sources AS "출발지수"
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">cell</option>
+      </table>
+    </panel>
+    <panel span="4">
+      <title>Top 10 서비스/포트</title>
+      <table>
+        <search>
+          <query>
+            index=fw type="traffic" action=$action_filter$ devname=$device_type$
+            | dedup sessionid
+            | eval port_service = service + " (" + dstport + ")"
+            | stats count as hits,
+                    dc(srcip) as unique_src,
+                    dc(dstip) as unique_dst by port_service
+            | sort -hits
+            | head 10
+            | rename port_service AS "서비스(포트)",
+                     hits AS "사용횟수",
+                     unique_src AS "소스수",
+                     unique_dst AS "목적지수"
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="count">10</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel span="12">
+      <title>실시간 방화벽 이벤트 스트림</title>
+      <table>
+        <search>
+          <query>
+            index=fw devname=$device_type$
+            | dedup _raw
+            | eval timestamp = strftime(_time, "%H:%M:%S")
+            | eval system = case(
+                match(devname, "FMG"), "FMG",
+                match(devname, "FAZ"), "FAZ",
+                match(devname, "FG"), "FG",
+                1=1, "기타")
+            | eval event_type = case(
+                type="traffic" AND action="deny", "트래픽차단",
+                type="traffic" AND action="accept", "트래픽허용",
+                match(_raw, "policy"), "정책변경",
+                match(_raw, "login|logout"), "관리자인증",
+                match(_raw, "critical"), "Critical",
+                1=1, "시스템")
+            | head 30
+            | table timestamp, system, event_type, srcip, dstip, dstport, action, policyid, msg
+            | rename timestamp AS "시간",
+                     system AS "시스템",
+                     event_type AS "이벤트",
+                     srcip AS "출발지",
+                     dstip AS "목적지",
+                     dstport AS "포트",
+                     action AS "동작",
+                     policyid AS "정책",
+                     msg AS "메시지"
+          </query>
+          <earliest>-5m</earliest>
+          <latest>now</latest>
+          <refresh>10s</refresh>
+        </search>
+        <option name="count">30</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="이벤트">
+          <colorPalette type="map">{"트래픽차단":#DC4E41,"트래픽허용":#53A051,"정책변경":#F8BE34,"Critical":#FF0000,"관리자인증":#87CEEB}</colorPalette>
+        </format>
+        <format type="color" field="시스템">
+          <colorPalette type="map">{"FG":#4ECDC4,"FMG":#45B7D1,"FAZ":#96CEB4}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+</form>
