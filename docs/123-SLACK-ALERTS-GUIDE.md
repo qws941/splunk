@@ -35,13 +35,13 @@
 
 ### Method 1: Web UI (권장)
 
-1. **Splunk 접속**: https://splunk.jclee.me:8000
+1. **Splunk 접속**: https://YOUR_SPLUNK_HOST:8000
 2. **Settings** → **User Interface** → **Views**
 3. **New View** → **Upload XML**
 4. **파일 선택**: `/home/jclee/app/splunk/123-fixed-with-alerts.xml`
 5. **View Name**: `123-fixed-with-alerts` 또는 `main_dashboard_v2`
 6. **저장**
-7. **접속**: https://splunk.jclee.me:8000/app/search/123-fixed-with-alerts
+7. **접속**: https://YOUR_SPLUNK_HOST:8000/app/search/123-fixed-with-alerts
 
 ### Method 2: REST API
 
@@ -50,7 +50,7 @@ export SPLUNK_PASSWORD="your-password"
 
 curl -k -u admin:$SPLUNK_PASSWORD \
   -d "eai:data=$(cat /home/jclee/app/splunk/123-fixed-with-alerts.xml)" \
-  https://splunk.jclee.me:8089/servicesNS/nobody/search/data/ui/views/123-fixed-with-alerts
+  https://YOUR_SPLUNK_HOST:8089/servicesNS/nobody/search/data/ui/views/123-fixed-with-alerts
 ```
 
 ### Method 3: File System (SSH)
@@ -384,13 +384,13 @@ export SPLUNK_PASSWORD="your-password"
 
 # 백업
 curl -k -u admin:$SPLUNK_PASSWORD \
-  https://splunk.jclee.me:8089/servicesNS/nobody/search/data/ui/views/123 \
+  https://YOUR_SPLUNK_HOST:8089/servicesNS/nobody/search/data/ui/views/123 \
   > /home/jclee/app/splunk/backups/123.xml.$(date +%Y%m%d)
 
 # 교체
 curl -k -u admin:$SPLUNK_PASSWORD \
   -d "eai:data=$(cat /home/jclee/app/splunk/123-fixed-with-alerts.xml)" \
-  https://splunk.jclee.me:8089/servicesNS/nobody/search/data/ui/views/123
+  https://YOUR_SPLUNK_HOST:8089/servicesNS/nobody/search/data/ui/views/123
 ```
 
 ---

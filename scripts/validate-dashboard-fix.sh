@@ -2,7 +2,7 @@
 # Validate 123-fixed.xml data improvement
 # Compares data counts between original and fixed dashboard
 
-SPLUNK_HOST="${SPLUNK_HOST:-splunk.jclee.me}"
+SPLUNK_HOST="${SPLUNK_HOST:-localhost}"
 SPLUNK_PORT="${SPLUNK_PORT:-8089}"
 SPLUNK_USER="${SPLUNK_USER:-admin}"
 

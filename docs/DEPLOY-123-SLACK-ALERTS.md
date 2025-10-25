@@ -38,7 +38,7 @@
 ### Option 1: Web UI (가장 쉬움)
 
 ```
-1. https://splunk.jclee.me:8000 접속
+1. https://YOUR_SPLUNK_HOST:8000 접속
 2. Settings → User Interface → Views
 3. New View → Upload XML
 4. Select: /home/jclee/app/splunk/123-fixed-with-alerts.xml
@@ -53,7 +53,7 @@ export SPLUNK_PASSWORD="your-password"
 
 curl -k -u admin:$SPLUNK_PASSWORD \
   -d "eai:data=$(cat /home/jclee/app/splunk/123-fixed-with-alerts.xml)" \
-  https://splunk.jclee.me:8089/servicesNS/nobody/search/data/ui/views/123-fixed-with-alerts
+  https://YOUR_SPLUNK_HOST:8089/servicesNS/nobody/search/data/ui/views/123-fixed-with-alerts
 ```
 
 ### Option 3: Replace Existing 123.xml
@@ -63,13 +63,13 @@ export SPLUNK_PASSWORD="your-password"
 
 # Backup first
 curl -k -u admin:$SPLUNK_PASSWORD \
-  https://splunk.jclee.me:8089/servicesNS/nobody/search/data/ui/views/123 \
+  https://YOUR_SPLUNK_HOST:8089/servicesNS/nobody/search/data/ui/views/123 \
   > 123.xml.backup.$(date +%Y%m%d)
 
 # Replace
 curl -k -u admin:$SPLUNK_PASSWORD \
   -d "eai:data=$(cat /home/jclee/app/splunk/123-fixed-with-alerts.xml)" \
-  https://splunk.jclee.me:8089/servicesNS/nobody/search/data/ui/views/123
+  https://YOUR_SPLUNK_HOST:8089/servicesNS/nobody/search/data/ui/views/123
 ```
 
 ---
@@ -79,7 +79,7 @@ curl -k -u admin:$SPLUNK_PASSWORD \
 ### Step 1: Open Dashboard
 
 ```
-https://splunk.jclee.me:8000/app/search/123-fixed-with-alerts
+https://YOUR_SPLUNK_HOST:8000/app/search/123-fixed-with-alerts
 ```
 
 ### Step 2: Create All Alerts (One-Click)
@@ -326,7 +326,7 @@ Settings → Searches, reports, and alerts
 # Backup에서 복구
 curl -k -u admin:$SPLUNK_PASSWORD \
   -d "eai:data=$(cat 123.xml.backup.YYYYMMDD)" \
-  https://splunk.jclee.me:8089/servicesNS/nobody/search/data/ui/views/123
+  https://YOUR_SPLUNK_HOST:8089/servicesNS/nobody/search/data/ui/views/123
 ```
 
 ### 알림 규칙만 삭제

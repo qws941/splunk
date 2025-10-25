@@ -150,12 +150,12 @@ export SPLUNK_PASSWORD="your-password"
 # Deploy as new dashboard "123-fixed"
 curl -k -u admin:$SPLUNK_PASSWORD \
   -d "eai:data=$(cat /home/jclee/app/splunk/123-fixed.xml)" \
-  https://splunk.jclee.me:8089/servicesNS/nobody/search/data/ui/views/123-fixed
+  https://YOUR_SPLUNK_HOST:8089/servicesNS/nobody/search/data/ui/views/123-fixed
 
 # OR overwrite original (backup first!)
 curl -k -u admin:$SPLUNK_PASSWORD \
   -d "eai:data=$(cat /home/jclee/app/splunk/123-fixed.xml)" \
-  https://splunk.jclee.me:8089/servicesNS/nobody/search/data/ui/views/123
+  https://YOUR_SPLUNK_HOST:8089/servicesNS/nobody/search/data/ui/views/123
 ```
 
 ### Method 3: File System (SSH Required)
@@ -352,7 +352,7 @@ If you need to revert:
 ```bash
 curl -k -u admin:$SPLUNK_PASSWORD \
   -d "eai:data=$(cat /home/jclee/app/splunk/123.xml)" \
-  https://splunk.jclee.me:8089/servicesNS/nobody/search/data/ui/views/123
+  https://YOUR_SPLUNK_HOST:8089/servicesNS/nobody/search/data/ui/views/123
 ```
 
 ### File System:

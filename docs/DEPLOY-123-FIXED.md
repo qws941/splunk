@@ -4,12 +4,12 @@
 
 ### Option 1: Web UI (Recommended)
 
-1. **Open Splunk**: https://splunk.jclee.me:8000
+1. **Open Splunk**: https://YOUR_SPLUNK_HOST:8000
 2. **Navigate**: Settings → User Interface → Views
 3. **Upload**: New View → Upload XML
 4. **Select**: `/home/jclee/app/splunk/123-fixed.xml`
 5. **Name**: `123-fixed` (test first) or `123` (overwrite)
-6. **Done**: View at https://splunk.jclee.me:8000/app/search/123-fixed
+6. **Done**: View at https://YOUR_SPLUNK_HOST:8000/app/search/123-fixed
 
 ### Option 2: REST API (Fast)
 
@@ -19,7 +19,7 @@ export SPLUNK_PASSWORD="your-password"
 # Deploy as new dashboard (safe)
 curl -k -u admin:$SPLUNK_PASSWORD \
   -d "eai:data=$(cat /home/jclee/app/splunk/123-fixed.xml)" \
-  https://splunk.jclee.me:8089/servicesNS/nobody/search/data/ui/views/123-fixed
+  https://YOUR_SPLUNK_HOST:8089/servicesNS/nobody/search/data/ui/views/123-fixed
 ```
 
 ### Option 3: Overwrite Original (After Testing)
@@ -29,13 +29,13 @@ export SPLUNK_PASSWORD="your-password"
 
 # Backup first
 curl -k -u admin:$SPLUNK_PASSWORD \
-  https://splunk.jclee.me:8089/servicesNS/nobody/search/data/ui/views/123 \
+  https://YOUR_SPLUNK_HOST:8089/servicesNS/nobody/search/data/ui/views/123 \
   > 123.xml.backup.$(date +%Y%m%d)
 
 # Deploy fixed version
 curl -k -u admin:$SPLUNK_PASSWORD \
   -d "eai:data=$(cat /home/jclee/app/splunk/123-fixed.xml)" \
-  https://splunk.jclee.me:8089/servicesNS/nobody/search/data/ui/views/123
+  https://YOUR_SPLUNK_HOST:8089/servicesNS/nobody/search/data/ui/views/123
 ```
 
 ---
@@ -105,7 +105,7 @@ Object Changes:       [123 changes]    ✅
 # OR REST API:
 curl -k -u admin:$SPLUNK_PASSWORD \
   -d "eai:data=$(cat 123.xml.backup.YYYYMMDD)" \
-  https://splunk.jclee.me:8089/servicesNS/nobody/search/data/ui/views/123
+  https://YOUR_SPLUNK_HOST:8089/servicesNS/nobody/search/data/ui/views/123
 ```
 
 ---
