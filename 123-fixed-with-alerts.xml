@@ -122,42 +122,36 @@
   <!-- Row 2: 방화벽 정책 분석 -->
   <row>
     <panel span="12">
-      <title>방화벽 정책 사용 현황 (FG/FMG 통합)</title>
+      <title>방화벽 정책 사용 현황</title>
       <table>
         <search>
           <query>
             index=fw type="traffic" policyid=* action=$action_filter$ devname=$device_type$
-            | eval source = case(
-                match(devname, "FMG|FortiManager"), "FMG",
-                match(devname, "FG|FortiGate"), "FG",
-                match(devname, "FAZ|FortiAnalyzer"), "FAZ",
-                1=1, "기타")
             | stats count as hits,
                     sum(sentbyte) as sent,
                     sum(rcvdbyte) as rcvd,
                     dc(srcip) as src_count,
                     dc(dstip) as dst_count,
-                    values(action) as actions by policyid, policyname, source
+                    values(action) as actions,
+                    values(devname) as devices by policyid, policyname
             | eval total_gb = round((sent+rcvd)/1073741824, 2)
             | sort -hits
             | head 30
             | rename policyid AS "정책ID",
                      policyname AS "정책명",
-                     source AS "관리장비",
                      hits AS "매칭횟수",
                      total_gb AS "트래픽(GB)",
                      src_count AS "소스IP수",
                      dst_count AS "목적지IP수",
-                     actions AS "동작"
+                     actions AS "동작",
+                     devices AS "장비"
           </query>
           <earliest>$time_picker.earliest$</earliest>
           <latest>$time_picker.latest$</latest>
         </search>
         <option name="count">30</option>
         <option name="drilldown">cell</option>
-        <format type="color" field="관리장비">
-          <colorPalette type="map">{"FG":#4ECDC4,"FMG":#45B7D1,"FAZ":#96CEB4}</colorPalette>
-        </format>
+        <option name="wrap">true</option>
         <format type="color" field="동작">
           <colorPalette type="map">{"accept":#53A051,"deny":#DC4E41,"drop":#F8BE34}</colorPalette>
         </format>
@@ -233,9 +227,9 @@
   </row>
 
 
-    <!-- Row 4: 설정 변경 로그 -->
+    <!-- Row 4: 객체 변경 로그 (설정 변경) -->
   <row>
-    <panel>
+    <panel span="6">
       <title>📝 주소 객체 변경 (설정 변경 로그)</title>
       <table>
         <search>
@@ -243,7 +237,41 @@
 index=fw earliest=-7d
 | search cfgpath=* OR msg="*address*" OR msg="*object*" OR msg="*config*" OR msg="*policy*"
 | eval change_desc = coalesce(cfgpath, msg, "설정 변경")
-| eval change_user = coalesce(user, "system")  
+| eval change_user = coalesce(user, "system")
+| eval change_action = coalesce(action, "modify")
+| eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
+| eval source = case(
+    match(devname, "FMG"), "FMG",
+    match(devname, "FAZ"), "FAZ",
+    1=1, "FG")
+| table timestamp, source, change_user, change_action, change_desc, devname
+| rename timestamp AS "시간",
+         source AS "시스템",
+         change_user AS "관리자",
+         change_action AS "작업",
+         change_desc AS "변경내용",
+         devname AS "장비"
+| sort -시간
+| head 30
+          </query>
+          <earliest>-7d@d</earliest>
+          <latest>now</latest>
+          <refresh>5m</refresh>
+        </search>
+        <option name="count">30</option>
+        <option name="wrap">true</option>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+    <panel span="6">
+      <title>🔧 서비스 객체 변경 (포트/프로토콜)</title>
+      <table>
+        <search>
+          <query>
+index=fw earliest=-7d
+| search cfgpath="*service*" OR msg="*service*" OR msg="*port*"
+| eval change_desc = coalesce(cfgpath, msg, "서비스 변경")
+| eval change_user = coalesce(user, "system")
 | eval change_action = coalesce(action, "modify")
 | eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
 | eval source = case(
@@ -271,7 +299,50 @@ index=fw earliest=-7d
     </panel>
   </row>
 
-  <!-- Row 7: 인터페이스별 트래픽 -->
+  <!-- Row 5: 차단 트래픽 분석 -->
+  <row>
+    <panel>
+      <title>🚫 차단된 트래픽 상세 (실시간)</title>
+      <table>
+        <search>
+          <query>
+index=fw type="traffic" (action="deny" OR action="drop" OR action="blocked")
+| eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
+| eval block_reason = case(
+    match(msg, "policy"), "정책 위반",
+    match(msg, "Invalid"), "유효하지 않은 패킷",
+    match(msg, "Denied"), "명시적 차단",
+    match(msg, "spoofing"), "IP 스푸핑",
+    match(msg, "blacklist"), "블랙리스트",
+    1=1, coalesce(msg, "기타"))
+| table timestamp, srcip, srcport, dstip, dstport, service, policyid, block_reason, devname
+| rename timestamp AS "시간",
+         srcip AS "출발지IP",
+         srcport AS "출발지포트",
+         dstip AS "목적지IP",
+         dstport AS "목적지포트",
+         service AS "서비스",
+         policyid AS "정책ID",
+         block_reason AS "차단사유",
+         devname AS "장비"
+| sort -시간
+| head 30
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="count">30</option>
+        <option name="drilldown">cell</option>
+        <option name="wrap">true</option>
+        <format type="color" field="차단사유">
+          <colorPalette type="map">{"정책 위반":#DC4E41,"유효하지 않은 패킷":#F8BE34,"명시적 차단":#F1D86F,"IP 스푸핑":#FF6B6B,"블랙리스트":#8B0000}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 6: 인터페이스별 트래픽 -->
   <row>
     <panel span="6">
       <title>인터페이스별 In/Out 트래픽</title>
@@ -319,7 +390,7 @@ index=fw earliest=-7d
     </panel>
   </row>
 
-  <!-- Row 8: Top 통신 현황 -->
+  <!-- Row 7: Top 통신 현황 -->
   <row>
     <panel span="4">
       <title>Top 10 출발지 IP</title>
@@ -394,7 +465,7 @@ index=fw earliest=-7d
     </panel>
   </row>
 
-  <!-- Row 9: 실시간 방화벽 이벤트 -->
+  <!-- Row 8: 실시간 방화벽 이벤트 -->
   <row>
     <panel span="12">
       <title>실시간 방화벽 이벤트 스트림</title>
