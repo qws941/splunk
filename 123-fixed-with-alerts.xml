@@ -234,9 +234,14 @@
       <table>
         <search>
           <query>
-index=fw earliest=-7d
-| search cfgpath=* OR msg="*address*" OR msg="*object*" OR msg="*config*" OR msg="*policy*"
-| eval change_desc = coalesce(cfgpath, msg, "설정 변경")
+index=fw earliest=-7d (cfgpath="firewall.address" OR cfgpath="firewall.addrgrp" OR logid="0100044547" OR logid="0100044546")
+| rex field=_raw "cfgobj=\"(?&lt;config_object&gt;[^\"]+)\""
+| rex field=_raw "cfgattr=\"(?&lt;config_attr&gt;[^\"]+)\""
+| eval object_name = coalesce(config_object, "Unknown")
+| eval change_detail = case(
+    isnotnull(config_attr) AND len(config_attr) &lt; 100, config_attr,
+    isnotnull(cfgpath), cfgpath,
+    1=1, "설정 변경")
 | eval change_user = coalesce(user, "system")
 | eval change_action = coalesce(action, "modify")
 | eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
@@ -244,12 +249,13 @@ index=fw earliest=-7d
     match(devname, "FMG"), "FMG",
     match(devname, "FAZ"), "FAZ",
     1=1, "FG")
-| table timestamp, source, change_user, change_action, change_desc, devname
+| table timestamp, source, change_user, change_action, object_name, change_detail, devname
 | rename timestamp AS "시간",
          source AS "시스템",
          change_user AS "관리자",
          change_action AS "작업",
-         change_desc AS "변경내용",
+         object_name AS "객체명",
+         change_detail AS "변경내용",
          devname AS "장비"
 | sort -시간
 | head 30
@@ -268,9 +274,19 @@ index=fw earliest=-7d
       <table>
         <search>
           <query>
-index=fw earliest=-7d
-| search cfgpath="*service*" OR msg="*service*" OR msg="*port*"
-| eval change_desc = coalesce(cfgpath, msg, "서비스 변경")
+index=fw earliest=-7d (cfgpath="firewall.service.custom" OR cfgpath="firewall.service.group")
+| rex field=_raw "cfgobj=\"(?&lt;config_object&gt;[^\"]+)\""
+| rex field=_raw "cfgattr=\"(?&lt;config_attr&gt;[^\"]+)\""
+| rex field=config_attr "tcp-portrange\[(?&lt;tcp_port&gt;[^\]]+)\]"
+| rex field=config_attr "udp-portrange\[(?&lt;udp_port&gt;[^\]]+)\]"
+| rex field=config_attr "protocol\[(?&lt;protocol&gt;[^\]]+)\]"
+| eval object_name = coalesce(config_object, "Unknown")
+| eval port_info = case(
+    isnotnull(tcp_port), "TCP: " + tcp_port,
+    isnotnull(udp_port), "UDP: " + udp_port,
+    isnotnull(protocol), "Proto: " + protocol,
+    1=1, "-")
+| eval change_detail = if(len(config_attr) &lt; 100, config_attr, port_info)
 | eval change_user = coalesce(user, "system")
 | eval change_action = coalesce(action, "modify")
 | eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
@@ -278,12 +294,13 @@ index=fw earliest=-7d
     match(devname, "FMG"), "FMG",
     match(devname, "FAZ"), "FAZ",
     1=1, "FG")
-| table timestamp, source, change_user, change_action, change_desc, devname
+| table timestamp, source, change_user, change_action, object_name, port_info, devname
 | rename timestamp AS "시간",
          source AS "시스템",
          change_user AS "관리자",
          change_action AS "작업",
-         change_desc AS "변경내용",
+         object_name AS "서비스명",
+         port_info AS "포트정보",
          devname AS "장비"
 | sort -시간
 | head 30
@@ -308,20 +325,27 @@ index=fw earliest=-7d
           <query>
 index=fw type="traffic" (action="deny" OR action="drop" OR action="blocked")
 | eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
+| rex field=msg "(?i)policy\s*check\s*failed"
+| rex field=msg "(?i)deny\s+by\s+(?&lt;deny_reason&gt;[^,]+)"
 | eval block_reason = case(
-    match(msg, "policy"), "정책 위반",
-    match(msg, "Invalid"), "유효하지 않은 패킷",
-    match(msg, "Denied"), "명시적 차단",
-    match(msg, "spoofing"), "IP 스푸핑",
-    match(msg, "blacklist"), "블랙리스트",
-    1=1, coalesce(msg, "기타"))
-| table timestamp, srcip, srcport, dstip, dstport, service, policyid, block_reason, devname
+    match(msg, "(?i)policy.*denied"), "정책 거부",
+    match(msg, "(?i)policy.*check.*failed"), "정책 검증 실패",
+    isnotnull(deny_reason), deny_reason,
+    match(msg, "(?i)invalid"), "유효하지 않은 패킷",
+    match(msg, "(?i)spoofing"), "IP 스푸핑",
+    match(msg, "(?i)blacklist"), "블랙리스트",
+    match(msg, "(?i)dos"), "DoS 공격",
+    match(msg, "(?i)scan"), "포트 스캔",
+    policyid=0, "정책 없음 (기본 거부)",
+    1=1, "기타")
+| eval service_display = coalesce(service, dstport)
+| table timestamp, srcip, srcport, dstip, dstport, service_display, policyid, block_reason, devname
 | rename timestamp AS "시간",
          srcip AS "출발지IP",
          srcport AS "출발지포트",
          dstip AS "목적지IP",
          dstport AS "목적지포트",
-         service AS "서비스",
+         service_display AS "서비스",
          policyid AS "정책ID",
          block_reason AS "차단사유",
          devname AS "장비"
@@ -336,7 +360,7 @@ index=fw type="traffic" (action="deny" OR action="drop" OR action="blocked")
         <option name="drilldown">cell</option>
         <option name="wrap">true</option>
         <format type="color" field="차단사유">
-          <colorPalette type="map">{"정책 위반":#DC4E41,"유효하지 않은 패킷":#F8BE34,"명시적 차단":#F1D86F,"IP 스푸핑":#FF6B6B,"블랙리스트":#8B0000}</colorPalette>
+          <colorPalette type="map">{"정책 거부":#DC4E41,"정책 검증 실패":#DC4E41,"정책 없음 (기본 거부)":#8B0000,"유효하지 않은 패킷":#F8BE34,"IP 스푸핑":#FF6B6B,"블랙리스트":#8B0000,"DoS 공격":#FF0000,"포트 스캔":#FFA500}</colorPalette>
         </format>
       </table>
     </panel>
