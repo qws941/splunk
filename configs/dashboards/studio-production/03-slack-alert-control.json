@@ -97,6 +97,7 @@
   "dataSources": {
     "ds_alert_status": {
       "type": "ds.search",
+      "name": "Alert Status",
       "options": {
         "query": "| rest /servicesNS/nobody/search/saved/searches splunk_server=local\n| search title IN (\"FAZ_Critical_Alerts\", \"FMG_Policy_Install\", \"FMG_Policy_CRUD\", \"FMG_Object_CRUD\", \"Security_High_Severity\")\n| eval alert_enabled=if(disabled=0, \"1\", \"0\")\n| eval slack_enabled=if(match('action.slack', \"1\"), \"1\", \"0\")\n| table title, alert_enabled, slack_enabled, cron_schedule, next_scheduled_time\n| rename title as \"Alert Name\", alert_enabled as \"Alert Enabled\", slack_enabled as \"Slack Enabled\", cron_schedule as \"Schedule\", next_scheduled_time as \"Next Run\"",
         "refresh": "60s"
@@ -104,6 +105,7 @@
     },
     "ds_recent_alerts": {
       "type": "ds.search",
+      "name": "Recent Alerts",
       "options": {
         "query": "index=_internal source=*scheduler.log earliest=-24h\n| search savedsearch_name IN (\"FAZ_Critical_Alerts\", \"FMG_Policy_Install\", \"FMG_Policy_CRUD\", \"FMG_Object_CRUD\", \"Security_High_Severity\")\n| eval status=case(\n    match(status, \"success\"), \"✅ Success\",\n    match(status, \"failure\"), \"❌ Failed\",\n    1=1, status\n  )\n| table _time, savedsearch_name, status, run_time, result_count\n| rename savedsearch_name as \"Alert\", run_time as \"Duration (s)\", result_count as \"Results\"\n| sort -_time\n| head 20",
         "refresh": "60s"
@@ -111,6 +113,7 @@
     },
     "ds_alert_frequency": {
       "type": "ds.search",
+      "name": "Alert Frequency",
       "options": {
         "query": "index=_internal source=*scheduler.log earliest=-24h status=success\n| search savedsearch_name IN (\"FAZ_Critical_Alerts\", \"FMG_Policy_Install\", \"FMG_Policy_CRUD\", \"FMG_Object_CRUD\", \"Security_High_Severity\")\n| stats count as trigger_count by savedsearch_name\n| rename savedsearch_name as alert_name\n| sort -trigger_count",
         "refresh": "120s"
@@ -118,6 +121,7 @@
     },
     "ds_slack_delivery": {
       "type": "ds.search",
+      "name": "Slack Delivery",
       "options": {
         "query": "index=_internal source=*slack* earliest=-24h\n| search \"successfully sent\" OR \"notification sent\"\n| timechart span=1h count",
         "refresh": "60s"
@@ -125,6 +129,7 @@
     },
     "ds_alert_errors": {
       "type": "ds.search",
+      "name": "Alert Errors",
       "options": {
         "query": "index=_internal source=*scheduler.log earliest=-24h status=failure\n| search savedsearch_name IN (\"FAZ_Critical_Alerts\", \"FMG_Policy_Install\", \"FMG_Policy_CRUD\", \"FMG_Object_CRUD\", \"Security_High_Severity\")\n| timechart span=1h count",
         "refresh": "60s"
@@ -132,6 +137,7 @@
     },
     "ds_alert_timeline": {
       "type": "ds.search",
+      "name": "Alert Timeline",
       "options": {
         "query": "index=_internal source=*scheduler.log earliest=-24h\n| search savedsearch_name IN (\"FAZ_Critical_Alerts\", \"FMG_Policy_Install\", \"FMG_Policy_CRUD\", \"FMG_Object_CRUD\", \"Security_High_Severity\")\n| timechart span=30m count by savedsearch_name",
         "refresh": "60s"

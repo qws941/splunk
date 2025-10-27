@@ -93,6 +93,7 @@
   "dataSources": {
     "ds_event_timeline": {
       "type": "ds.search",
+      "name": "Event Timeline",
       "options": {
         "query": "index=fw earliest=-24h\n| timechart span=1h count by severity",
         "refresh": "30s",
@@ -101,6 +102,7 @@
     },
     "ds_severity": {
       "type": "ds.search",
+      "name": "Severity Breakdown",
       "options": {
         "query": "index=fw earliest=-24h\n| stats count by severity\n| sort -count",
         "refresh": "30s"
@@ -108,6 +110,7 @@
     },
     "ds_top_sources": {
       "type": "ds.search",
+      "name": "Top Sources",
       "options": {
         "query": "index=fw earliest=-1h\n| stats count as events by src_ip\n| sort -events\n| head 10",
         "refresh": "30s"
@@ -115,6 +118,7 @@
     },
     "ds_blocked": {
       "type": "ds.search",
+      "name": "Blocked Traffic",
       "options": {
         "query": "index=fw earliest=-1h action=blocked\n| timechart span=5m count",
         "refresh": "30s"
@@ -122,6 +126,7 @@
     },
     "ds_critical": {
       "type": "ds.search",
+      "name": "Critical Events",
       "options": {
         "query": "index=fw earliest=-1h severity=critical\n| timechart span=5m count",
         "refresh": "30s"
@@ -129,6 +134,7 @@
     },
     "ds_recent_events": {
       "type": "ds.search",
+      "name": "Recent Events",
       "options": {
         "query": "index=fw earliest=-1h\n| table _time, src_ip, dst_ip, action, severity, msg\n| sort -_time\n| head 20",
         "refresh": "30s"
