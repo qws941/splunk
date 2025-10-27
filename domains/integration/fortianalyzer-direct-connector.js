@@ -245,20 +245,28 @@ class FortiAnalyzerDirectConnector {
     }
 
     if (endpoint.includes('/fortiview/run')) {
+      // Generate mock security events
+      const mockEvents = [];
+      const now = Date.now();
+      for (let i = 0; i < 10; i++) {
+        mockEvents.push({
+          timestamp: now - (i * 60000),
+          srcip: `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
+          dstip: `10.0.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
+          srcport: Math.floor(Math.random() * 65535),
+          dstport: [80, 443, 22, 3389, 8080][Math.floor(Math.random() * 5)],
+          action: ['accept', 'deny', 'drop'][Math.floor(Math.random() * 3)],
+          severity: ['critical', 'high', 'medium', 'low'][Math.floor(Math.random() * 4)],
+          msg: ['Botnet.C&C', 'SQL Injection', 'Port Scan', 'Normal Traffic'][Math.floor(Math.random() * 4)],
+          devname: 'FortiGate-100F',
+          policyid: Math.floor(Math.random() * 100),
+          service: ['HTTPS', 'HTTP', 'SSH', 'RDP'][Math.floor(Math.random() * 4)]
+        });
+      }
+
       return {
         status: 'success',
-        view_data: {
-          threat_map: [
-            { source_country: 'CN', threat_count: 89, severity: 'high' },
-            { source_country: 'RU', threat_count: 67, severity: 'medium' },
-            { source_country: 'US', threat_count: 12, severity: 'low' }
-          ],
-          realtime_stats: {
-            active_threats: 34,
-            blocked_ips: 156,
-            quarantined_files: 8
-          }
-        }
+        view_data: mockEvents
       };
     }
 
@@ -439,6 +447,50 @@ class FortiAnalyzerDirectConnector {
     for (const rule of automationRules) {
       await this.fazAPICall('POST', '/api/v2/eventmgmt/basichandler', rule);
       console.log(`✅ Automation rule configured: ${rule.name}`);
+    }
+  }
+
+  /**
+   * Get security events from FortiAnalyzer
+   * @param {object} options - Query options (limit, filters, etc.)
+   * @returns {Promise<object>} - { success: boolean, events: array }
+   */
+  async getSecurityEvents(options = {}) {
+    try {
+      const limit = options.limit || 100;
+      const timeRange = options.timeRange || '1h';
+
+      // Call FortiAnalyzer API for security events
+      const response = await this.fazAPICall('POST', '/api/v2/monitor/fortiview/run', {
+        view: 'threat',
+        limit: limit,
+        time_range: timeRange
+      });
+
+      // Parse response and extract events
+      if (response.status === 'success' && response.view_data) {
+        const events = response.view_data.map(event => ({
+          timestamp: event.timestamp || Date.now(),
+          srcip: event.srcip || 'unknown',
+          dstip: event.dstip || 'unknown',
+          srcport: event.srcport || 0,
+          dstport: event.dstport || 0,
+          action: event.action || 'unknown',
+          severity: event.severity || 'medium',
+          message: event.msg || event.threat || 'Security event',
+          devname: event.devname || 'FortiGate',
+          policyid: event.policyid || 0,
+          service: event.service || 'unknown'
+        }));
+
+        return { success: true, events };
+      }
+
+      return { success: true, events: [] };
+
+    } catch (error) {
+      console.error('❌ Failed to fetch security events:', error);
+      return { success: false, events: [], error: error.message };
     }
   }
 
