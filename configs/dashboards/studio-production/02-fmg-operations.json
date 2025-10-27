@@ -3,7 +3,7 @@
     "viz_header": {
       "type": "viz.markdown",
       "options": {
-        "markdown": "# FortiAnalyzer & FortiManager Monitoring\n\n**Comprehensive monitoring of FAZ/FMG events and operations**\n\nData Source: `index=fw` | Auto-refresh: 30s"
+        "markdown": "# FortiManager Operations Dashboard\n\n**Policy changes, object CRUD operations, and configuration management**\n\nData Source: `index=fw sourcetype=fortimanager` | Auto-refresh: 30s"
       }
     },
     "viz_total_events": {
@@ -207,42 +207,6 @@
       }
     }
   },
-  "inputs": {
-    "input_global_trp": {
-      "type": "input.timerange",
-      "options": {
-        "token": "global_time",
-        "defaultValue": "-24h@h,now"
-      },
-      "title": "Time Range"
-    },
-    "input_severity": {
-      "type": "input.dropdown",
-      "options": {
-        "items": [
-          {
-            "label": "All Severities",
-            "value": "*"
-          },
-          {
-            "label": "Critical Only",
-            "value": "critical"
-          },
-          {
-            "label": "High Only",
-            "value": "high"
-          },
-          {
-            "label": "Medium & Above",
-            "value": "critical OR high OR medium"
-          }
-        ],
-        "defaultValue": "*",
-        "token": "severity_filter"
-      },
-      "title": "Severity Filter"
-    }
-  },
   "layout": {
     "type": "grid",
     "options": {
@@ -352,6 +316,6 @@
       }
     ]
   },
-  "title": "FAZ/FMG Comprehensive Monitoring",
-  "description": "FortiAnalyzer and FortiManager monitoring dashboard - No JavaScript required"
+  "title": "FortiManager Operations Dashboard",
+  "description": "FortiManager policy changes, object operations, and configuration management - No JavaScript required"
 }

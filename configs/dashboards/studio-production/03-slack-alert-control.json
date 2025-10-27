@@ -150,16 +150,6 @@
       }
     }
   },
-  "inputs": {
-    "input_global_trp": {
-      "type": "input.timerange",
-      "options": {
-        "token": "global_time",
-        "defaultValue": "-24h@h,now"
-      },
-      "title": "Time Range"
-    }
-  },
   "layout": {
     "type": "grid",
     "options": {

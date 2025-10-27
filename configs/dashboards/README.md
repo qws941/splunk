@@ -10,8 +10,8 @@ All production dashboards are in **Dashboard Studio JSON format** (no JavaScript
 
 ```
 studio-production/
-├── 01-fortigate-operations.json      # Firewall operations monitoring
-├── 02-faz-fmg-monitoring.json        # FAZ/FMG integrated monitoring
+├── 01-fortigate-operations.json      # FortiGate firewall operations
+├── 02-fmg-operations.json            # FortiManager policy/object operations
 └── 03-slack-alert-control.json       # Slack notification control
 ```
 
@@ -29,22 +29,31 @@ studio-production/
 ## 📊 Dashboard Details
 
 ### 01-fortigate-operations.json
-- Real-time traffic statistics (accept/deny/block)
-- Top source/destination IPs
-- Policy hit counts
-- Bandwidth usage trends
+**FortiGate firewall operations monitoring**
+- Event timeline by severity
+- Severity breakdown (pie chart)
+- Top source IPs
+- Blocked traffic events
+- Critical events
+- Recent security events
 
-**Data**: `index=fw` (FortiAnalyzer Syslog)
+**Data**: `index=fw` (FortiGate Syslog)
 
 ---
 
-### 02-faz-fmg-monitoring.json
-- FortiAnalyzer device status
-- FortiManager operations
-- Log ingestion rates
-- System health metrics
+### 02-fmg-operations.json
+**FortiManager operations dashboard**
+- Total events and critical/high severity counts
+- Event timeline by severity (stacked area chart)
+- Top attack source IPs with threat scoring
+- Attack types distribution (horizontal bar)
+- Geographic distribution (choropleth map)
+- **Policy changes** (recent FMG policy modifications)
+- Blocked traffic trend
 
-**Data**: `index=fw`
+**Focus**: Policy changes, object CRUD operations, configuration management
+
+**Data**: `index=fw sourcetype=fortimanager`
 
 ---
 
@@ -77,11 +86,12 @@ archive-all-legacy/
 ├── archive/             # Historical backups
 ├── archive-legacy/      # Very old files
 ├── archive-2025-10/     # October 2025 experiments
+├── merged-2025-10-27/   # Pre-merge dashboards 01 & 02
 ├── test/                # Test dashboards
 └── studio/              # Old Studio versions
 ```
 
-**Total archived**: 42 files (20+ were duplicates/experiments)
+**Total archived**: 42 files (legacy XML, old JSON, test files)
 
 **Do not use** - kept for historical reference only.
 
