@@ -77,7 +77,7 @@
     "viz_rest_api_guide": {
       "type": "viz.markdown",
       "options": {
-        "markdown": "## REST API Quick Reference\n\n### Enable Alert\n```bash\ncurl -k -u admin:password \\\n  -d 'disabled=0' \\\n  -d 'actions=slack' \\\n  https://splunk.jclee.me:8089/servicesNS/nobody/search/saved/searches/FAZ_Critical_Alerts\n```\n\n### Disable Alert\n```bash\ncurl -k -u admin:password \\\n  -d 'disabled=1' \\\n  https://splunk.jclee.me:8089/servicesNS/nobody/search/saved/searches/FAZ_Critical_Alerts\n```\n\n### Check Alert Status\n```bash\ncurl -k -u admin:password \\\n  https://splunk.jclee.me:8089/servicesNS/nobody/search/saved/searches/FAZ_Critical_Alerts?output_mode=json\n```"
+        "markdown": "## REST API Quick Reference\n\n### Enable Alert\n```bash\ncurl -k -u admin:password \\\n  -d 'disabled=0' \\\n  -d 'actions=slack' \\\n  https://localhost:8089/servicesNS/nobody/search/saved/searches/FAZ_Critical_Alerts\n```\n\n### Disable Alert\n```bash\ncurl -k -u admin:password \\\n  -d 'disabled=1' \\\n  https://localhost:8089/servicesNS/nobody/search/saved/searches/FAZ_Critical_Alerts\n```\n\n### Check Alert Status\n```bash\ncurl -k -u admin:password \\\n  https://localhost:8089/servicesNS/nobody/search/saved/searches/FAZ_Critical_Alerts?output_mode=json\n```"
       }
     },
     "viz_alert_timeline": {
