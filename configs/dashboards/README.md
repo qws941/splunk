@@ -69,7 +69,7 @@ Settings → Searches, reports, and alerts → Select alert → Enable/Disable
 # REST API
 curl -k -u admin:password \
   -d 'disabled=0' \
-  https://splunk.jclee.me:8089/servicesNS/nobody/search/saved/searches/FAZ_Critical_Alerts
+  https://localhost:8089/servicesNS/nobody/search/saved/searches/FAZ_Critical_Alerts
 ```
 
 ---

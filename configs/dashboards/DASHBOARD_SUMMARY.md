@@ -130,7 +130,7 @@ require(['jquery', 'splunkjs/ready!'], function($, mvc) {
 # REST API
 curl -k -u admin:password \
   -d 'disabled=0' -d 'actions=slack' \
-  https://splunk.jclee.me:8089/.../FAZ_Critical_Alerts
+  https://localhost:8089/.../FAZ_Critical_Alerts
 
 # Or Splunk Web UI: Settings → Alerts → Enable/Disable
 ```
