@@ -60,46 +60,6 @@
         "seriesColors": ["#DC3545", "#FFA500", "#FFD700", "#32CD32"]
       }
     },
-    "viz_top_attackers": {
-      "type": "splunk.table",
-      "title": "Top Attack Source IPs",
-      "dataSources": {
-        "primary": "ds_top_attackers"
-      },
-      "options": {
-        "count": 15,
-        "showRowNumbers": true,
-        "columnFormat": {
-          "threat_score": {
-            "data": ">number",
-            "colorPalette": "divergent"
-          }
-        }
-      }
-    },
-    "viz_attack_types": {
-      "type": "viz.bar",
-      "title": "Attack Types Distribution",
-      "dataSources": {
-        "primary": "ds_attack_types"
-      },
-      "options": {
-        "xField": "attack_type",
-        "yField": "count",
-        "orientation": "horizontal"
-      }
-    },
-    "viz_geo_distribution": {
-      "type": "viz.choropleth.svg",
-      "title": "Geographic Distribution",
-      "dataSources": {
-        "primary": "ds_geo"
-      },
-      "options": {
-        "backgroundColor": "transparent",
-        "showLegend": true
-      }
-    },
     "viz_policy_changes": {
       "type": "splunk.table",
       "title": "Recent FMG Policy Changes",
@@ -114,19 +74,6 @@
             "data": ">table"
           }
         }
-      }
-    },
-    "viz_blocked_traffic": {
-      "type": "viz.line",
-      "title": "Blocked Traffic Trend",
-      "dataSources": {
-        "primary": "ds_blocked_trend"
-      },
-      "options": {
-        "xField": "_time",
-        "yField": "blocked_count",
-        "lineWidth": 2,
-        "showMarkers": true
       }
     }
   },
@@ -159,39 +106,11 @@
         "refresh": "30s"
       }
     },
-    "ds_top_attackers": {
-      "type": "ds.search",
-      "options": {
-        "query": "index=fw earliest=-24h action=blocked\n| stats count as attacks, dc(dst_ip) as targets, values(attack_name) as attack_types by src_ip\n| eval threat_score=attacks*2 + targets*5\n| sort -threat_score\n| head 15",
-        "refresh": "60s"
-      }
-    },
-    "ds_attack_types": {
-      "type": "ds.search",
-      "options": {
-        "query": "index=fw earliest=-24h attack_name=*\n| stats count by attack_name\n| sort -count\n| head 10\n| rename attack_name as attack_type",
-        "refresh": "60s"
-      }
-    },
-    "ds_geo": {
-      "type": "ds.search",
-      "options": {
-        "query": "index=fw earliest=-24h src_ip=*\n| iplocation src_ip\n| stats count by Country\n| rename Country as featureId\n| geom geo_countries",
-        "refresh": "120s"
-      }
-    },
     "ds_policy_changes": {
       "type": "ds.search",
       "options": {
         "query": "index=fw sourcetype=fortimanager earliest=-24h\n| search msg IN (\"*policy*create*\", \"*policy*update*\", \"*policy*delete*\")\n| rex field=msg \"(?<change_type>create|update|delete)\"\n| table _time, user, change_type, policy_name, msg\n| sort -_time\n| head 10",
         "refresh": "60s"
-      }
-    },
-    "ds_blocked_trend": {
-      "type": "ds.search",
-      "options": {
-        "query": "index=fw earliest=-24h action=blocked\n| timechart span=30m count as blocked_count",
-        "refresh": "30s"
       }
     }
   },
@@ -210,8 +129,9 @@
   "layout": {
     "type": "grid",
     "options": {
-      "width": 1600,
-      "height": 1200
+      "width": 1440,
+      "height": 800,
+      "display": "auto"
     },
     "structure": [
       {
@@ -220,7 +140,7 @@
         "position": {
           "x": 0,
           "y": 0,
-          "w": 1600,
+          "w": 1440,
           "h": 80
         }
       },
@@ -230,7 +150,7 @@
         "position": {
           "x": 0,
           "y": 80,
-          "w": 400,
+          "w": 480,
           "h": 150
         }
       },
@@ -238,9 +158,9 @@
         "item": "viz_critical_count",
         "type": "block",
         "position": {
-          "x": 400,
+          "x": 480,
           "y": 80,
-          "w": 400,
+          "w": 480,
           "h": 150
         }
       },
@@ -248,19 +168,9 @@
         "item": "viz_high_severity",
         "type": "block",
         "position": {
-          "x": 800,
+          "x": 960,
           "y": 80,
-          "w": 400,
-          "h": 150
-        }
-      },
-      {
-        "item": "viz_blocked_traffic",
-        "type": "block",
-        "position": {
-          "x": 1200,
-          "y": 80,
-          "w": 400,
+          "w": 480,
           "h": 150
         }
       },
@@ -270,47 +180,17 @@
         "position": {
           "x": 0,
           "y": 230,
-          "w": 1600,
-          "h": 300
-        }
-      },
-      {
-        "item": "viz_top_attackers",
-        "type": "block",
-        "position": {
-          "x": 0,
-          "y": 530,
-          "w": 800,
-          "h": 350
-        }
-      },
-      {
-        "item": "viz_attack_types",
-        "type": "block",
-        "position": {
-          "x": 800,
-          "y": 530,
-          "w": 800,
-          "h": 350
-        }
-      },
-      {
-        "item": "viz_geo_distribution",
-        "type": "block",
-        "position": {
-          "x": 0,
-          "y": 880,
-          "w": 800,
-          "h": 320
+          "w": 1440,
+          "h": 250
         }
       },
       {
         "item": "viz_policy_changes",
         "type": "block",
         "position": {
-          "x": 800,
-          "y": 880,
-          "w": 800,
+          "x": 0,
+          "y": 480,
+          "w": 1440,
           "h": 320
         }
       }

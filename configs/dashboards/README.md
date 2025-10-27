@@ -43,15 +43,12 @@ studio-production/
 
 ### 02-fmg-operations.json
 **FortiManager operations dashboard**
-- Total events and critical/high severity counts
+- Total events and critical/high severity counts (3 single values)
 - Event timeline by severity (stacked area chart)
-- Top attack source IPs with threat scoring
-- Attack types distribution (horizontal bar)
-- Geographic distribution (choropleth map)
-- **Policy changes** (recent FMG policy modifications)
-- Blocked traffic trend
+- **Policy changes** (recent FMG policy modifications - table)
 
 **Focus**: Policy changes, object CRUD operations, configuration management
+**Layout**: Simplified 1440x800 grid (operations-focused, no threat visualizations)
 
 **Data**: `index=fw sourcetype=fortimanager`
 
