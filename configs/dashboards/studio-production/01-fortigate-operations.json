@@ -86,18 +86,7 @@
       },
       "options": {
         "count": 20,
-        "showRowNumbers": false,
-        "columnFormat": {
-          "severity": {
-            "data": ">table",
-            "rowColors": {
-              "critical": "#DC3545",
-              "high": "#FFA500",
-              "medium": "#FFD700",
-              "low": "#32CD32"
-            }
-          }
-        }
+        "showRowNumbers": false
       }
     }
   },

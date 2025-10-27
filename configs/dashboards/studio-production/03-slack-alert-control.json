@@ -17,18 +17,10 @@
         "showRowNumbers": false,
         "columnFormat": {
           "slack_enabled": {
-            "data": ">table",
-            "rowColors": {
-              "1": "#32CD32",
-              "0": "#DC3545"
-            }
+            "data": ">table"
           },
           "alert_enabled": {
-            "data": ">table",
-            "rowColors": {
-              "1": "#32CD32",
-              "0": "#DC3545"
-            }
+            "data": ">table"
           }
         }
       }

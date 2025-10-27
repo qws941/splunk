@@ -111,12 +111,7 @@
         "showRowNumbers": false,
         "columnFormat": {
           "change_type": {
-            "data": ">table",
-            "rowColors": {
-              "CREATE": "#32CD32",
-              "UPDATE": "#1E88E5",
-              "DELETE": "#DC3545"
-            }
+            "data": ">table"
           }
         }
       }
