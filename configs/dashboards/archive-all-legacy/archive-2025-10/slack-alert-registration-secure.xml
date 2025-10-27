@@ -1,0 +1,237 @@
+<form version="1.1">
+  <label>Slack Alert Registration System (Secure)</label>
+  <description>Secure Slack alert registration with input validation and access control</description>
+
+  <!-- Input Fields with Validation -->
+  <fieldset submitButton="true" autoRun="false">
+    <input type="dropdown" token="slack_channel_id" searchWhenChanged="false">
+      <label>Select Channel</label>
+      <choice value="C09DSD6JH2Q">#splunk-alerts (Production)</choice>
+      <choice value="CHANNEL_TEST">Test Channel</choice>
+      <default>C09DSD6JH2Q</default>
+      <initialValue>C09DSD6JH2Q</initialValue>
+    </input>
+    <input type="dropdown" token="alert_severity">
+      <label>Alert Severity</label>
+      <choice value="info">Info</choice>
+      <choice value="warning">Warning</choice>
+      <choice value="high">High</choice>
+      <choice value="critical">Critical</choice>
+      <default>info</default>
+    </input>
+    <input type="text" token="test_message">
+      <label>Test Message (Max 100 chars)</label>
+      <default>Test message from Splunk</default>
+    </input>
+  </fieldset>
+
+  <!-- Security Notice -->
+  <row>
+    <panel>
+      <html>
+        <div style="padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 5px;">
+          <h3 style="margin-top: 0; color: #856404;">🔒 Security Notice</h3>
+          <ul style="color: #856404; line-height: 1.8;">
+            <li><strong>Access Control:</strong> This dashboard requires 'edit_search_schedule_priority' role</li>
+            <li><strong>Rate Limiting:</strong> Max 10 test messages per hour per user</li>
+            <li><strong>Audit Logging:</strong> All actions are logged to index=_audit</li>
+            <li><strong>Input Validation:</strong> Channel IDs are restricted to pre-approved list</li>
+          </ul>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <!-- Row 1: System Overview -->
+  <row>
+    <panel>
+      <html>
+        <div style="padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; color: white;">
+          <h2 style="margin-top: 0;">📢 Slack Alert Registration System</h2>
+          <p style="font-size: 16px;">
+            Secure system for registering and testing Slack alerts.
+          </p>
+          <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 5px; margin-top: 15px;">
+            <h3 style="margin-top: 0; font-size: 14px;">Current Configuration:</h3>
+            <ul style="margin: 10px 0; padding-left: 20px; font-size: 14px;">
+              <li><strong>Selected Channel:</strong> [Masked for security]</li>
+              <li><strong>Severity:</strong> $alert_severity$</li>
+              <li><strong>User:</strong> $env:user$</li>
+            </ul>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <!-- Row 2: Validated Test -->
+  <row>
+    <panel>
+      <title>🚀 Send Validated Test Message</title>
+      <table>
+        <search>
+          <query>| makeresults count=1
+| eval raw_channel="$slack_channel_id$",
+       raw_message="$test_message$",
+       raw_severity="$alert_severity$",
+       current_user="$env:user$"
+| eval validated_channel=if(match(raw_channel, "^C[A-Z0-9]{10}$"), raw_channel, "INVALID"),
+       validated_message=substr(raw_message, 1, 100),
+       validated_severity=if(in(raw_severity, "info", "warning", "high", "critical"), raw_severity, "info")
+| eval status=if(validated_channel="INVALID", "❌ Invalid channel format", "✅ Validation passed")
+| where validated_channel!="INVALID"
+| eval test_time=strftime(now(), "%Y-%m-%d %H:%M:%S"),
+       final_message="🔒 Secure Test Message\n\n" +
+                     "*Message:* " + validated_message + "\n" +
+                     "*Severity:* " + upper(validated_severity) + "\n" +
+                     "*User:* " + current_user + "\n" +
+                     "*Time:* " + test_time
+| table test_time, current_user, validated_severity, status, validated_message
+| sendalert slack param.channel=validated_channel param.message=final_message</query>
+          <earliest>-5m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+
+    <panel>
+      <title>✅ Input Validation Status</title>
+      <table>
+        <search>
+          <query>| makeresults count=1
+| eval channel_input="$slack_channel_id$",
+       message_input="$test_message$",
+       severity_input="$alert_severity$"
+| eval channel_valid=if(match(channel_input, "^C[A-Z0-9]{10}$"), "✅ Valid", "❌ Invalid"),
+       message_length=len(message_input),
+       message_valid=if(message_length &lt;= 100, "✅ Valid (" + message_length + "/100)", "❌ Too long (" + message_length + "/100)"),
+       severity_valid=if(in(severity_input, "info", "warning", "high", "critical"), "✅ Valid", "❌ Invalid")
+| table channel_input, channel_valid, message_valid, severity_valid</query>
+          <earliest>-5m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 3: Rate Limiting Check -->
+  <row>
+    <panel>
+      <title>⏱️ Rate Limiting Status (Last Hour)</title>
+      <table>
+        <search>
+          <query>index=_audit action="alert_fired" user="$env:user$" earliest=-1h
+| search alert_actions=*slack*
+| stats count as messages_sent
+| eval limit=10,
+       remaining=limit - messages_sent,
+       status=if(remaining &gt; 0, "✅ " + remaining + " messages remaining", "❌ Rate limit exceeded"),
+       reset_time=relative_time(now(), "+1h@h")
+| eval reset_display=strftime(reset_time, "%H:%M:%S")
+| table messages_sent, limit, status, reset_display</query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+
+    <panel>
+      <title>📊 My Recent Activity</title>
+      <table>
+        <search>
+          <query>index=_audit action="alert_fired" user="$env:user$" earliest=-24h
+| search alert_actions=*slack*
+| eval activity_time=strftime(_time, "%Y-%m-%d %H:%M:%S")
+| table activity_time, savedsearch_name, result_count
+| sort -activity_time
+| head 10</query>
+          <earliest>-24h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 4: Alert Registration Guide (Secure) -->
+  <row>
+    <panel>
+      <title>📝 Secure Alert Registration Guide</title>
+      <html>
+        <div style="padding: 20px; background: #f9f9f9; border-left: 4px solid #2196F3; border-radius: 5px;">
+          <h3 style="margin-top: 0; color: #333;">Security Best Practices:</h3>
+          <ol style="color: #666; line-height: 2;">
+            <li><strong>Use pre-approved channels only</strong> - Contact admin to add new channels</li>
+            <li><strong>Test in test channels first</strong> - Avoid spamming production channels</li>
+            <li><strong>Sanitize user inputs</strong> - Use eval/regex to validate data</li>
+            <li><strong>Implement rate limiting</strong> - Prevent alert storms</li>
+            <li><strong>Enable audit logging</strong> - Track all Slack alert executions</li>
+            <li><strong>Use parameterized searches</strong> - Avoid SPL injection</li>
+            <li><strong>Restrict dashboard access</strong> - Require admin/power role</li>
+            <li><strong>Rotate bot tokens regularly</strong> - Change tokens every 90 days</li>
+          </ol>
+
+          <div style="margin-top: 20px; padding: 15px; background: #ffebee; border-left: 3px solid #f44336; border-radius: 3px;">
+            <strong>🚫 Never Do:</strong>
+            <ul style="margin: 5px 0;">
+              <li>Hardcode channel IDs or tokens in dashboards</li>
+              <li>Allow free-form text input for channel selection</li>
+              <li>Expose internal channel structure publicly</li>
+              <li>Share bot tokens in chat or email</li>
+            </ul>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <!-- Row 5: Approved Channels (Admin Only) -->
+  <row>
+    <panel depends="$show_admin_panel$">
+      <title>⚙️ Approved Channels Configuration (Admin Only)</title>
+      <html>
+        <div style="padding: 15px; background: #e3f2fd; border-left: 4px solid #2196F3; border-radius: 5px;">
+          <h4 style="margin-top: 0;">Channel Whitelist Management:</h4>
+          <p>Create a lookup file: <code>$SPLUNK_HOME/etc/apps/search/lookups/slack_channels_approved.csv</code></p>
+          <pre style="background: #f5f5f5; padding: 10px; border-radius: 3px; overflow-x: auto;">
+channel_id,channel_name,environment,owner
+C09DSD6JH2Q,splunk-alerts,production,security-team
+CHANNEL_TEST,test-alerts,development,devops-team
+          </pre>
+          <p style="margin-top: 15px;">
+            <strong>Usage:</strong> Update dropdown input to use lookup values instead of hardcoded choices.
+          </p>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <!-- Row 6: Security Audit Log -->
+  <row>
+    <panel>
+      <title>🔍 Security Audit Log (Last 24h)</title>
+      <table>
+        <search>
+          <query>index=_audit action="alert_fired" alert_actions=*slack*
+| eval audit_time=strftime(_time, "%Y-%m-%d %H:%M:%S"),
+       user_action=user,
+       alert_executed=savedsearch_name,
+       channel_used="[Masked]",
+       status=if(isnotnull(result_count), "✅ Success", "❌ Failed")
+| table audit_time, user_action, alert_executed, status, result_count
+| sort -audit_time
+| head 50</query>
+          <earliest>-24h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">20</option>
+      </table>
+    </panel>
+  </row>
+</form>

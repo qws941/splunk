@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<form version="1.1" theme="dark">
+  <label>🔔 Slack Alert Control - FAZ/FMG Alerts (Native)</label>
+  <description>Slack 알림 상태 확인 - FortiAnalyzer/FortiManager 알림 (Simple XML Only)</description>
+
+  <!-- FAZ Critical Alerts -->
+  <row>
+    <panel>
+      <title>🔴 FAZ Critical Events</title>
+      <table>
+        <search>
+          <query>
+| rest /services/saved/searches/FAZ_Critical_Alerts
+| eval slack_enabled=if('action.slack'=1, "🟢 ON", "🔴 OFF")
+| eval last_run=strftime(strptime('next_scheduled_time', "%Y-%m-%dT%H:%M:%S"), "%Y-%m-%d %H:%M:%S")
+| table title, slack_enabled, cron_schedule, last_run, description
+| rename title as "Alert Name", slack_enabled as "Slack Status", cron_schedule as "Schedule", last_run as "Next Run", description as "Description"
+          </query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- FMG Policy Install -->
+  <row>
+    <panel>
+      <title>📦 FMG Policy Install</title>
+      <table>
+        <search>
+          <query>
+| rest /services/saved/searches/FMG_Policy_Install
+| eval slack_enabled=if('action.slack'=1, "🟢 ON", "🔴 OFF")
+| eval last_run=strftime(strptime('next_scheduled_time', "%Y-%m-%dT%H:%M:%S"), "%Y-%m-%d %H:%M:%S")
+| table title, slack_enabled, cron_schedule, last_run, description
+| rename title as "Alert Name", slack_enabled as "Slack Status", cron_schedule as "Schedule", last_run as "Next Run", description as "Description"
+          </query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- FMG Policy CRUD -->
+  <row>
+    <panel>
+      <title>✏️ FMG Policy CRUD</title>
+      <table>
+        <search>
+          <query>
+| rest /services/saved/searches/FMG_Policy_CRUD
+| eval slack_enabled=if('action.slack'=1, "🟢 ON", "🔴 OFF")
+| eval last_run=strftime(strptime('next_scheduled_time', "%Y-%m-%dT%H:%M:%S"), "%Y-%m-%d %H:%M:%S")
+| table title, slack_enabled, cron_schedule, last_run, description
+| rename title as "Alert Name", slack_enabled as "Slack Status", cron_schedule as "Schedule", last_run as "Next Run", description as "Description"
+          </query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- FMG Object CRUD -->
+  <row>
+    <panel>
+      <title>🔧 FMG Object CRUD</title>
+      <table>
+        <search>
+          <query>
+| rest /services/saved/searches/FMG_Object_CRUD
+| eval slack_enabled=if('action.slack'=1, "🟢 ON", "🔴 OFF")
+| eval last_run=strftime(strptime('next_scheduled_time', "%Y-%m-%dT%H:%M:%S"), "%Y-%m-%d %H:%M:%S")
+| table title, slack_enabled, cron_schedule, last_run, description
+| rename title as "Alert Name", slack_enabled as "Slack Status", cron_schedule as "Schedule", last_run as "Next Run", description as "Description"
+          </query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Security High Severity -->
+  <row>
+    <panel>
+      <title>⚠️ Security High Events</title>
+      <table>
+        <search>
+          <query>
+| rest /services/saved/searches/Security_High_Severity
+| eval slack_enabled=if('action.slack'=1, "🟢 ON", "🔴 OFF")
+| eval last_run=strftime(strptime('next_scheduled_time', "%Y-%m-%dT%H:%M:%S"), "%Y-%m-%d %H:%M:%S")
+| table title, slack_enabled, cron_schedule, last_run, description
+| rename title as "Alert Name", slack_enabled as "Slack Status", cron_schedule as "Schedule", last_run as "Next Run", description as "Description"
+          </query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Summary Panel -->
+  <row>
+    <panel>
+      <title>📊 Overall Status Summary</title>
+      <table>
+        <search>
+          <query>
+| rest /services/saved/searches
+| search title IN ("FAZ_Critical_Alerts","FMG_Policy_Install","FMG_Policy_CRUD","FMG_Object_CRUD","Security_High_Severity")
+| eval slack_status=if('action.slack'=1, "ON", "OFF")
+| stats count by slack_status
+| eval status_label=if(slack_status="ON", "🟢 Enabled", "🔴 Disabled")
+| table status_label, count
+| rename status_label as "Status", count as "Count"
+          </query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <html>
+        <div style="padding: 15px; background: #fff3cd; border-radius: 6px; border-left: 4px solid #ffc107;">
+          <h4 style="margin-top: 0;">📋 사용 방법 (Read-Only Dashboard)</h4>
+          <ul style="line-height: 1.8;">
+            <li><strong>조회 전용:</strong> 이 대시보드는 알림 상태만 확인 가능합니다</li>
+            <li><strong>ON/OFF 변경:</strong> Settings → Searches, reports, and alerts → 알림 선택 → Edit → Actions → Slack 체크박스</li>
+            <li><strong>테스트 발송:</strong> 알림 편집 화면에서 "Trigger Actions" 클릭</li>
+            <li><strong>자동 새로고침:</strong> 대시보드는 실시간으로 상태를 업데이트합니다</li>
+          </ul>
+        </div>
+      </html>
+    </panel>
+  </row>
+</form>

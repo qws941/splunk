@@ -1,0 +1,243 @@
+<form version="1.1" script="slack_alert_register.js">
+  <label>Slack Alert Auto-Registration</label>
+  <description>One-click alert registration - Set once, runs forever</description>
+
+  <!-- Input Fields -->
+  <fieldset submitButton="true" submitString="Register Alert">
+    <input type="text" token="alert_name">
+      <label>Alert Name</label>
+      <default>slack_auto_alert_</default>
+    </input>
+    <input type="dropdown" token="event_source">
+      <label>Monitor Events From</label>
+      <choice value="index=fw">FortiGate Firewall Logs</choice>
+      <choice value="index=summary_fw">Correlation Detections</choice>
+      <choice value="index=_internal">Splunk Internal</choice>
+      <default>index=fw</default>
+    </input>
+    <input type="dropdown" token="severity_filter">
+      <label>Alert When Severity Is</label>
+      <choice value="critical">Critical Only</choice>
+      <choice value="critical OR severity=high">Critical or High</choice>
+      <choice value="*">All Severities</choice>
+      <default>critical</default>
+    </input>
+    <input type="dropdown" token="time_range">
+      <label>Check Every</label>
+      <choice value="*/5 * * * *">5 minutes</choice>
+      <choice value="*/10 * * * *">10 minutes</choice>
+      <choice value="*/15 * * * *">15 minutes</choice>
+      <choice value="*/30 * * * *">30 minutes</choice>
+      <choice value="0 * * * *">1 hour</choice>
+      <default>*/10 * * * *</default>
+    </input>
+    <input type="dropdown" token="slack_channel">
+      <label>Slack Channel</label>
+      <choice value="C09DSD6JH2Q">#splunk-alerts (Main)</choice>
+      <choice value="CHANNEL_TEST">#test-channel</choice>
+      <default>C09DSD6JH2Q</default>
+    </input>
+  </fieldset>
+
+  <!-- Row 1: Instructions -->
+  <row>
+    <panel>
+      <html>
+        <div style="padding: 20px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); border-radius: 8px; color: white;">
+          <h2 style="margin-top: 0;">⚡ Auto-Registration System</h2>
+          <p style="font-size: 16px;">
+            Configure your alert above and click <strong>"Register Alert"</strong>.
+            The system will create a saved search that runs automatically forever.
+          </p>
+          <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 5px; margin-top: 15px;">
+            <h3 style="margin-top: 0; font-size: 14px;">How It Works:</h3>
+            <ol style="margin: 5px 0; padding-left: 20px; font-size: 14px; line-height: 1.8;">
+              <li>Fill in the form above</li>
+              <li>Click "Register Alert" button</li>
+              <li>Saved search is created automatically</li>
+              <li>Alert runs on schedule (e.g., every 10 minutes)</li>
+              <li>Slack notification sent when conditions match</li>
+              <li>No manual intervention needed!</li>
+            </ol>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <!-- Row 2: Alert Preview -->
+  <row>
+    <panel>
+      <title>📋 Alert Configuration Preview</title>
+      <table>
+        <search>
+          <query>| makeresults count=1
+| eval alert_name="$alert_name$" + strftime(now(), "%Y%m%d_%H%M%S"),
+       search_query="$event_source$ earliest=-15m latest=now | search severity=$severity_filter$ | stats count by src_ip, severity | where count &gt; 0",
+       cron_schedule="$time_range$",
+       slack_channel="$slack_channel$",
+       status="✅ Ready to register",
+       action="Click 'Register Alert' button above"
+| table alert_name, search_query, cron_schedule, slack_channel, status, action</query>
+          <earliest>-5m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 3: Registration Command (Manual Alternative) -->
+  <row>
+    <panel>
+      <title>🔧 Manual Registration Command (Copy &amp; Paste to CLI)</title>
+      <html>
+        <div style="padding: 15px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 5px;">
+          <p><strong>If auto-registration fails, use this command:</strong></p>
+          <pre style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 5px; overflow-x: auto; font-family: monospace; font-size: 12px;">
+curl -k -u admin:password \
+  -d "name=$alert_name$_$(date +%Y%m%d_%H%M%S)" \
+  -d "search=$event_source$ earliest=-15m latest=now | search severity=$severity_filter$ | stats count by src_ip, severity, msg | where count &gt; 0" \
+  -d "cron_schedule=$time_range$" \
+  -d "dispatch.earliest_time=-15m" \
+  -d "dispatch.latest_time=now" \
+  -d "alert.track=1" \
+  -d "action.slack=1" \
+  -d "action.slack.param.channel=$slack_channel$" \
+  -d 'action.slack.param.message=🚨 Security Alert\n\nSource: $result.src_ip$\nSeverity: $result.severity$\nCount: $result.count$\nMessage: $result.msg$' \
+  https://splunk.jclee.me:8089/servicesNS/nobody/search/saved/searches
+          </pre>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <!-- Row 4: Currently Registered Alerts -->
+  <row>
+    <panel>
+      <title>📊 Your Registered Alerts</title>
+      <table>
+        <search>
+          <query>| rest /servicesNS/-/-/saved/searches
+| search action.slack=1 title="$alert_name$*"
+| eval alert_name=title,
+       channel='action.slack.param.channel',
+       status=if(disabled=0, "✅ Active", "⭕ Disabled"),
+       schedule='cron_schedule',
+       last_run=strftime(strptime('next_scheduled_time', "%Y-%m-%dT%H:%M:%S"), "%Y-%m-%d %H:%M:%S")
+| table alert_name, channel, status, schedule, last_run
+| sort -status, alert_name</query>
+          <earliest>-5m</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+          <refreshType>delay</refreshType>
+        </search>
+        <option name="drilldown">row</option>
+        <option name="count">20</option>
+        <drilldown>
+          <link target="_blank">/app/search/alert?s=$row.alert_name$</link>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 5: Recent Alert Executions -->
+  <row>
+    <panel>
+      <title>📈 Recent Executions (Auto-refresh every 30s)</title>
+      <table>
+        <search>
+          <query>index=_internal source=*scheduler.log action=alert_fired
+| search savedsearch_name="$alert_name$*" alert_actions=*slack*
+| eval execution_time=strftime(_time, "%Y-%m-%d %H:%M:%S"),
+       alert=savedsearch_name,
+       results=result_count,
+       status=if(results &gt; 0, "✅ Alert sent", "⭕ No events")
+| table execution_time, alert, results, status
+| sort -execution_time
+| head 20</query>
+          <earliest>-24h</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+          <refreshType>delay</refreshType>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">20</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 6: Quick Actions -->
+  <row>
+    <panel>
+      <title>⚙️ Manage Alerts</title>
+      <html>
+        <div style="padding: 15px; background: #fff; border: 1px solid #ddd; border-radius: 5px;">
+          <h3 style="margin-top: 0;">Quick Links:</h3>
+          <ul style="line-height: 2;">
+            <li><a href="/app/search/searches" target="_blank"><strong>Manage All Alerts</strong></a> - View/Edit/Delete saved searches</li>
+            <li><a href="/app/search/alert_actions" target="_blank"><strong>Slack Configuration</strong></a> - Configure bot token and default settings</li>
+            <li><a href="/app/search/search?q=index%3D_audit%20action%3Dalert_fired" target="_blank"><strong>Audit Log</strong></a> - View all alert execution history</li>
+          </ul>
+
+          <div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-left: 3px solid #2196F3; border-radius: 3px;">
+            <h4 style="margin-top: 0;">📝 Template Examples:</h4>
+            <p><strong>1. High Severity Events (Every 5 min):</strong></p>
+            <ul style="margin: 5px 0;">
+              <li>Source: <code>index=fw</code></li>
+              <li>Filter: <code>severity=critical OR severity=high</code></li>
+              <li>Schedule: <code>*/5 * * * *</code></li>
+            </ul>
+
+            <p style="margin-top: 15px;"><strong>2. Correlation Detections (Every 10 min):</strong></p>
+            <ul style="margin: 5px 0;">
+              <li>Source: <code>index=summary_fw marker="correlation_detection=*"</code></li>
+              <li>Filter: <code>correlation_score &gt;= 80</code></li>
+              <li>Schedule: <code>*/10 * * * *</code></li>
+            </ul>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <!-- Row 7: JavaScript Integration Note -->
+  <row depends="$show_dev_info$">
+    <panel>
+      <title>🔧 Developer Info (Hidden by default)</title>
+      <html>
+        <div style="padding: 15px; background: #263238; color: #aed581; border-radius: 5px; font-family: monospace;">
+          <h4 style="color: #81c784;">JavaScript Auto-Registration (Future Enhancement)</h4>
+          <p>File: <code>$SPLUNK_HOME/etc/apps/search/appserver/static/slack_alert_register.js</code></p>
+          <pre style="color: #aed581; overflow-x: auto;">
+require([
+    'splunkjs/mvc',
+    'splunkjs/mvc/searchmanager',
+    'jquery'
+], function(mvc, SearchManager, $) {
+    var submitButton = mvc.Components.get('submit');
+
+    submitButton.on('submit', function() {
+        var alertName = mvc.Components.get('alert_name').val();
+        var service = mvc.createService();
+
+        service.savedSearches().create({
+            name: alertName + '_' + Date.now(),
+            search: '...',
+            'cron_schedule': '...',
+            'action.slack': '1',
+            'action.slack.param.channel': '...'
+        }, function(err, savedSearch) {
+            if (!err) {
+                alert('✅ Alert registered successfully!');
+            }
+        });
+    });
+});
+          </pre>
+        </div>
+      </html>
+    </panel>
+  </row>
+</form>

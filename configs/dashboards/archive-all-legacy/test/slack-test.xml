@@ -19,14 +19,14 @@
     </panel>
   </row>
 
-  <!-- Row 2: 테스트 실행 버튼 -->
+  <!-- Row 2: Test Execution Button -->
   <row>
     <panel>
-      <title>🚀 테스트 실행</title>
+      <title>🚀 Run Test</title>
       <table>
         <search>
           <query>| makeresults count=1
-| eval test_message="🎉 Slack 테스트 메시지",
+| eval test_message="🎉 Slack Test Message",
        test_time=strftime(now(), "%Y-%m-%d %H:%M:%S"),
        severity="info",
        source="Splunk Dashboard Test"
@@ -41,10 +41,10 @@
     </panel>
   </row>
 
-  <!-- Row 3: 상태 확인 -->
+  <!-- Row 3: Status Check -->
   <row>
     <panel>
-      <title>📊 최근 알림 이력 (24시간)</title>
+      <title>📊 Recent Alert History (24 hours)</title>
       <table>
         <search>
           <query>index=_internal source=*scheduler.log action=alert_fired
@@ -61,20 +61,20 @@
     </panel>
 
     <panel>
-      <title>✅ Slack Plugin 설정 확인</title>
+      <title>✅ Slack Plugin Configuration Check</title>
       <html>
         <div style="padding: 15px; background: #f5f5f5; border-left: 4px solid #4CAF50; border-radius: 4px;">
-          <h3 style="margin-top: 0; color: #333;">설정 확인 방법</h3>
+          <h3 style="margin-top: 0; color: #333;">Configuration Verification Steps</h3>
           <ol style="color: #666; line-height: 1.8;">
             <li><strong>Settings</strong> → <strong>Alert actions</strong></li>
-            <li><strong>Slack</strong> 클릭</li>
-            <li><strong>Token</strong> 확인 (xoxb-로 시작해야 함)</li>
-            <li><strong>Channel</strong> 확인 (C09DSD6JH2Q)</li>
-            <li><strong>Enable</strong> 체크됨 확인</li>
+            <li>Click <strong>Slack</strong></li>
+            <li>Verify <strong>Token</strong> (must start with xoxb-)</li>
+            <li>Verify <strong>Channel</strong> (C09DSD6JH2Q)</li>
+            <li>Ensure <strong>Enable</strong> is checked</li>
           </ol>
 
           <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border-left: 3px solid #ffc107; border-radius: 3px;">
-            <strong>⚠️ 주의:</strong> Bot을 Slack 채널에 초대해야 합니다.<br/>
+            <strong>⚠️ Important:</strong> Bot must be invited to the Slack channel.<br/>
             <code>/invite @Splunk FortiGate Alert</code>
           </div>
         </div>
@@ -82,10 +82,10 @@
     </panel>
   </row>
 
-  <!-- Row 4: 고급 테스트 (상세 정보 포함) -->
+  <!-- Row 4: Advanced Test with Detailed Information -->
   <row>
     <panel>
-      <title>🔧 고급 테스트 (상세 정보 포함)</title>
+      <title>🔧 Advanced Test (Detailed Information)</title>
       <table>
         <search>
           <query>| makeresults count=1

@@ -1,0 +1,253 @@
+{
+  "visualizations": {
+    "viz_title": {
+      "type": "viz.markdown",
+      "options": {
+        "markdown": "# FortiGate Operations Dashboard\n\n**Real-time monitoring of FortiGate firewall operations**\n\nData Source: `index=fw` (Syslog)\n\nRefresh: Every 30 seconds"
+      }
+    },
+    "viz_event_timeline": {
+      "type": "viz.line",
+      "title": "Event Timeline (Last 24h)",
+      "dataSources": {
+        "primary": "ds_event_timeline"
+      },
+      "options": {
+        "xField": "_time",
+        "yField": "count",
+        "seriesColors": ["#1E88E5", "#43A047", "#FB8C00", "#E53935"]
+      }
+    },
+    "viz_severity_breakdown": {
+      "type": "viz.pie",
+      "title": "Events by Severity",
+      "dataSources": {
+        "primary": "ds_severity"
+      },
+      "options": {
+        "labelField": "severity",
+        "valueField": "count",
+        "showLabels": true
+      }
+    },
+    "viz_top_sources": {
+      "type": "splunk.table",
+      "title": "Top Source IPs (Last 1h)",
+      "dataSources": {
+        "primary": "ds_top_sources"
+      },
+      "options": {
+        "count": 10,
+        "showRowNumbers": true,
+        "columnFormat": {
+          "count": {
+            "data": ">sparkline"
+          }
+        }
+      }
+    },
+    "viz_blocked_traffic": {
+      "type": "splunk.singlevalue",
+      "title": "Blocked Events (Last 1h)",
+      "dataSources": {
+        "primary": "ds_blocked"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByIndex(0) | lastPoint()",
+        "trendValue": "> primary | seriesByIndex(0) | delta(-2)",
+        "sparklineValues": "> primary | seriesByIndex(0)",
+        "numberPrecision": 0,
+        "unit": "events",
+        "trendColorInterpretation": "inverse"
+      }
+    },
+    "viz_critical_events": {
+      "type": "splunk.singlevalue",
+      "title": "Critical Events (Last 1h)",
+      "dataSources": {
+        "primary": "ds_critical"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByIndex(0) | lastPoint()",
+        "trendValue": "> primary | seriesByIndex(0) | delta(-2)",
+        "sparklineValues": "> primary | seriesByIndex(0)",
+        "numberPrecision": 0,
+        "unit": "events",
+        "backgroundColor": "> majorValue | rangeValue(majorColor)",
+        "majorColor": "> majorValue | rangeValue(criticalRanges)",
+        "rangeColors": ["#32CD32", "#FFA500", "#DC3545"]
+      }
+    },
+    "viz_recent_events": {
+      "type": "splunk.table",
+      "title": "Recent Security Events",
+      "dataSources": {
+        "primary": "ds_recent_events"
+      },
+      "options": {
+        "count": 20,
+        "showRowNumbers": false,
+        "columnFormat": {
+          "severity": {
+            "data": ">table",
+            "rowColors": {
+              "critical": "#DC3545",
+              "high": "#FFA500",
+              "medium": "#FFD700",
+              "low": "#32CD32"
+            }
+          }
+        }
+      }
+    }
+  },
+  "dataSources": {
+    "ds_event_timeline": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw earliest=-24h\n| timechart span=1h count by severity",
+        "refresh": "30s",
+        "enableSmartSources": true
+      }
+    },
+    "ds_severity": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw earliest=-24h\n| stats count by severity\n| sort -count",
+        "refresh": "30s"
+      }
+    },
+    "ds_top_sources": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw earliest=-1h\n| stats count as events by src_ip\n| sort -events\n| head 10",
+        "refresh": "30s"
+      }
+    },
+    "ds_blocked": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw earliest=-1h action=blocked\n| timechart span=5m count",
+        "refresh": "30s"
+      }
+    },
+    "ds_critical": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw earliest=-1h severity=critical\n| timechart span=5m count",
+        "refresh": "30s"
+      }
+    },
+    "ds_recent_events": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw earliest=-1h\n| table _time, src_ip, dst_ip, action, severity, msg\n| sort -_time\n| head 20",
+        "refresh": "30s"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "latest": "$global_time.latest$",
+            "earliest": "$global_time.earliest$"
+          }
+        }
+      }
+    }
+  },
+  "inputs": {
+    "input_global_trp": {
+      "type": "input.timerange",
+      "options": {
+        "token": "global_time",
+        "defaultValue": "-24h@h,now"
+      },
+      "title": "Time Range"
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "options": {
+      "width": 1440,
+      "height": 960,
+      "display": "auto"
+    },
+    "structure": [
+      {
+        "item": "viz_title",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "w": 1440,
+          "h": 80
+        }
+      },
+      {
+        "item": "viz_blocked_traffic",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 80,
+          "w": 360,
+          "h": 180
+        }
+      },
+      {
+        "item": "viz_critical_events",
+        "type": "block",
+        "position": {
+          "x": 360,
+          "y": 80,
+          "w": 360,
+          "h": 180
+        }
+      },
+      {
+        "item": "viz_severity_breakdown",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 80,
+          "w": 720,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_event_timeline",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 260,
+          "w": 720,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_top_sources",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 560,
+          "w": 720,
+          "h": 400
+        }
+      },
+      {
+        "item": "viz_recent_events",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 380,
+          "w": 720,
+          "h": 580
+        }
+      }
+    ]
+  },
+  "title": "FortiGate Operations Dashboard",
+  "description": "Real-time FortiGate firewall operations monitoring (No JavaScript - Studio Native)"
+}

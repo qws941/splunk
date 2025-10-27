@@ -1,0 +1,312 @@
+<form version="1.1" theme="dark">
+  <label>FAZ/FMG Monitoring Dashboard</label>
+  <description>FortiAnalyzer Critical Logs &amp; FortiManager Configuration Changes</description>
+
+  <!-- Time Picker -->
+  <fieldset submitButton="true" autoRun="true">
+    <input type="time" token="time_picker">
+      <label>Time Range</label>
+      <default>
+        <earliest>-60m@m</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+  </fieldset>
+
+  <!-- Row 1: Summary Stats -->
+  <row>
+    <panel>
+      <title>🔴 FAZ Critical Events (Last Hour)</title>
+      <single>
+        <search>
+          <query>
+index=fw sourcetype=faz:* earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| search (severity=critical OR level=critical)
+| search NOT msg="*Update Fail*"
+| search NOT logid IN ("0100032001","0100032002","0100032003","0100032004","0100032005","0101039424","0101039425","0101039426","0101039427","0101039428","0102043008","0102043009","0102043010")
+| stats count
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">all</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x65A637","0xF7BC38","0xD93F3C"]</option>
+        <option name="rangeValues">[0,5]</option>
+        <option name="underLabel">Critical Events</option>
+        <drilldown>
+          <link target="_blank">/app/search/faz_critical_detail</link>
+        </drilldown>
+      </single>
+    </panel>
+
+    <panel>
+      <title>📦 FMG Policy Installs</title>
+      <single>
+        <search>
+          <query>
+index=fw sourcetype=fmg:* earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| search action=install OR msg="*install*policy*"
+| stats count
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">all</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x65A637","0x6DB7C6","0xF7BC38"]</option>
+        <option name="rangeValues">[0,3]</option>
+        <option name="underLabel">Install Events</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>📝 FMG Policy Changes</title>
+      <single>
+        <search>
+          <query>
+index=fw sourcetype=fmg:* earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| search object="*policy*"
+| search operation IN (add,set,delete,create,modify,remove)
+| stats count
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">all</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x65A637","0xF7BC38","0xD93F3C"]</option>
+        <option name="rangeValues">[0,10]</option>
+        <option name="underLabel">Policy CRUD</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>🔧 FMG Object Changes</title>
+      <single>
+        <search>
+          <query>
+index=fw sourcetype=fmg:* earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| search object IN (address,service,vip,addrgrp,servgrp)
+| search operation IN (add,set,delete,create,modify,remove)
+| stats count
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">all</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x65A637","0xF7BC38","0xD93F3C"]</option>
+        <option name="rangeValues">[0,15]</option>
+        <option name="underLabel">Object CRUD</option>
+      </single>
+    </panel>
+  </row>
+
+  <!-- Row 2: FAZ Critical Events Detail -->
+  <row>
+    <panel>
+      <title>🔴 FAZ Critical Events Detail (Top 20)</title>
+      <table>
+        <search>
+          <query>
+index=fw sourcetype=faz:* earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| search (severity=critical OR level=critical)
+| search NOT msg="*Update Fail*"
+| search NOT logid IN ("0100032001","0100032002","0100032003","0100032004","0100032005","0101039424","0101039425","0101039426","0101039427","0101039428","0102043008","0102043009","0102043010")
+| eval time=strftime(_time, "%Y-%m-%d %H:%M:%S")
+| table time, src_ip, dst_ip, severity, logid, msg, devname
+| rename time AS "시간", src_ip AS "출발지 IP", dst_ip AS "목적지 IP", severity AS "심각도", logid AS "로그ID", msg AS "메시지", devname AS "장비명"
+| head 20
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">row</option>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="rowNumbers">true</option>
+        <option name="wrap">true</option>
+        <format type="color" field="심각도">
+          <colorPalette type="map">{"critical":#D93F3C}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 3: FAZ Timeline -->
+  <row>
+    <panel>
+      <title>📊 FAZ Critical Events Timeline (Last 24 Hours)</title>
+      <chart>
+        <search>
+          <query>
+index=fw sourcetype=faz:* earliest=-24h latest=now
+| search (severity=critical OR level=critical)
+| search NOT msg="*Update Fail*"
+| search NOT logid IN ("0100032001","0100032002","0100032003","0100032004","0100032005","0101039424","0101039425","0101039426","0101039427","0101039428","0102043008","0102043009","0102043010")
+| timechart span=10m count by severity
+          </query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.axisTitleX.text">Time</option>
+        <option name="charting.axisTitleY.text">Event Count</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.seriesColors">[0xD93F3C]</option>
+        <option name="charting.chart.stackMode">stacked</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Row 4: FMG Policy Install History -->
+  <row>
+    <panel>
+      <title>📦 FMG Policy Install History</title>
+      <table>
+        <search>
+          <query>
+index=fw sourcetype=fmg:* earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| search action=install OR msg="*install*policy*"
+| eval time=strftime(_time, "%Y-%m-%d %H:%M:%S")
+| table time, user, adom, device, status, msg
+| rename time AS "시간", user AS "관리자", adom AS "ADOM", device AS "장비", status AS "상태", msg AS "메시지"
+| head 20
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">20</option>
+        <option name="rowNumbers">true</option>
+        <option name="wrap">true</option>
+        <format type="color" field="상태">
+          <colorPalette type="map">{"success":#65A637,"failed":#D93F3C,"warning":#F7BC38}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 5: FMG Configuration Changes -->
+  <row>
+    <panel>
+      <title>📝 FMG Policy Changes (CRUD Operations)</title>
+      <table>
+        <search>
+          <query>
+index=fw sourcetype=fmg:* earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| search object="*policy*"
+| search operation IN (add,set,delete,create,modify,remove)
+| eval time=strftime(_time, "%Y-%m-%d %H:%M:%S")
+| eval operation_kr=case(
+    operation="add" OR operation="create", "생성",
+    operation="set" OR operation="modify", "수정",
+    operation="delete" OR operation="remove", "삭제",
+    1=1, operation)
+| table time, operation_kr, user, adom, object, msg
+| rename time AS "시간", operation_kr AS "작업", user AS "관리자", adom AS "ADOM", object AS "객체", msg AS "메시지"
+| head 20
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">20</option>
+        <option name="rowNumbers">true</option>
+        <option name="wrap">true</option>
+        <format type="color" field="작업">
+          <colorPalette type="map">{"생성":#65A637,"수정":#F7BC38,"삭제":#D93F3C}</colorPalette>
+        </format>
+      </table>
+    </panel>
+
+    <panel>
+      <title>🔧 FMG Object Changes (CRUD Operations)</title>
+      <table>
+        <search>
+          <query>
+index=fw sourcetype=fmg:* earliest=$time_picker.earliest$ latest=$time_picker.latest$
+| search object IN (address,service,vip,addrgrp,servgrp)
+| search operation IN (add,set,delete,create,modify,remove)
+| eval time=strftime(_time, "%Y-%m-%d %H:%M:%S")
+| eval operation_kr=case(
+    operation="add" OR operation="create", "생성",
+    operation="set" OR operation="modify", "수정",
+    operation="delete" OR operation="remove", "삭제",
+    1=1, operation)
+| eval object_kr=case(
+    object="address", "주소",
+    object="service", "서비스",
+    object="vip", "VIP",
+    object="addrgrp", "주소그룹",
+    object="servgrp", "서비스그룹",
+    1=1, object)
+| table time, operation_kr, object_kr, user, adom, name, msg
+| rename time AS "시간", operation_kr AS "작업", object_kr AS "객체타입", user AS "관리자", adom AS "ADOM", name AS "객체명", msg AS "메시지"
+| head 20
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">20</option>
+        <option name="rowNumbers">true</option>
+        <option name="wrap">true</option>
+        <format type="color" field="작업">
+          <colorPalette type="map">{"생성":#65A637,"수정":#F7BC38,"삭제":#D93F3C}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 6: Operation Statistics -->
+  <row>
+    <panel>
+      <title>📊 FMG Operations by Administrator (Last 24h)</title>
+      <chart>
+        <search>
+          <query>
+index=fw sourcetype=fmg:* earliest=-24h latest=now
+| search (object="*policy*" OR object IN (address,service,vip,addrgrp,servgrp))
+| search operation IN (add,set,delete,create,modify,remove)
+| stats count by user
+| sort -count
+| head 10
+          </query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.legend.placement">right</option>
+      </chart>
+    </panel>
+
+    <panel>
+      <title>📊 FMG Operation Types (Last 24h)</title>
+      <chart>
+        <search>
+          <query>
+index=fw sourcetype=fmg:* earliest=-24h latest=now
+| search (object="*policy*" OR object IN (address,service,vip,addrgrp,servgrp))
+| search operation IN (add,set,delete,create,modify,remove)
+| eval operation_kr=case(
+    operation="add" OR operation="create", "생성",
+    operation="set" OR operation="modify", "수정",
+    operation="delete" OR operation="remove", "삭제",
+    1=1, operation)
+| stats count by operation_kr
+| sort -count
+          </query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">bar</option>
+        <option name="charting.axisTitleX.text">Count</option>
+        <option name="charting.axisTitleY.text">Operation Type</option>
+        <option name="charting.seriesColors">[0x65A637,0xF7BC38,0xD93F3C]</option>
+      </chart>
+    </panel>
+  </row>
+
+</form>

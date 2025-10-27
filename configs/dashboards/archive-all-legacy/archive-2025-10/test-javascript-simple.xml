@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<form version="1.1" theme="dark">
+  <label>JavaScript Test</label>
+  <description>Simple test to verify JavaScript execution</description>
+
+  <row>
+    <panel>
+      <title>Test Panel</title>
+      <html>
+        <div id="test-container">
+          <button onclick="testFunction()" style="padding: 12px 24px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold;">Click Me</button>
+          <div id="result" style="margin-top: 20px; padding: 10px; background: #f0f0f0; border-radius: 4px;">Waiting for click...</div>
+        </div>
+
+        <script><![CDATA[
+require(['jquery', 'splunkjs/ready!'], function($, mvc) {
+    console.log('JavaScript loaded successfully');
+
+    window.testFunction = function() {
+        console.log('Button clicked!');
+        $('#result').html('✅ Button works! JavaScript is executing.');
+        alert('Success! Button clicked.');
+    };
+
+    // Test jQuery
+    $('#result').html('🔄 JavaScript loaded. Click the button.');
+});
+        ]]></script>
+      </html>
+    </panel>
+  </row>
+</form>

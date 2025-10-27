@@ -1,0 +1,292 @@
+{
+  "visualizations": {
+    "viz_title": {
+      "type": "viz.markdown",
+      "options": {
+        "markdown": "# 🎛️ Slack 알림 채널 제어\n\n**index=fw sourcetype=fw_log 기준**\n\n각 Slack 채널별로 알림 ON/OFF 제어"
+      }
+    },
+    "viz_faz_critical": {
+      "type": "splunk.singlevalue",
+      "title": "🔴 FAZ Critical (#splunk-faz-critical)",
+      "dataSources": {
+        "primary": "ds_faz_critical"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('status_text')",
+        "backgroundColor": "> primary | seriesByName('status') | pick(statusColorEditorConfig)"
+      },
+      "context": {
+        "statusColorEditorConfig": {
+          "0": "#dc3545",
+          "1": "#28a745"
+        }
+      }
+    },
+    "viz_fmg_policy": {
+      "type": "splunk.singlevalue",
+      "title": "📦 FMG Policy (#splunk-fmg-policy)",
+      "dataSources": {
+        "primary": "ds_fmg_policy"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('status_text')",
+        "backgroundColor": "> primary | seriesByName('status') | pick(statusColorEditorConfig)"
+      },
+      "context": {
+        "statusColorEditorConfig": {
+          "0": "#dc3545",
+          "1": "#28a745"
+        }
+      }
+    },
+    "viz_fmg_admin": {
+      "type": "splunk.singlevalue",
+      "title": "👤 FMG Admin (#splunk-fmg-admin)",
+      "dataSources": {
+        "primary": "ds_fmg_admin"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('status_text')",
+        "backgroundColor": "> primary | seriesByName('status') | pick(statusColorEditorConfig)"
+      },
+      "context": {
+        "statusColorEditorConfig": {
+          "0": "#dc3545",
+          "1": "#28a745"
+        }
+      }
+    },
+    "viz_all_events": {
+      "type": "splunk.singlevalue",
+      "title": "ℹ️ All Events (#splunk-all)",
+      "dataSources": {
+        "primary": "ds_all_events"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName('status_text')",
+        "backgroundColor": "> primary | seriesByName('status') | pick(statusColorEditorConfig)"
+      },
+      "context": {
+        "statusColorEditorConfig": {
+          "0": "#dc3545",
+          "1": "#28a745"
+        }
+      }
+    },
+    "viz_control_table": {
+      "type": "splunk.table",
+      "title": "알림 제어 상태",
+      "dataSources": {
+        "primary": "ds_control_table"
+      },
+      "options": {
+        "count": 10,
+        "dataOverlayMode": "none",
+        "drilldown": "none",
+        "showRowNumbers": false,
+        "columnFormat": {
+          "alert_name": {
+            "width": 300
+          },
+          "channel": {
+            "width": 200
+          },
+          "status": {
+            "width": 150
+          },
+          "control": {
+            "width": 300
+          }
+        }
+      }
+    },
+    "viz_instructions": {
+      "type": "viz.markdown",
+      "options": {
+        "markdown": "## 📖 사용 방법\n\n### 알림 ON/OFF 제어\n\n**Settings → Searches, reports, and alerts**\n\n1. `Slack_FAZ_Critical_Channel` → Edit → Enable 체크\n2. `Slack_FMG_Policy_Channel` → Edit → Enable 체크\n3. `Slack_FMG_Admin_Channel` → Edit → Enable 체크\n4. `Slack_All_Events_Channel` → Edit → Enable 체크\n\n---\n\n### Slack 채널별 알림\n\n- **#splunk-faz-critical**: FAZ 크리티컬 이벤트만\n- **#splunk-fmg-policy**: FMG 정책 설치/변경만\n- **#splunk-fmg-admin**: FMG 관리자 로그인/설정변경만\n- **#splunk-all**: 모든 이벤트 통합\n\n---\n\n### 데이터 확인\n\n```spl\nindex=fw sourcetype=fw_log earliest=-1h\n| stats count by severity, action\n```\n\n---\n\n### 문제 해결\n\n1. **알림이 안 옴**: Settings → Alert actions → Slack 설정 확인\n2. **데이터 없음**: `index=fw sourcetype=fw_log` 쿼리로 데이터 확인\n3. **채널 없음**: Slack에서 채널 생성 후 봇 초대"
+      }
+    },
+    "viz_data_sample": {
+      "type": "splunk.table",
+      "title": "최근 데이터 샘플 (index=fw sourcetype=fw_log)",
+      "dataSources": {
+        "primary": "ds_data_sample"
+      },
+      "options": {
+        "count": 10,
+        "dataOverlayMode": "none",
+        "drilldown": "none",
+        "showRowNumbers": true,
+        "columnFormat": {
+          "_time": {
+            "width": 180
+          },
+          "severity": {
+            "width": 100
+          },
+          "msg": {
+            "width": 400
+          }
+        }
+      }
+    }
+  },
+  "dataSources": {
+    "ds_faz_critical": {
+      "type": "ds.search",
+      "options": {
+        "query": "| rest /services/saved/searches/Slack_FAZ_Critical_Channel splunk_server=local | fields disabled, is_scheduled | eval status=if(disabled=0 AND is_scheduled=1, 1, 0) | eval status_text=if(status=1, \"✅ ON\", \"❌ OFF\")",
+        "refresh": "30s",
+        "refreshType": "delay"
+      }
+    },
+    "ds_fmg_policy": {
+      "type": "ds.search",
+      "options": {
+        "query": "| rest /services/saved/searches/Slack_FMG_Policy_Channel splunk_server=local | fields disabled, is_scheduled | eval status=if(disabled=0 AND is_scheduled=1, 1, 0) | eval status_text=if(status=1, \"✅ ON\", \"❌ OFF\")",
+        "refresh": "30s",
+        "refreshType": "delay"
+      }
+    },
+    "ds_fmg_admin": {
+      "type": "ds.search",
+      "options": {
+        "query": "| rest /services/saved/searches/Slack_FMG_Admin_Channel splunk_server=local | fields disabled, is_scheduled | eval status=if(disabled=0 AND is_scheduled=1, 1, 0) | eval status_text=if(status=1, \"✅ ON\", \"❌ OFF\")",
+        "refresh": "30s",
+        "refreshType": "delay"
+      }
+    },
+    "ds_all_events": {
+      "type": "ds.search",
+      "options": {
+        "query": "| rest /services/saved/searches/Slack_All_Events_Channel splunk_server=local | fields disabled, is_scheduled | eval status=if(disabled=0 AND is_scheduled=1, 1, 0) | eval status_text=if(status=1, \"✅ ON\", \"❌ OFF\")",
+        "refresh": "30s",
+        "refreshType": "delay"
+      }
+    },
+    "ds_control_table": {
+      "type": "ds.search",
+      "options": {
+        "query": "| rest /services/saved/searches splunk_server=local | search title IN (\"Slack_FAZ_Critical_Channel\", \"Slack_FMG_Policy_Channel\", \"Slack_FMG_Admin_Channel\", \"Slack_All_Events_Channel\") | fields title, disabled, is_scheduled | eval alert_name=case(title=\"Slack_FAZ_Critical_Channel\", \"🔴 FAZ Critical\", title=\"Slack_FMG_Policy_Channel\", \"📦 FMG Policy\", title=\"Slack_FMG_Admin_Channel\", \"👤 FMG Admin\", title=\"Slack_All_Events_Channel\", \"ℹ️ All Events\", 1=1, title) | eval channel=case(title=\"Slack_FAZ_Critical_Channel\", \"#splunk-faz-critical\", title=\"Slack_FMG_Policy_Channel\", \"#splunk-fmg-policy\", title=\"Slack_FMG_Admin_Channel\", \"#splunk-fmg-admin\", title=\"Slack_All_Events_Channel\", \"#splunk-all\", 1=1, \"N/A\") | eval status=if(disabled=0 AND is_scheduled=1, \"✅ ON\", \"❌ OFF\") | eval control=\"Settings → Searches, reports, and alerts → Edit\" | table alert_name, channel, status, control",
+        "refresh": "30s",
+        "refreshType": "delay"
+      }
+    },
+    "ds_data_sample": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw sourcetype=fw_log earliest=-1h latest=now | head 10 | table _time, severity, level, action, msg",
+        "refresh": "1m",
+        "refreshType": "delay"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "latest": "now",
+            "earliest": "-24h@h"
+          }
+        }
+      }
+    }
+  },
+  "inputs": {},
+  "layout": {
+    "type": "absolute",
+    "options": {
+      "width": 1440,
+      "height": 1200,
+      "display": "auto-scale",
+      "backgroundColor": "#f5f5f5"
+    },
+    "structure": [
+      {
+        "item": "viz_title",
+        "type": "block",
+        "position": {
+          "x": 20,
+          "y": 20,
+          "w": 1400,
+          "h": 80
+        }
+      },
+      {
+        "item": "viz_faz_critical",
+        "type": "block",
+        "position": {
+          "x": 20,
+          "y": 120,
+          "w": 340,
+          "h": 120
+        }
+      },
+      {
+        "item": "viz_fmg_policy",
+        "type": "block",
+        "position": {
+          "x": 380,
+          "y": 120,
+          "w": 340,
+          "h": 120
+        }
+      },
+      {
+        "item": "viz_fmg_admin",
+        "type": "block",
+        "position": {
+          "x": 740,
+          "y": 120,
+          "w": 340,
+          "h": 120
+        }
+      },
+      {
+        "item": "viz_all_events",
+        "type": "block",
+        "position": {
+          "x": 1100,
+          "y": 120,
+          "w": 340,
+          "h": 120
+        }
+      },
+      {
+        "item": "viz_control_table",
+        "type": "block",
+        "position": {
+          "x": 20,
+          "y": 260,
+          "w": 900,
+          "h": 250
+        }
+      },
+      {
+        "item": "viz_data_sample",
+        "type": "block",
+        "position": {
+          "x": 20,
+          "y": 530,
+          "w": 900,
+          "h": 350
+        }
+      },
+      {
+        "item": "viz_instructions",
+        "type": "block",
+        "position": {
+          "x": 940,
+          "y": 260,
+          "w": 500,
+          "h": 620
+        }
+      }
+    ],
+    "globalInputs": []
+  },
+  "description": "Slack 알림 채널별 ON/OFF 제어 (index=fw sourcetype=fw_log)",
+  "title": "Slack Channel Control - FW Log"
+}

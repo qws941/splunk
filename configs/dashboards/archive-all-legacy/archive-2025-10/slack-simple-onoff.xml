@@ -1,0 +1,33 @@
+<form version="1.1">
+  <label>Slack 알림 ON/OFF</label>
+
+  <row>
+    <panel>
+      <title>알림 상태</title>
+      <table>
+        <search>
+          <query>
+| rest /services/saved/searches splunk_server=local
+| search title="*Alert*" OR title="Syslog_*"
+| eval status=if(disabled=0, "🟢 ON", "🔴 OFF")
+| table title, status
+| rename title as "알림", status as "상태"
+          </query>
+          <earliest>-5m</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <html>
+        <h3>ON/OFF 방법</h3>
+        <p><b>Settings → Searches, reports, and alerts → Enable 체크박스</b></p>
+      </html>
+    </panel>
+  </row>
+
+</form>

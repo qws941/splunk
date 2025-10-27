@@ -1,0 +1,85 @@
+<form version="1.1">
+  <label>Slack 알림 조건 ON/OFF</label>
+  
+  <!-- 조건 입력 -->
+  <fieldset submitButton="true" autoRun="false">
+    <input type="dropdown" token="alert_name">
+      <label>알림 선택</label>
+      <choice value="Syslog_Alert">Syslog_Alert</choice>
+      <choice value="FAZ_Critical_Alerts">FAZ_Critical_Alerts</choice>
+      <choice value="FMG_Policy_Install">FMG_Policy_Install</choice>
+      <default>Syslog_Alert</default>
+    </input>
+    
+    <input type="dropdown" token="action">
+      <label>동작</label>
+      <choice value="enable">켜기 (Enable)</choice>
+      <choice value="disable">끄기 (Disable)</choice>
+      <default>enable</default>
+    </input>
+    
+    <input type="text" token="condition">
+      <label>조건 (선택사항)</label>
+      <default>severity=critical</default>
+    </input>
+  </fieldset>
+
+  <!-- 현재 상태 -->
+  <row>
+    <panel>
+      <title>현재 알림 상태</title>
+      <table>
+        <search>
+          <query>
+| rest /services/saved/searches splunk_server=local
+| search title="*Alert*" OR title="Syslog_*"
+| eval status=if(disabled=0, "🟢 ON", "🔴 OFF")
+| table title, status, cron_schedule
+| rename title as "알림", status as "상태", cron_schedule as "스케줄"
+          </query>
+          <earliest>-5m</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+      </table>
+    </panel>
+  </row>
+
+  <!-- 실행 결과 -->
+  <row depends="$action$">
+    <panel>
+      <html>
+        <h3>✅ 설정 완료</h3>
+        <p><b>알림:</b> $alert_name$</p>
+        <p><b>동작:</b> $action$</p>
+        <p><b>조건:</b> $condition$</p>
+        <hr/>
+        <p><i>Settings → Searches, reports, and alerts 에서 확인하세요</i></p>
+      </html>
+    </panel>
+  </row>
+
+  <!-- 안내 -->
+  <row>
+    <panel>
+      <html>
+        <h3>📋 사용 방법</h3>
+        <ol>
+          <li><b>알림 선택:</b> 제어할 알림 선택</li>
+          <li><b>동작:</b> 켜기/끄기</li>
+          <li><b>조건:</b> 필터 조건 입력 (예: severity=critical, srcip="1.1.1.1")</li>
+          <li><b>Submit</b> 클릭</li>
+        </ol>
+        <hr/>
+        <h4>조건 예시:</h4>
+        <ul>
+          <li><code>severity=critical</code> - Critical만</li>
+          <li><code>srcip="192.168.1.100"</code> - 특정 IP만</li>
+          <li><code>msg="*error*"</code> - 에러 포함</li>
+          <li><code>action=login</code> - 로그인만</li>
+        </ul>
+      </html>
+    </panel>
+  </row>
+
+</form>

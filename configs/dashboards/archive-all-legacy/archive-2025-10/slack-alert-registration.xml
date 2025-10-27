@@ -1,0 +1,264 @@
+<form version="1.1">
+  <label>Slack Alert Registration System</label>
+  <description>Register, test, and manage Slack alert notifications - Reusable for multiple channels</description>
+
+  <!-- Input Fields -->
+  <fieldset submitButton="false">
+    <input type="text" token="slack_channel_id" searchWhenChanged="true">
+      <label>Slack Channel ID</label>
+      <default>C09DSD6JH2Q</default>
+      <initialValue>C09DSD6JH2Q</initialValue>
+    </input>
+    <input type="text" token="slack_channel_name">
+      <label>Channel Name (Display)</label>
+      <default>#splunk-alerts</default>
+      <initialValue>#splunk-alerts</initialValue>
+    </input>
+    <input type="dropdown" token="alert_severity">
+      <label>Alert Severity</label>
+      <choice value="info">Info</choice>
+      <choice value="warning">Warning</choice>
+      <choice value="high">High</choice>
+      <choice value="critical">Critical</choice>
+      <default>info</default>
+      <initialValue>info</initialValue>
+    </input>
+  </fieldset>
+
+  <!-- Row 1: System Overview -->
+  <row>
+    <panel>
+      <html>
+        <div style="padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; color: white;">
+          <h2 style="margin-top: 0;">📢 Slack Alert Registration System</h2>
+          <p style="font-size: 16px;">
+            Centralized system for registering and testing Slack alerts across multiple channels.
+          </p>
+          <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 5px; margin-top: 15px;">
+            <h3 style="margin-top: 0; font-size: 14px;">Current Configuration:</h3>
+            <ul style="margin: 10px 0; padding-left: 20px; font-size: 14px;">
+              <li><strong>Channel ID:</strong> $slack_channel_id$</li>
+              <li><strong>Channel Name:</strong> $slack_channel_name$</li>
+              <li><strong>Severity:</strong> $alert_severity$</li>
+            </ul>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <!-- Row 2: Quick Actions -->
+  <row>
+    <panel>
+      <title>🚀 Quick Test - Send Test Message</title>
+      <table>
+        <search>
+          <query>| makeresults count=1
+| eval test_message="🎉 Slack Alert Registration Test",
+       test_time=strftime(now(), "%Y-%m-%d %H:%M:%S"),
+       severity="$alert_severity$",
+       channel="$slack_channel_name$",
+       channel_id="$slack_channel_id$",
+       source="Splunk Alert Registration System"
+| table test_time, channel, severity, test_message, source
+| sendalert slack param.channel="$slack_channel_id$" param.message=test_message</query>
+          <earliest>-5m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+
+    <panel>
+      <title>✅ Verify Channel Configuration</title>
+      <table>
+        <search>
+          <query>| makeresults count=1
+| eval channel_id="$slack_channel_id$",
+       channel_name="$slack_channel_name$",
+       status=if(len(channel_id) > 5 AND match(channel_id, "^C[A-Z0-9]+$"), "✅ Valid Format", "❌ Invalid Format"),
+       bot_required="Bot must be invited: /invite @Splunk FortiGate Alert",
+       token_format="Token must start with: xoxb-"
+| table channel_id, channel_name, status, bot_required, token_format</query>
+          <earliest>-5m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">5</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 3: Alert Registration -->
+  <row>
+    <panel>
+      <title>📝 Register New Alert Rule</title>
+      <html>
+        <div style="padding: 20px; background: #f9f9f9; border-left: 4px solid #2196F3; border-radius: 5px;">
+          <h3 style="margin-top: 0; color: #333;">Alert Registration Steps:</h3>
+          <ol style="color: #666; line-height: 2;">
+            <li><strong>Step 1:</strong> Configure channel ID and name above</li>
+            <li><strong>Step 2:</strong> Click "Quick Test" to verify connection</li>
+            <li><strong>Step 3:</strong> Go to <strong>Settings → Searches, reports, and alerts</strong></li>
+            <li><strong>Step 4:</strong> Create new alert or edit existing</li>
+            <li><strong>Step 5:</strong> Add action: <strong>Slack</strong></li>
+            <li><strong>Step 6:</strong> Set Channel ID: <code>$slack_channel_id$</code></li>
+            <li><strong>Step 7:</strong> Configure message format and trigger conditions</li>
+            <li><strong>Step 8:</strong> Save and enable alert</li>
+          </ol>
+
+          <div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-left: 3px solid #2196F3; border-radius: 3px;">
+            <strong>💡 Pro Tip:</strong> Use tokens in message format for dynamic content:<br/>
+            <code>$result.src_ip$</code>, <code>$result.severity$</code>, <code>$result.count$</code>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <!-- Row 4: Registered Alerts Management -->
+  <row>
+    <panel>
+      <title>📊 Registered Alerts for Channel: $slack_channel_name$</title>
+      <table>
+        <search>
+          <query>| rest /servicesNS/-/-/saved/searches
+| search action.slack=1
+| eval alert_name=title,
+       channel=if(isnotnull('action.slack.param.channel'), 'action.slack.param.channel', "Not configured"),
+       status=if(disabled=0, "✅ Enabled", "⭕ Disabled"),
+       cron='cron_schedule',
+       last_run=strftime(strptime('next_scheduled_time', "%Y-%m-%dT%H:%M:%S"), "%Y-%m-%d %H:%M:%S")
+| search channel="$slack_channel_id$" OR channel="*"
+| table alert_name, channel, status, cron, last_run
+| sort -status, alert_name</query>
+          <earliest>-24h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">row</option>
+        <option name="count">20</option>
+        <drilldown>
+          <link target="_blank">/app/search/alert?s=$row.alert_name$</link>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 5: Recent Alert History -->
+  <row>
+    <panel>
+      <title>📈 Recent Alert Executions (Last 24 hours)</title>
+      <table>
+        <search>
+          <query>index=_internal source=*scheduler.log action=alert_fired
+| search alert_actions=*slack*
+| eval alert_time=strftime(_time, "%Y-%m-%d %H:%M:%S"),
+       alert_name=savedsearch_name,
+       status=if(isnotnull(result_count) AND result_count > 0, "✅ Fired", "⭕ No results")
+| table alert_time, alert_name, status, result_count, app
+| sort -alert_time
+| head 20</query>
+          <earliest>-24h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">20</option>
+      </table>
+    </panel>
+
+    <panel>
+      <title>🔧 Advanced Test with Custom Message</title>
+      <table>
+        <search>
+          <query>| makeresults count=1
+| eval src_ip="192.168.100.99",
+       dst_ip="10.0.0.50",
+       severity="$alert_severity$",
+       attack="Sample Security Event - " + upper(severity),
+       event_count=1,
+       test_time=strftime(now(), "%Y-%m-%d %H:%M:%S KST"),
+       channel="$slack_channel_name$",
+       message="🚨 Security Alert - Registration System Test\n\n" +
+               "*Channel:* " + channel + "\n" +
+               "*Source IP:* " + src_ip + "\n" +
+               "*Destination IP:* " + dst_ip + "\n" +
+               "*Severity:* " + upper(severity) + "\n" +
+               "*Attack Type:* " + attack + "\n" +
+               "*Event Count:* " + event_count + "\n" +
+               "*Time:* " + test_time + "\n\n" +
+               "✅ This is a test from Slack Alert Registration System"
+| table channel, severity, src_ip, dst_ip, attack, test_time
+| sendalert slack param.channel="$slack_channel_id$" param.message=message</query>
+          <earliest>-5m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 6: Plugin Configuration Guide -->
+  <row>
+    <panel>
+      <title>⚙️ Slack Plugin Configuration</title>
+      <html>
+        <div style="padding: 15px; background: #f5f5f5; border-left: 4px solid #4CAF50; border-radius: 4px;">
+          <h3 style="margin-top: 0; color: #333;">Plugin Configuration Checklist:</h3>
+          <ol style="color: #666; line-height: 1.8;">
+            <li><strong>Settings</strong> → <strong>Alert actions</strong> → <strong>Slack</strong></li>
+            <li>Verify <strong>Bot Token</strong> (must start with <code>xoxb-</code>)</li>
+            <li>Default channel can be left empty (will use alert-specific channel)</li>
+            <li>Ensure <strong>Enable</strong> checkbox is checked</li>
+            <li>Save configuration</li>
+          </ol>
+
+          <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border-left: 3px solid #ffc107; border-radius: 3px;">
+            <strong>⚠️ Important:</strong> For each channel, invite the bot:<br/>
+            <code>/invite @Splunk FortiGate Alert</code> in <strong>$slack_channel_name$</strong>
+          </div>
+
+          <div style="margin-top: 15px; padding: 10px; background: #d1ecf1; border-left: 3px solid #0c5460; border-radius: 3px;">
+            <strong>📖 Bot OAuth Scopes Required:</strong>
+            <ul style="margin: 5px 0; padding-left: 20px;">
+              <li><code>chat:write</code> - Send messages</li>
+              <li><code>channels:read</code> - Read channel information</li>
+              <li><code>chat:write.public</code> - Post to public channels without joining</li>
+            </ul>
+          </div>
+        </div>
+      </html>
+    </panel>
+
+    <panel>
+      <title>📚 Quick Reference - Channel IDs</title>
+      <html>
+        <div style="padding: 15px; background: #fafafa; border: 1px solid #ddd; border-radius: 5px;">
+          <h4 style="margin-top: 0; color: #333;">Common Channel IDs:</h4>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: #f0f0f0;">
+              <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Channel Name</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Channel ID</th>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;">#splunk-alerts</td>
+              <td style="padding: 8px; border: 1px solid #ddd;"><code>C09DSD6JH2Q</code></td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;"><em>Add your channels...</em></td>
+              <td style="padding: 8px; border: 1px solid #ddd;"><em>Update this table</em></td>
+            </tr>
+          </table>
+
+          <div style="margin-top: 15px; padding: 10px; background: #e8f5e9; border-left: 3px solid #4CAF50; border-radius: 3px;">
+            <strong>💡 How to find Channel ID:</strong><br/>
+            1. Right-click channel in Slack<br/>
+            2. Select "Copy link"<br/>
+            3. ID is the last part: <code>.../C09DSD6JH2Q</code>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+</form>
