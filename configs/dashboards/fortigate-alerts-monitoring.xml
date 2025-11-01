@@ -20,7 +20,7 @@
       <single>
         <search>
           <query>
-index=_internal source=*scheduler.log savedsearch_name="FortiGate_*_Production" OR savedsearch_name="FortiAnalyzer_*_Production"
+index=_internal source=*scheduler.log savedsearch_name="*.[alert]*"
 | stats count as total_alerts
           </query>
           <earliest>$time_token.earliest$</earliest>
@@ -41,7 +41,7 @@ index=_internal source=*scheduler.log savedsearch_name="FortiGate_*_Production" 
       <single>
         <search>
           <query>
-index=_internal source=*scheduler.log savedsearch_name="FortiGate_*_Production" OR savedsearch_name="FortiAnalyzer_*_Production"
+index=_internal source=*scheduler.log savedsearch_name="*.[alert]*"
 | stats count(eval(status="success")) as success, count as total
 | eval success_rate = round(success/total*100, 1)
 | fields success_rate
@@ -64,7 +64,7 @@ index=_internal source=*scheduler.log savedsearch_name="FortiGate_*_Production" 
       <single>
         <search>
           <query>
-index=_internal source=*scheduler.log savedsearch_name="FortiGate_*_Production" OR savedsearch_name="FortiAnalyzer_*_Production"
+index=_internal source=*scheduler.log savedsearch_name="*.[alert]*"
 | stats avg(run_time) as avg_time
 | eval avg_time = round(avg_time, 2)
           </query>
@@ -86,7 +86,7 @@ index=_internal source=*scheduler.log savedsearch_name="FortiGate_*_Production" 
       <single>
         <search>
           <query>
-index=_internal source=*scheduler.log savedsearch_name="FortiGate_*_Production" OR savedsearch_name="FortiAnalyzer_*_Production" suppressed=1
+index=_internal source=*scheduler.log savedsearch_name="*.[alert]*" suppressed=1
 | stats count as suppressed
           </query>
           <earliest>$time_token.earliest$</earliest>
@@ -109,7 +109,7 @@ index=_internal source=*scheduler.log savedsearch_name="FortiGate_*_Production" 
       <chart>
         <search>
           <query>
-index=_internal source=*scheduler.log savedsearch_name="FortiGate_*_Production" OR savedsearch_name="FortiAnalyzer_*_Production"
+index=_internal source=*scheduler.log savedsearch_name="*.[alert]*"
 | rex field=savedsearch_name "FortiGate_(?&lt;alert_type&gt;.*)_Production|FortiAnalyzer_(?&lt;alert_type&gt;.*)_Production"
 | stats count by alert_type
 | sort -count
@@ -134,7 +134,7 @@ index=_internal source=*scheduler.log savedsearch_name="FortiGate_*_Production" 
       <chart>
         <search>
           <query>
-index=_internal source=*scheduler.log savedsearch_name="FortiGate_*_Production" OR savedsearch_name="FortiAnalyzer_*_Production"
+index=_internal source=*scheduler.log savedsearch_name="*.[alert]*"
 | rex field=savedsearch_name "FortiGate_(?&lt;alert_type&gt;.*)_Production|FortiAnalyzer_(?&lt;alert_type&gt;.*)_Production"
 | timechart span=1h count by alert_type limit=10
           </query>
@@ -157,7 +157,7 @@ index=_internal source=*scheduler.log savedsearch_name="FortiGate_*_Production" 
       <chart>
         <search>
           <query>
-index=_internal source=*scheduler.log savedsearch_name="FortiGate_*_Production" OR savedsearch_name="FortiAnalyzer_*_Production"
+index=_internal source=*scheduler.log savedsearch_name="*.[alert]*"
 | rex field=savedsearch_name "FortiGate_(?&lt;alert_type&gt;.*)_Production|FortiAnalyzer_(?&lt;alert_type&gt;.*)_Production"
 | stats avg(run_time) as avg_time by alert_type
 | eval avg_time = round(avg_time, 2)
@@ -180,7 +180,7 @@ index=_internal source=*scheduler.log savedsearch_name="FortiGate_*_Production" 
       <chart>
         <search>
           <query>
-index=_internal source=*scheduler.log savedsearch_name="FortiGate_*_Production" OR savedsearch_name="FortiAnalyzer_*_Production"
+index=_internal source=*scheduler.log savedsearch_name="*.[alert]*"
 | rex field=savedsearch_name "FortiGate_(?&lt;alert_type&gt;.*)_Production|FortiAnalyzer_(?&lt;alert_type&gt;.*)_Production"
 | stats count(eval(status="success")) as Success, count(eval(status!="success")) as Failure by alert_type
 | sort -Success
@@ -205,7 +205,7 @@ index=_internal source=*scheduler.log savedsearch_name="FortiGate_*_Production" 
       <table>
         <search>
           <query>
-index=_internal source=*scheduler.log savedsearch_name="FortiGate_*_Production" OR savedsearch_name="FortiAnalyzer_*_Production"
+index=_internal source=*scheduler.log savedsearch_name="*.[alert]*"
 | rex field=savedsearch_name "FortiGate_(?&lt;alert_type&gt;.*)_Production|FortiAnalyzer_(?&lt;alert_type&gt;.*)_Production"
 | eval execution_time = strftime(_time, "%Y-%m-%d %H:%M:%S")
 | eval run_time_sec = round(run_time, 2)
@@ -237,7 +237,7 @@ index=_internal source=*scheduler.log savedsearch_name="FortiGate_*_Production" 
       <chart>
         <search>
           <query>
-index=_internal source=*scheduler.log savedsearch_name="FortiGate_*_Production" OR savedsearch_name="FortiAnalyzer_*_Production"
+index=_internal source=*scheduler.log savedsearch_name="*.[alert]*"
 | rex field=savedsearch_name "FortiGate_(?&lt;alert_type&gt;.*)_Production|FortiAnalyzer_(?&lt;alert_type&gt;.*)_Production"
 | stats count(eval(suppressed=1)) as Suppressed, count(eval(suppressed!=1)) as Fired by alert_type
 | eval total = Suppressed + Fired
@@ -262,7 +262,7 @@ index=_internal source=*scheduler.log savedsearch_name="FortiGate_*_Production" 
       <table>
         <search>
           <query>
-index=_internal source=*scheduler.log savedsearch_name="FortiGate_*_Production" OR savedsearch_name="FortiAnalyzer_*_Production"
+index=_internal source=*scheduler.log savedsearch_name="*.[alert]*"
 | rex field=savedsearch_name "FortiGate_(?&lt;alert_type&gt;.*)_Production|FortiAnalyzer_(?&lt;alert_type&gt;.*)_Production"
 | stats count(eval(suppressed=1)) as suppressed_count, count as total_count by alert_type
 | eval suppression_rate = round(suppressed_count/total_count*100, 1)
