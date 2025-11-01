@@ -1,0 +1,4 @@
+index=fw earliest=-7d type=event subtype=system
+| dedup logid
+| head 1000
+| outputlookup fw_logs.csv

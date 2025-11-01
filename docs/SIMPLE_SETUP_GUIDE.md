@@ -4,17 +4,36 @@
 
 ---
 
+## 🆕 NEW: Fluentd-HEC 방식 (2025-10-29)
+
+**프로덕션 표준**: Fluentd-HEC 파이프라인 (유연한 로그 변환, 다중 목적지 지원)
+
+```
+FortiAnalyzer → Syslog (UDP 514) → Fluentd (파싱/변환) → Splunk HEC → index=fortianalyzer
+```
+
+**완전 자동 배포**:
+```bash
+./scripts/deploy-fluentd-hec.sh
+```
+
+**상세 가이드**: `docs/FLUENTD_QUICK_START.md`
+
+---
+
 ## 📋 선택: 방법 하나만 고르기
 
 ### ❓ 어떤 방식을 선택해야 할까?
 
 | 상황 | 권장 방법 | 이유 |
 |------|----------|------|
-| **FAZ가 이미 Syslog 보내고 있음** | 방법 3 (Syslog) ⭐ | Splunk 설정만 하면 끝 |
+| **유연한 로그 처리 필요** | 방법 0 (Fluentd-HEC) ⭐⭐⭐ | GeoIP, 커스텀 필드, 다중 목적지 |
+| **FAZ가 이미 Syslog 보내고 있음** | 방법 3 (Syslog Direct) ⭐ | Splunk 설정만 하면 끝 |
 | **FAZ 설정 못 건드림** | 방법 1 (Node.js) | FAZ API로 읽어와서 전송 |
-| **FAZ 7.4+ 있고 HEC 설정 가능** | 방법 2 (FAZ HEC) | FAZ에서 직접 HEC로 전송 |
+| **FAZ 7.4+ 있고 HEC 설정 가능** | 방법 2 (FAZ HEC Direct) | FAZ에서 직접 HEC로 전송 |
 
-**대부분의 경우**: **방법 3 (Syslog) 추천** ✅
+**프로덕션 환경**: **방법 0 (Fluentd-HEC) 권장** ✅ (유연성 + 확장성)
+**테스트 환경**: **방법 3 (Syslog Direct) 권장** ✅ (가장 간단)
 
 ---
 
@@ -30,7 +49,7 @@ Settings → Data Inputs → UDP → New Local UDP
 
 Port: 514 (또는 5514)
 Source type: fortinet:fortigate:syslog
-Index: fw
+Index: fortianalyzer
 ```
 
 **또는 CLI로 설정**:
@@ -39,7 +58,7 @@ Index: fw
 # /opt/splunk/etc/system/local/inputs.conf
 [udp://514]
 sourcetype = fortinet:fortigate:syslog
-index = fw
+index = fortianalyzer
 connection_host = ip
 no_appending_timestamp = true
 ```
@@ -52,7 +71,7 @@ sudo /opt/splunk/bin/splunk restart
 
 #### 3. 끝! 🎉
 
-FortiAnalyzer에서 Syslog만 보내면 자동으로 `index=fw`에 저장됩니다.
+FortiAnalyzer에서 Syslog만 보내면 자동으로 `index=fortianalyzer`에 저장됩니다.
 
 ---
 
@@ -98,7 +117,7 @@ Settings → Data Inputs → HTTP Event Collector → New Token
 
 Name: fortianalyzer-hec
 Source type: _json
-Index: fortigate_security
+Index: fortianalyzer
 ```
 
 **토큰 복사**: `xxxx-xxxx-xxxx-xxxx`
@@ -167,7 +186,7 @@ System Settings → Advanced → Log Forwarding → Settings
 Type: HEC
 Server: <Splunk IP>:8088
 Token: <HEC Token>
-Index: fw
+Index: fortianalyzer
 ```
 
 **설정 파일**: `configs/fortianalyzer-hec-direct.conf` 참고
@@ -189,14 +208,14 @@ Index: fw
 **Syslog 방식**:
 ```bash
 1. Settings → Data Inputs → UDP → Port 514
-2. Index: fw
+2. Index: fortianalyzer
 3. 끝
 ```
 
 **HEC 방식**:
 ```bash
 1. Settings → Data Inputs → HEC → New Token
-2. Index: fortigate_security (또는 fw)
+2. Index: fortianalyzer (HEC Production Standard)
 3. 토큰 복사
 4. 끝
 ```

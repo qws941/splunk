@@ -1,0 +1,401 @@
+{
+  "visualizations": {
+    "viz_critical_hardware": {
+      "type": "splunk.table",
+      "options": {
+        "backgroundColor": "#FFEBEE",
+        "count": 20,
+        "rowNumbers": true
+      },
+      "dataSources": {
+        "primary": "ds_critical_hardware"
+      },
+      "title": "🔴 Critical Hardware Events (24h)"
+    },
+    "viz_resource_alerts": {
+      "type": "splunk.table",
+      "options": {
+        "backgroundColor": "#FFF3E0",
+        "count": 20,
+        "rowNumbers": true
+      },
+      "dataSources": {
+        "primary": "ds_resource_alerts"
+      },
+      "title": "⚠️ Resource Usage Critical (CPU/Memory/Session > 80%)"
+    },
+    "viz_ha_events": {
+      "type": "splunk.table",
+      "options": {
+        "backgroundColor": "#E3F2FD",
+        "count": 20,
+        "rowNumbers": true
+      },
+      "dataSources": {
+        "primary": "ds_ha_events"
+      },
+      "title": "🔵 HA Events (Failover + Split Brain)"
+    },
+    "viz_network_events": {
+      "type": "splunk.table",
+      "options": {
+        "backgroundColor": "#F3E5F5",
+        "count": 30,
+        "rowNumbers": true
+      },
+      "dataSources": {
+        "primary": "ds_network_events"
+      },
+      "title": "🌐 Network Events (Interface/VPN/BGP/OSPF Down)"
+    },
+    "viz_config_changes": {
+      "type": "splunk.table",
+      "options": {
+        "backgroundColor": "#FFF9E6",
+        "count": 30,
+        "rowNumbers": true
+      },
+      "dataSources": {
+        "primary": "ds_config_changes"
+      },
+      "title": "⚙️ Configuration Changes (Policy/Account/General)"
+    },
+    "viz_disk_alerts": {
+      "type": "splunk.table",
+      "options": {
+        "backgroundColor": "#FCE4EC",
+        "count": 20,
+        "rowNumbers": true
+      },
+      "dataSources": {
+        "primary": "ds_disk_alerts"
+      },
+      "title": "💾 Disk Alerts (Space/RAID/I/O Errors)"
+    },
+    "viz_system_restarts": {
+      "type": "splunk.table",
+      "options": {
+        "backgroundColor": "#FFCDD2",
+        "count": 10,
+        "rowNumbers": true
+      },
+      "dataSources": {
+        "primary": "ds_system_restarts"
+      },
+      "title": "🔄 Unexpected System Restarts"
+    },
+    "viz_resource_limits": {
+      "type": "splunk.table",
+      "options": {
+        "backgroundColor": "#FFCCBC",
+        "count": 10,
+        "rowNumbers": true
+      },
+      "dataSources": {
+        "primary": "ds_resource_limits"
+      },
+      "title": "📊 Resource Limits (Connection/File Descriptor > 90%)"
+    },
+    "viz_alert_summary": {
+      "type": "splunk.singlevalue",
+      "options": {
+        "backgroundColor": "#E8F5E9",
+        "majorValue": "> sparklineValues | lastPoint()",
+        "trendValue": "> sparklineValues | delta(-2)"
+      },
+      "dataSources": {
+        "primary": "ds_alert_summary"
+      },
+      "title": "📈 Total Alerts (24h)"
+    },
+    "viz_devices_with_alerts": {
+      "type": "splunk.pie",
+      "options": {
+        "backgroundColor": "#FFFFFF"
+      },
+      "dataSources": {
+        "primary": "ds_devices_with_alerts"
+      },
+      "title": "장비별 알람 분포"
+    },
+    "viz_alert_timeline": {
+      "type": "splunk.area",
+      "options": {
+        "backgroundColor": "#FFFFFF"
+      },
+      "dataSources": {
+        "primary": "ds_alert_timeline"
+      },
+      "title": "시간별 알람 추이 (24시간)"
+    }
+  },
+  "dataSources": {
+    "ds_critical_hardware": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw type=event (logid=0103040* OR logid=0104* OR msg=*fan*fail* OR msg=*power*fail* OR msg=*temperature*critical* OR msg=*hardware*error*) | search NOT (msg=*update*fail* OR msg=*login*fail* OR msg=*Request*interrupted*) | stats count as event_count, latest(_time) as last_event, values(msg) as messages, values(level) as severities by devname | where event_count>0 | eval last_event_time=strftime(last_event, \"%Y-%m-%d %H:%M:%S\") | sort -last_event | rename devname AS \"장비\", event_count AS \"이벤트수\", last_event_time AS \"마지막발생\", messages AS \"메시지\", severities AS \"심각도\"",
+        "queryParameters": {
+          "earliest": "$time_token.earliest$",
+          "latest": "$time_token.latest$"
+        }
+      },
+      "name": "Critical Hardware"
+    },
+    "ds_resource_alerts": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw type=event (logid=0104* OR msg=*resource* OR msg=*usage*) | eval cpu_usage=if(isnotnull(cpu), cpu, 0), mem_usage=if(isnotnull(memory), memory, 0), session_usage=if(isnotnull(session_count), session_count/session_limit*100, 0) | where cpu_usage>80 OR mem_usage>80 OR session_usage>80 | stats latest(cpu_usage) as cpu, latest(mem_usage) as memory, latest(session_usage) as sessions, latest(_time) as last_check by devname | eval last_check_time=strftime(last_check, \"%Y-%m-%d %H:%M:%S\") | rename devname AS \"장비\", cpu AS \"CPU%\", memory AS \"메모리%\", sessions AS \"세션%\", last_check_time AS \"확인시간\"",
+        "queryParameters": {
+          "earliest": "$time_token.earliest$",
+          "latest": "$time_token.latest$"
+        }
+      },
+      "name": "Resource Alerts"
+    },
+    "ds_ha_events": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw type=event ((logid=\"0103008202\" OR msg=*HA*failover* OR msg=*HA*state*change*) OR (logid=\"0103008205\" OR msg=*split*brain* OR (ha_state=\"active\" AND ha_member_state=\"active\"))) | eval event_type=case(match(msg, \"failover\"), \"Failover\", match(msg, \"split\"), \"Split Brain\", 1=1, \"State Change\") | stats count as event_count, latest(_time) as last_event, latest(ha_state) as current_state, values(msg) as messages by devname, event_type | eval last_event_time=strftime(last_event, \"%Y-%m-%d %H:%M:%S\") | sort -last_event | rename devname AS \"장비\", event_type AS \"유형\", event_count AS \"발생수\", last_event_time AS \"마지막발생\", current_state AS \"현재상태\", messages AS \"메시지\"",
+        "queryParameters": {
+          "earliest": "$time_token.earliest$",
+          "latest": "$time_token.latest$"
+        }
+      },
+      "name": "HA Events"
+    },
+    "ds_network_events": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw type=event ((logid=0105* OR msg=*interface*down* OR msg=*link*down*) OR (logid=0101039* OR msg=*VPN*tunnel*down* OR msg=*IPsec*down*) OR (logid=0101037* OR msg=*BGP*neighbor*down* OR msg=*BGP*state* OR msg=*BGP*peer* OR msg=*OSPF*neighbor*down* OR msg=*OSPF*state*)) | eval event_type=case(match(msg, \"interface\") OR match(msg, \"link\"), \"Interface Down\", match(msg, \"VPN\") OR match(msg, \"IPsec\"), \"VPN Tunnel Down\", match(msg, \"BGP\"), \"BGP Neighbor Down\", match(msg, \"OSPF\"), \"OSPF Neighbor Down\", 1=1, \"Network Issue\") | stats count as event_count, latest(_time) as last_event, values(interface) as interfaces, values(msg) as messages by devname, event_type | eval last_event_time=strftime(last_event, \"%Y-%m-%d %H:%M:%S\") | sort -last_event | rename devname AS \"장비\", event_type AS \"유형\", event_count AS \"발생수\", last_event_time AS \"마지막발생\", interfaces AS \"인터페이스\", messages AS \"메시지\"",
+        "queryParameters": {
+          "earliest": "$time_token.earliest$",
+          "latest": "$time_token.latest$"
+        }
+      },
+      "name": "Network Events"
+    },
+    "ds_config_changes": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw type=event ((logid=\"0100032005\" OR msg=*policy*change* OR msg=*policy*add* OR msg=*policy*delete*) OR (logid=\"0100032003\" OR msg=*admin*account* OR msg=*user*add* OR msg=*user*delete*) OR (logid=0100032* OR logid=0101* OR msg=*config*change*)) | search NOT (msg=*update*fail* OR msg=*login*fail* OR msg=*Request*interrupted*) | eval change_type=case(match(msg, \"policy\"), \"Firewall Policy\", match(msg, \"admin\") OR match(msg, \"user\"), \"Admin Account\", 1=1, \"General Config\") | stats count as change_count, latest(_time) as last_change, latest(user) as admin_user, values(msg) as change_summary by devname, change_type | eval last_change_time=strftime(last_change, \"%Y-%m-%d %H:%M:%S\") | sort -last_change | rename devname AS \"장비\", change_type AS \"변경유형\", change_count AS \"변경수\", last_change_time AS \"마지막변경\", admin_user AS \"관리자\", change_summary AS \"변경내용\"",
+        "queryParameters": {
+          "earliest": "$time_token.earliest$",
+          "latest": "$time_token.latest$"
+        }
+      },
+      "name": "Config Changes"
+    },
+    "ds_disk_alerts": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw type=event ((logid=0103040* OR msg=*disk*full* OR msg=*disk*space*) OR (logid=0103040* OR msg=*RAID*fail* OR msg=*RAID*degrade*) OR (logid=0103040* OR msg=*disk*error* OR msg=*I/O*error*)) | eval alert_type=case(match(msg, \"full\") OR match(msg, \"space\"), \"Disk Space\", match(msg, \"RAID\"), \"RAID Failure\", match(msg, \"I/O\") OR match(msg, \"error\"), \"Disk I/O Error\", 1=1, \"Disk Issue\") | stats count as alert_count, latest(_time) as last_alert, values(disk) as disks, values(msg) as messages by devname, alert_type | eval last_alert_time=strftime(last_alert, \"%Y-%m-%d %H:%M:%S\") | sort -last_alert | rename devname AS \"장비\", alert_type AS \"유형\", alert_count AS \"발생수\", last_alert_time AS \"마지막발생\", disks AS \"디스크\", messages AS \"메시지\"",
+        "queryParameters": {
+          "earliest": "$time_token.earliest$",
+          "latest": "$time_token.latest$"
+        }
+      },
+      "name": "Disk Alerts"
+    },
+    "ds_system_restarts": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw type=event (logid=\"0100032001\" OR msg=*system*restart* OR msg=*reboot* OR msg=*kernel*panic*) | search NOT (msg=*shutdown*command* OR msg=*admin*reboot* OR user=\"*\") | stats count as restart_count, latest(_time) as last_restart, values(msg) as restart_reasons by devname | where restart_count>0 | eval last_restart_time=strftime(last_restart, \"%Y-%m-%d %H:%M:%S\") | sort -last_restart | rename devname AS \"장비\", restart_count AS \"재시작수\", last_restart_time AS \"마지막재시작\", restart_reasons AS \"원인\"",
+        "queryParameters": {
+          "earliest": "$time_token.earliest$",
+          "latest": "$time_token.latest$"
+        }
+      },
+      "name": "System Restarts"
+    },
+    "ds_resource_limits": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw type=event ((logid=0104* OR msg=*connection*limit* OR msg=*session*limit*) OR (logid=0104* OR msg=*file*descriptor* OR msg=*fd*limit*)) | eval limit_type=case(match(msg, \"connection\") OR match(msg, \"session\"), \"Connection Limit\", match(msg, \"file\") OR match(msg, \"fd\"), \"File Descriptor Limit\", 1=1, \"Resource Limit\"), connection_usage=if(isnotnull(current_connections) AND isnotnull(max_connections), current_connections/max_connections*100, 0), fd_usage=if(isnotnull(current_fds) AND isnotnull(max_fds), current_fds/max_fds*100, 0), usage_pct=coalesce(connection_usage, fd_usage, 0) | where usage_pct>90 | stats latest(usage_pct) as usage, latest(_time) as last_check by devname, limit_type | eval last_check_time=strftime(last_check, \"%Y-%m-%d %H:%M:%S\") | sort -usage | rename devname AS \"장비\", limit_type AS \"유형\", usage AS \"사용률%\", last_check_time AS \"확인시간\"",
+        "queryParameters": {
+          "earliest": "$time_token.earliest$",
+          "latest": "$time_token.latest$"
+        }
+      },
+      "name": "Resource Limits"
+    },
+    "ds_alert_summary": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw type=event ((logid=0103* OR logid=0104* OR logid=0105*) OR msg=*fail* OR msg=*down* OR msg=*error* OR msg=*critical*) | search NOT (msg=*update*fail* OR msg=*login*fail*) | timechart span=1h count as alerts",
+        "queryParameters": {
+          "earliest": "$time_token.earliest$",
+          "latest": "$time_token.latest$"
+        }
+      },
+      "name": "Alert Summary"
+    },
+    "ds_devices_with_alerts": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw type=event ((logid=0103* OR logid=0104* OR logid=0105*) OR msg=*fail* OR msg=*down* OR msg=*error* OR msg=*critical*) | search NOT (msg=*update*fail* OR msg=*login*fail*) | stats count as alert_count by devname | rename devname AS \"장비\", alert_count AS \"알람수\"",
+        "queryParameters": {
+          "earliest": "$time_token.earliest$",
+          "latest": "$time_token.latest$"
+        }
+      },
+      "name": "Devices With Alerts"
+    },
+    "ds_alert_timeline": {
+      "type": "ds.search",
+      "options": {
+        "query": "index=fw type=event ((logid=0103* OR logid=0104* OR logid=0105*) OR msg=*fail* OR msg=*down* OR msg=*error* OR msg=*critical*) | search NOT (msg=*update*fail* OR msg=*login*fail*) | eval alert_category=case(match(msg, \"hardware\") OR match(msg, \"fan\") OR match(msg, \"power\"), \"Hardware\", match(msg, \"HA\") OR match(msg, \"failover\"), \"HA\", match(msg, \"interface\") OR match(msg, \"VPN\") OR match(msg, \"BGP\") OR match(msg, \"OSPF\"), \"Network\", match(msg, \"disk\") OR match(msg, \"RAID\"), \"Disk\", match(msg, \"resource\") OR match(msg, \"usage\"), \"Resource\", 1=1, \"Other\") | timechart span=1h count by alert_category",
+        "queryParameters": {
+          "earliest": "$time_token.earliest$",
+          "latest": "$time_token.latest$"
+        }
+      },
+      "name": "Alert Timeline"
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$time_token.earliest$",
+            "latest": "$time_token.latest$"
+          }
+        }
+      }
+    }
+  },
+  "inputs": {
+    "input_time_range": {
+      "type": "input.timerange",
+      "options": {
+        "token": "time_token",
+        "defaultValue": "-24h@h,now"
+      },
+      "title": "시간 범위"
+    }
+  },
+  "layout": {
+    "type": "absolute",
+    "options": {
+      "backgroundColor": "#F5F5F5",
+      "display": "auto-scale",
+      "width": 1440,
+      "height": 3200
+    },
+    "structure": [
+      {
+        "item": "viz_alert_summary",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "w": 480,
+          "h": 200
+        }
+      },
+      {
+        "item": "viz_devices_with_alerts",
+        "type": "block",
+        "position": {
+          "x": 500,
+          "y": 0,
+          "w": 460,
+          "h": 200
+        }
+      },
+      {
+        "item": "viz_alert_timeline",
+        "type": "block",
+        "position": {
+          "x": 980,
+          "y": 0,
+          "w": 460,
+          "h": 200
+        }
+      },
+      {
+        "item": "viz_critical_hardware",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 220,
+          "w": 1440,
+          "h": 350
+        }
+      },
+      {
+        "item": "viz_resource_alerts",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 590,
+          "w": 1440,
+          "h": 350
+        }
+      },
+      {
+        "item": "viz_ha_events",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 960,
+          "w": 1440,
+          "h": 350
+        }
+      },
+      {
+        "item": "viz_network_events",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1330,
+          "w": 1440,
+          "h": 400
+        }
+      },
+      {
+        "item": "viz_config_changes",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1750,
+          "w": 1440,
+          "h": 400
+        }
+      },
+      {
+        "item": "viz_disk_alerts",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 2170,
+          "w": 1440,
+          "h": 350
+        }
+      },
+      {
+        "item": "viz_system_restarts",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 2540,
+          "w": 720,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_resource_limits",
+        "type": "block",
+        "position": {
+          "x": 740,
+          "y": 2540,
+          "w": 700,
+          "h": 300
+        }
+      }
+    ],
+    "globalInputs": ["input_time_range"]
+  },
+  "description": "FortiGate 종합 알람 모니터링 - 17개 알람 카테고리 통합 (Hardware, Resource, HA, Network, Config, Disk, System)",
+  "title": "FortiGate Comprehensive Alerts Dashboard"
+}

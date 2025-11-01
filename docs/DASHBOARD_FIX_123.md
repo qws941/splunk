@@ -6,7 +6,7 @@
 
 **Root Cause**: 19 instances of `dedup` commands using fields that don't exist in FortiGate syslog data.
 
-**Impact**: Dashboard panels showing 0 events or drastically reduced counts despite data existing in `index=fw`.
+**Impact**: Dashboard panels showing 0 events or drastically reduced counts despite data existing in `index=fortianalyzer`.
 
 ---
 
@@ -18,7 +18,7 @@ FortiGate logs ingested via **Syslog** do NOT contain the `sessionid` field. Thi
 
 When Splunk executes:
 ```spl
-index=fw type="traffic"
+index=fortianalyzer type="traffic"
 | dedup sessionid devname
 | stats count
 ```
@@ -52,7 +52,7 @@ index=fw type="traffic"
 **Before** (Lines 46, 63, 82, etc.):
 ```xml
 <query>
-index=fw type="traffic" devname=$device_type$
+index=fortianalyzer type="traffic" devname=$device_type$
 | dedup sessionid devname
 | stats count
 </query>
@@ -61,7 +61,7 @@ index=fw type="traffic" devname=$device_type$
 **After**:
 ```xml
 <query>
-index=fw type="traffic" devname=$device_type$
+index=fortianalyzer type="traffic" devname=$device_type$
 | stats count
 </query>
 ```
@@ -75,7 +75,7 @@ index=fw type="traffic" devname=$device_type$
 **Before** (Line 192):
 ```xml
 <query>
-index=fw cfgpath=* devname=$device_type$
+index=fortianalyzer cfgpath=* devname=$device_type$
 | eval config_hash = md5(cfgpath . policy_obj . policy_attr . user . _time)
 | dedup config_hash _time span=1m
 | table _time, devname, user, action, policy_obj, policy_attr, access, ip
@@ -85,7 +85,7 @@ index=fw cfgpath=* devname=$device_type$
 **After**:
 ```xml
 <query>
-index=fw cfgpath=* devname=$device_type$
+index=fortianalyzer cfgpath=* devname=$device_type$
 | eval config_hash = md5(cfgpath . policy_obj . policy_attr . user . _time)
 | stats first(_time) as _time, first(devname) as devname, first(user) as user, first(action) as action, first(policy_obj) as policy_obj, first(policy_attr) as policy_attr, first(access) as access, first(ip) as ip by config_hash
 | sort -_time
@@ -102,7 +102,7 @@ index=fw cfgpath=* devname=$device_type$
 **Before** (Lines 251, 282):
 ```xml
 <query>
-index=fw (cfgpath="firewall.address" OR cfgpath="firewall.addrgrp")
+index=fortianalyzer (cfgpath="firewall.address" OR cfgpath="firewall.addrgrp")
 | dedup cfgobj user _time span=1m
 | table _time, cfgobj, cfgattr, user, action, devname
 </query>
@@ -111,7 +111,7 @@ index=fw (cfgpath="firewall.address" OR cfgpath="firewall.addrgrp")
 **After**:
 ```xml
 <query>
-index=fw (cfgpath="firewall.address" OR cfgpath="firewall.addrgrp")
+index=fortianalyzer (cfgpath="firewall.address" OR cfgpath="firewall.addrgrp")
 | eval obj_hash = md5(cfgobj . user . _time)
 | stats first(_time) as _time, first(cfgobj) as cfgobj, first(cfgattr) as cfgattr, first(user) as user, first(action) as action, first(devname) as devname by obj_hash
 | sort -_time
@@ -216,7 +216,7 @@ Open both dashboards and compare these panels:
 
 ```spl
 # Check raw event count (last 1 hour)
-index=fw earliest=-1h | stats count
+index=fortianalyzer earliest=-1h | stats count
 
 # Should show: 1000+ events (if FortiGate is sending logs)
 ```
@@ -252,7 +252,7 @@ If your setup uses **HTTP Event Collector (HEC)** instead of Syslog:
 
 **How to check your ingestion method**:
 ```spl
-index=fw | head 1 | table sessionid, policyuuid
+index=fortianalyzer | head 1 | table sessionid, policyuuid
 
 # If sessionid/policyuuid exist → You're using HEC → Use original 123.xml
 # If sessionid/policyuuid are null → You're using Syslog → Use 123-fixed.xml
@@ -274,7 +274,7 @@ If you want sessionid for better deduplication:
 
 **Check 1: Verify logs are arriving**
 ```spl
-index=fw earliest=-15m | stats count by sourcetype
+index=fortianalyzer earliest=-15m | stats count by sourcetype
 ```
 
 If count is 0:
@@ -284,7 +284,7 @@ If count is 0:
 
 **Check 2: Verify field extraction**
 ```spl
-index=fw earliest=-15m | head 10 | table _raw, type, devname, srcip, dstip
+index=fortianalyzer earliest=-15m | head 10 | table _raw, type, devname, srcip, dstip
 ```
 
 If fields are null:
@@ -295,7 +295,7 @@ If fields are null:
 ```spl
 # Dashboard uses last 24 hours by default
 # Try shorter range for testing:
-index=fw earliest=-15m | stats count
+index=fortianalyzer earliest=-15m | stats count
 ```
 
 ### Dashboard Panels Still Empty?
@@ -310,7 +310,7 @@ index=fw earliest=-15m | stats count
 2. **Check filter variables**:
    ```xml
    <query>
-   index=fw type="traffic" devname=$device_type$
+   index=fortianalyzer type="traffic" devname=$device_type$
    ```
    Make sure `$device_type$` dropdown is set correctly
 

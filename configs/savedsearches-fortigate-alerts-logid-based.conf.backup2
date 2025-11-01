@@ -1,0 +1,483 @@
+# FortiGate Real-time Alerts - LogID Based Routing
+# All alerts use logid-based filtering (no text matching)
+# Excludes: Login fail (0100032002), Update fail (0100046001/0100046002)
+# Last updated: 2025-11-02
+
+#############################################
+# LogID Reference (From Project + Fortinet Docs)
+#############################################
+# Config Changes:
+#   0100044546: Config change via CLI
+#   0100044547: Config change via GUI
+#
+# Interface Status:
+#   0100032001: Interface link down
+#   0100020007: Link monitor down
+#
+# HA Events:
+#   0100020010: HA state change
+#   0104043544: HA member state change
+#   0104043545: HA configuration change
+#
+# Admin Activity (EXCLUDED from alerts):
+#   0100032002: Admin login failed (EXCLUDED - per user request)
+#
+# System Updates (EXCLUDED from alerts):
+#   0100046001: Firmware/Policy update failed (EXCLUDED - per user request)
+#   0100046002: Policy package install failed (EXCLUDED - per user request)
+#
+# Device/System Events:
+#   0103040*: Device hardware events (fan, power, temp)
+#   0104*: System resource events (CPU, memory, disk)
+#   0105*: Admin activity events (general)
+
+#############################################
+# 1. Config Change Alert (LogID Based)
+#############################################
+
+[FortiGate_Config_Change]
+description = Real-time FortiGate configuration change alerts (logid-based, Block Kit)
+disabled = 0
+
+# Real-time settings
+realtime_schedule = 1
+dispatch.earliest_time = rt
+dispatch.latest_time = rt
+display.page.search.tab = statistics
+request.ui_dispatch_view = search
+
+# Alert settings
+alert.track = 1
+alert.digest_mode = 0
+quantity = 0
+relation = greater than
+
+# Suppress only exact duplicates (30 seconds per event)
+alert.suppress = 1
+alert.suppress.fields = _time, device, user, cfgpath
+alert.suppress.period = 30s
+
+# Slack action
+action.slack = 1
+action.slack.param.channel = #security-firewall-alert
+action.slack.param.message = $result.blockkit_json$
+
+# Search query (logid-based only - NO dedup, each change triggers alert)
+search = index=fw type=event subtype=system \
+    (logid=0100044546 OR logid=0100044547) \
+| eval device = coalesce(devname, "unknown") \
+| eval admin = coalesce(user, "system") \
+| eval config_path = coalesce(cfgpath, "unknown") \
+| eval access_method = case(logid="0100044546", "CLI", logid="0100044547", "GUI", 1=1, coalesce(ui, "N/A")) \
+| eval action_type = coalesce(action, "Modified") \
+| eval object_name = coalesce(cfgobj, "-") \
+| eval details_raw = coalesce(cfgattr, "No details") \
+| eval details = if(len(details_raw) > 150, substr(details_raw, 1, 147) + "...", details_raw) \
+| eval severity = case( \
+    like(config_path, "%firewall.policy%"), "HIGH", \
+    like(config_path, "%vpn.%"), "HIGH", \
+    like(config_path, "%router.%"), "MEDIUM", \
+    1=1, "LOW") \
+| eval color = case(severity="HIGH", "danger", severity="MEDIUM", "warning", 1=1, "good") \
+| eval change_type = case( \
+    like(config_path, "%firewall.policy%"), ":shield: Policy Change", \
+    like(config_path, "%firewall.address%"), ":globe_with_meridians: Address Object", \
+    like(config_path, "%firewall.service%"), ":package: Service Object", \
+    like(config_path, "%system.interface%"), ":electric_plug: Interface Config", \
+    like(config_path, "%router.%"), ":world_map: Routing Change", \
+    like(config_path, "%vpn.%"), ":closed_lock_with_key: VPN Change", \
+    1=1, ":wrench: Configuration Change") \
+| eval timestamp_formatted = strftime(_time, "%Y-%m-%d %H:%M:%S %Z") \
+| eval device_safe = replace(device, "\"", "'") \
+| eval admin_safe = replace(admin, "\"", "'") \
+| eval details_safe = replace(replace(details, "\"", "'"), "\\\\", "/") \
+| eval config_path_safe = replace(config_path, "\"", "'") \
+| eval object_name_safe = replace(object_name, "\"", "'") \
+| eval blockkit_json = "{\"attachments\":[{\"color\":\"" + color + "\",\"blocks\":["
+    + "{\"type\":\"header\",\"text\":{\"type\":\"plain_text\",\"text\":\"" + change_type + "\"}},"
+    + "{\"type\":\"section\",\"fields\":["
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Device:*\\n" + device_safe + "\"},"
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Severity:*\\n" + severity + "\"},"
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Admin:*\\n" + admin_safe + "\"},"
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Method:*\\n" + access_method + "\"}"
+    + "]},"
+    + "{\"type\":\"section\",\"fields\":["
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Config Path:*\\n`" + config_path_safe + "`\"},"
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Object:*\\n" + object_name_safe + "\"}"
+    + "]},"
+    + "{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"*Action:* " + action_type + "\\n*Details:* " + details_safe + "\"}},"
+    + "{\"type\":\"context\",\"elements\":[{\"type\":\"mrkdwn\",\"text\":\":clock3: " + timestamp_formatted + "\"}]}" + "]}]}"
+| table _time, blockkit_json, device_safe, admin_safe, config_path_safe, severity
+
+
+#############################################
+# 2. Interface Status Alert (LogID Based)
+#############################################
+
+[FortiGate_Interface_Status]
+description = Real-time FortiGate interface status alerts (logid-based, Block Kit)
+disabled = 0
+
+# Real-time settings
+realtime_schedule = 1
+dispatch.earliest_time = rt
+dispatch.latest_time = rt
+display.page.search.tab = statistics
+request.ui_dispatch_view = search
+
+# Alert settings
+alert.track = 1
+alert.digest_mode = 0
+quantity = 0
+relation = greater than
+
+# Suppress duplicates (2 min per interface)
+alert.suppress = 1
+alert.suppress.fields = devname, interface
+alert.suppress.period = 2m
+
+# Slack action
+action.slack = 1
+action.slack.param.channel = #security-firewall-alert
+action.slack.param.message = $result.blockkit_json$
+
+# Search query (logid-based only - DOWN events only, UP is informational)
+search = index=fw type=event subtype=system \
+    (logid=0100032001 OR logid=0100020007) \
+| eval device = coalesce(devname, "unknown") \
+| eval interface = coalesce(interface, port, "-") \
+| eval status = case( \
+    logid="0100032001", "DOWN", \
+    logid="0100020007", "LINK_DOWN", \
+    1=1, "UNKNOWN") \
+| eval severity = "HIGH" \
+| eval color = "danger" \
+| eval status_icon = ":red_circle:" \
+| eval reason = coalesce(msg, "No additional details") \
+| eval timestamp_formatted = strftime(_time, "%Y-%m-%d %H:%M:%S %Z") \
+| eval device_safe = replace(device, "\"", "'") \
+| eval interface_safe = replace(interface, "\"", "'") \
+| eval reason_safe = replace(replace(reason, "\"", "'"), "\\\\", "/") \
+| dedup device, interface, status \
+| eval blockkit_json = "{\"attachments\":[{\"color\":\"" + color + "\",\"blocks\":["
+    + "{\"type\":\"header\",\"text\":{\"type\":\"plain_text\",\"text\":\"" + status_icon + " Interface Status: " + status + "\"}},"
+    + "{\"type\":\"section\",\"fields\":["
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Device:*\\n" + device_safe + "\"},"
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Interface:*\\n`" + interface_safe + "`\"},"
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Status:*\\n" + status + "\"},"
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Severity:*\\n" + severity + "\"}"
+    + "]},"
+    + "{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"*Details:*\\n" + reason_safe + "\"}},"
+    + "{\"type\":\"context\",\"elements\":[{\"type\":\"mrkdwn\",\"text\":\":clock3: " + timestamp_formatted + "\"}]}" + "]}]}"
+| table _time, blockkit_json, device_safe, interface_safe, status, severity
+
+
+#############################################
+# 3. HA Status Alert (LogID Based)
+#############################################
+
+[FortiGate_HA_Status]
+description = Real-time FortiGate HA status change alerts (logid-based, Block Kit)
+disabled = 0
+
+# Real-time settings
+realtime_schedule = 1
+dispatch.earliest_time = rt
+dispatch.latest_time = rt
+display.page.search.tab = statistics
+request.ui_dispatch_view = search
+
+# Alert settings
+alert.track = 1
+alert.digest_mode = 0
+quantity = 0
+relation = greater than
+
+# Suppress duplicates (3 min per device/state)
+alert.suppress = 1
+alert.suppress.fields = devname, ha_state
+alert.suppress.period = 3m
+
+# Slack action
+action.slack = 1
+action.slack.param.channel = #security-firewall-alert
+action.slack.param.message = $result.blockkit_json$
+
+# Search query (logid-based only)
+search = index=fw type=event subtype=system \
+    (logid=0100020010 OR logid=0104043544 OR logid=0104043545) \
+| eval device = coalesce(devname, "unknown") \
+| eval ha_state = coalesce(ha_state, to_state, "unknown") \
+| eval from_state = coalesce(from_state, "-") \
+| eval severity = case( \
+    ha_state="standalone", "HIGH", \
+    ha_state="down", "HIGH", \
+    ha_state="master" OR ha_state="primary", "GOOD", \
+    ha_state="slave" OR ha_state="secondary", "GOOD", \
+    1=1, "MEDIUM") \
+| eval color = case(severity="HIGH", "danger", severity="GOOD", "good", 1=1, "warning") \
+| eval status_icon = case( \
+    ha_state="standalone" OR ha_state="down", ":red_circle:", \
+    ha_state="master" OR ha_state="primary", ":large_green_circle:", \
+    ha_state="slave" OR ha_state="secondary", ":large_blue_circle:", \
+    1=1, ":large_yellow_circle:") \
+| eval ha_member = coalesce(member, serial, "-") \
+| eval reason = coalesce(msg, "No additional details") \
+| eval timestamp_formatted = strftime(_time, "%Y-%m-%d %H:%M:%S %Z") \
+| eval device_safe = replace(device, "\"", "'") \
+| eval ha_state_safe = replace(ha_state, "\"", "'") \
+| eval from_state_safe = replace(from_state, "\"", "'") \
+| eval reason_safe = replace(replace(reason, "\"", "'"), "\\\\", "/") \
+| dedup device, ha_state \
+| eval blockkit_json = "{\"attachments\":[{\"color\":\"" + color + "\",\"blocks\":["
+    + "{\"type\":\"header\",\"text\":{\"type\":\"plain_text\",\"text\":\"" + status_icon + " HA Status Change\"}},"
+    + "{\"type\":\"section\",\"fields\":["
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Device:*\\n" + device_safe + "\"},"
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Severity:*\\n" + severity + "\"},"
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Current State:*\\n" + ha_state_safe + "\"},"
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Previous State:*\\n" + from_state_safe + "\"}"
+    + "]},"
+    + "{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"*HA Member:* " + ha_member + "\\n*Details:* " + reason_safe + "\"}},"
+    + "{\"type\":\"context\",\"elements\":[{\"type\":\"mrkdwn\",\"text\":\":clock3: " + timestamp_formatted + "\"}]}" + "]}]}"
+| table _time, blockkit_json, device_safe, ha_state_safe, from_state_safe, severity
+
+
+#############################################
+# 4. Device Events Alert (LogID Based)
+#############################################
+
+[FortiGate_Device_Events]
+description = Real-time FortiGate device hardware events (logid-based, Block Kit)
+disabled = 0
+
+# Real-time settings
+realtime_schedule = 1
+dispatch.earliest_time = rt
+dispatch.latest_time = rt
+display.page.search.tab = statistics
+request.ui_dispatch_view = search
+
+# Alert settings
+alert.track = 1
+alert.digest_mode = 0
+quantity = 0
+relation = greater than
+
+# Suppress duplicates (24 hours per msg - same message only once per day)
+alert.suppress = 1
+alert.suppress.fields = msg
+alert.suppress.period = 1d
+
+# Slack action
+action.slack = 1
+action.slack.param.channel = #security-firewall-alert
+action.slack.param.message = $result.blockkit_json$
+
+# Search query (logid-based - device hardware events)
+search = index=fw type=event subtype=system \
+    logid=0103040* \
+| eval device = coalesce(devname, "unknown") \
+| eval event_type = case( \
+    like(msg, "%fan%"), "Fan Failure", \
+    like(msg, "%power%"), "Power Supply", \
+    like(msg, "%temperature%"), "Temperature", \
+    like(msg, "%hardware%"), "Hardware Error", \
+    1=1, "Device Event") \
+| eval severity = case( \
+    like(msg, "%fail%") OR like(msg, "%critical%"), "HIGH", \
+    like(msg, "%warning%"), "MEDIUM", \
+    1=1, "LOW") \
+| eval color = case(severity="HIGH", "danger", severity="MEDIUM", "warning", 1=1, "good") \
+| eval icon = case( \
+    event_type="Fan Failure", ":dash:", \
+    event_type="Power Supply", ":electric_plug:", \
+    event_type="Temperature", ":thermometer:", \
+    1=1, ":warning:") \
+| eval description = coalesce(msg, logdesc, "No details") \
+| eval timestamp_formatted = strftime(_time, "%Y-%m-%d %H:%M:%S %Z") \
+| eval device_safe = replace(device, "\"", "'") \
+| eval description_safe = replace(replace(description, "\"", "'"), "\\\\", "/") \
+| dedup device, event_type, severity \
+| eval blockkit_json = "{\"attachments\":[{\"color\":\"" + color + "\",\"blocks\":["
+    + "{\"type\":\"header\",\"text\":{\"type\":\"plain_text\",\"text\":\"" + icon + " Device Event: " + event_type + "\"}},"
+    + "{\"type\":\"section\",\"fields\":["
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Device:*\\n" + device_safe + "\"},"
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Severity:*\\n" + severity + "\"},"
+    + "{\"type\":\"mrkdwn\",\"text\":\"*LogID:*\\n`" + logid + "`\"},"
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Event Type:*\\n" + event_type + "\"}"
+    + "]},"
+    + "{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"*Details:*\\n" + description_safe + "\"}},"
+    + "{\"type\":\"context\",\"elements\":[{\"type\":\"mrkdwn\",\"text\":\":clock3: " + timestamp_formatted + "\"}]}" + "]}]}"
+| table _time, blockkit_json, device_safe, event_type, severity, logid
+
+
+#############################################
+# 5. System Resource Alert (LogID Based)
+#############################################
+
+[FortiGate_System_Resource]
+description = Real-time FortiGate system resource alerts (logid-based, Block Kit)
+disabled = 0
+
+# Real-time settings
+realtime_schedule = 1
+dispatch.earliest_time = rt
+dispatch.latest_time = rt
+display.page.search.tab = statistics
+request.ui_dispatch_view = search
+
+# Alert settings
+alert.track = 1
+alert.digest_mode = 0
+quantity = 0
+relation = greater than
+
+# Suppress duplicates (24 hours per msg - same message only once per day)
+alert.suppress = 1
+alert.suppress.fields = msg
+alert.suppress.period = 1d
+
+# Slack action
+action.slack = 1
+action.slack.param.channel = #security-firewall-alert
+action.slack.param.message = $result.blockkit_json$
+
+# Search query (logid-based - system resource events)
+search = index=fw type=event subtype=system \
+    logid=0104* \
+| eval device = coalesce(devname, "unknown") \
+| eval resource_type = case( \
+    like(msg, "%cpu%") OR like(msg, "%CPU%"), "CPU", \
+    like(msg, "%memory%") OR like(msg, "%Memory%"), "Memory", \
+    like(msg, "%disk%") OR like(msg, "%Disk%"), "Disk", \
+    like(msg, "%session%") OR like(msg, "%Session%"), "Sessions", \
+    1=1, "System Resource") \
+| eval severity = case( \
+    like(msg, "%critical%") OR like(msg, "%high%"), "HIGH", \
+    like(msg, "%warning%") OR like(msg, "%medium%"), "MEDIUM", \
+    1=1, "LOW") \
+| eval color = case(severity="HIGH", "danger", severity="MEDIUM", "warning", 1=1, "good") \
+| eval icon = case( \
+    resource_type="CPU", ":desktop_computer:", \
+    resource_type="Memory", ":brain:", \
+    resource_type="Disk", ":floppy_disk:", \
+    resource_type="Sessions", ":link:", \
+    1=1, ":chart_with_upwards_trend:") \
+| eval description = coalesce(msg, logdesc, "No details") \
+| eval timestamp_formatted = strftime(_time, "%Y-%m-%d %H:%M:%S %Z") \
+| eval device_safe = replace(device, "\"", "'") \
+| eval description_safe = replace(replace(description, "\"", "'"), "\\\\", "/") \
+| dedup device, resource_type, severity \
+| eval blockkit_json = "{\"attachments\":[{\"color\":\"" + color + "\",\"blocks\":["
+    + "{\"type\":\"header\",\"text\":{\"type\":\"plain_text\",\"text\":\"" + icon + " Resource Alert: " + resource_type + "\"}},"
+    + "{\"type\":\"section\",\"fields\":["
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Device:*\\n" + device_safe + "\"},"
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Severity:*\\n" + severity + "\"},"
+    + "{\"type\":\"mrkdwn\",\"text\":\"*LogID:*\\n`" + logid + "`\"},"
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Resource Type:*\\n" + resource_type + "\"}"
+    + "]},"
+    + "{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"*Details:*\\n" + description_safe + "\"}},"
+    + "{\"type\":\"context\",\"elements\":[{\"type\":\"mrkdwn\",\"text\":\":clock3: " + timestamp_formatted + "\"}]}" + "]}]}"
+| table _time, blockkit_json, device_safe, resource_type, severity, logid
+
+
+#############################################
+# 6. Admin Activity Alert (LogID Based)
+# INCLUDING login fail (0100032002) - 1 alert per day per message
+#############################################
+
+[FortiGate_Admin_Activity]
+description = Real-time FortiGate admin activity alerts (logid-based, includes login fail, 1x per day per msg, Block Kit)
+disabled = 0
+
+# Real-time settings
+realtime_schedule = 1
+dispatch.earliest_time = rt
+dispatch.latest_time = rt
+display.page.search.tab = statistics
+request.ui_dispatch_view = search
+
+# Alert settings
+alert.track = 1
+alert.digest_mode = 0
+quantity = 0
+relation = greater than
+
+# Suppress duplicates (24 hours per msg - same message only once per day)
+alert.suppress = 1
+alert.suppress.fields = msg
+alert.suppress.period = 1d
+
+# Slack action
+action.slack = 1
+action.slack.param.channel = #security-firewall-alert
+action.slack.param.message = $result.blockkit_json$
+
+# Search query (logid-based - admin events INCLUDING login fail)
+search = index=fw type=event subtype=system \
+    logid=0105* \
+| eval device = coalesce(devname, "unknown") \
+| eval admin = coalesce(user, "unknown") \
+| eval activity_type = case( \
+    like(msg, "%config%") OR like(msg, "%Config%"), "Configuration", \
+    like(msg, "%login%") OR like(msg, "%Login%"), "Login", \
+    like(msg, "%logout%") OR like(msg, "%Logout%"), "Logout", \
+    like(msg, "%permission%") OR like(msg, "%Permission%"), "Permission", \
+    1=1, "Admin Activity") \
+| eval severity = case( \
+    activity_type="Configuration", "MEDIUM", \
+    activity_type="Permission", "HIGH", \
+    1=1, "LOW") \
+| eval color = case(severity="HIGH", "danger", severity="MEDIUM", "warning", 1=1, "good") \
+| eval icon = case( \
+    activity_type="Configuration", ":gear:", \
+    activity_type="Login", ":key:", \
+    activity_type="Logout", ":door:", \
+    activity_type="Permission", ":shield:", \
+    1=1, ":bust_in_silhouette:") \
+| eval source_ip = coalesce(srcip, ui, "-") \
+| eval description = coalesce(msg, logdesc, "No details") \
+| eval timestamp_formatted = strftime(_time, "%Y-%m-%d %H:%M:%S %Z") \
+| eval device_safe = replace(device, "\"", "'") \
+| eval admin_safe = replace(admin, "\"", "'") \
+| eval description_safe = replace(replace(description, "\"", "'"), "\\\\", "/") \
+| dedup device, admin, activity_type \
+| eval blockkit_json = "{\"attachments\":[{\"color\":\"" + color + "\",\"blocks\":["
+    + "{\"type\":\"header\",\"text\":{\"type\":\"plain_text\",\"text\":\"" + icon + " Admin Activity: " + activity_type + "\"}},"
+    + "{\"type\":\"section\",\"fields\":["
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Device:*\\n" + device_safe + "\"},"
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Admin:*\\n" + admin_safe + "\"},"
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Source IP:*\\n" + source_ip + "\"},"
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Severity:*\\n" + severity + "\"}"
+    + "]},"
+    + "{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"*Details:*\\n" + description_safe + "\"}},"
+    + "{\"type\":\"context\",\"elements\":[{\"type\":\"mrkdwn\",\"text\":\":clock3: " + timestamp_formatted + "\"}]}" + "]}]}"
+| table _time, blockkit_json, device_safe, admin_safe, activity_type, severity
+
+
+#############################################
+# IMPORTANT NOTES
+#############################################
+
+# 1. All alerts use logid-based filtering exclusively (no text matching)
+# 2. EXCLUDED logids (per user request):
+#    - 0100032002: Admin login failed
+#    - 0100046001: Firmware update failed (if exists)
+#    - 0100046002: Policy package install failed
+#
+# 3. To configure Slack action (Web UI):
+#    Settings → Searches, reports, and alerts → Select alert → Edit → Add Actions → Slack
+#
+# 4. Enable/disable alerts:
+#    Edit "disabled = 0" (enabled) or "disabled = 0" (disabled)
+#
+# 5. Monitor performance:
+#    index=_internal source=*scheduler.log savedsearch_name="FortiGate_*"
+#
+# 6. Test manually:
+#    | savedsearch FortiGate_Config_Change
+#    | savedsearch FortiGate_Interface_Status
+#    | savedsearch FortiGate_HA_Status
+#
+# 7. User requested logid 0100046002 to be added for policy package install failure
+#    This logid is documented for EXCLUSION, not as separate alert

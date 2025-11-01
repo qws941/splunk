@@ -1,0 +1,20 @@
+# Ansible Inventory - Example Configuration
+# Copy to inventory.ini and update with your Splunk server details
+
+[splunk_servers]
+localhost ansible_connection=local ansible_host=localhost
+
+[splunk_servers:vars]
+# SSH connection settings (if remote)
+ansible_user=root
+ansible_ssh_private_key_file=~/.ssh/id_rsa
+
+# Splunk configuration
+splunk_home=/opt/splunk
+splunk_user=splunk
+splunk_password=changeme
+
+# For air-gap deployment, plugins must be pre-staged to /tmp/
+# slack-notification-alert_2.3.2.tgz
+# fortinet-fortigate-add-on-for-splunk_1.6.9.tgz
+# splunk-common-information-model-cim_6.2.0.tgz

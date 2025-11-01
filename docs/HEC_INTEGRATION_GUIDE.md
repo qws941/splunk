@@ -56,7 +56,7 @@
          │
          ▼
 ┌──────────────────┐
-│  Splunk Index    │ ◄─── fortigate_security
+│  Splunk Index    │ ◄─── fortianalyzer
 │  (데이터 저장)     │
 └──────────────────┘
          │
@@ -92,7 +92,7 @@
    - ✅ **All Tokens**: Enabled
    - ✅ **Enable SSL**: Yes (프로덕션 필수)
    - ✅ **HTTP Port Number**: `8088` (기본값)
-   - ✅ **Default Index**: `fortigate_security`
+   - ✅ **Default Index**: `fortianalyzer`
    - ❌ **indexer acknowledgement**: Disabled (대부분의 경우)
 
 4. **Save** 클릭
@@ -111,7 +111,7 @@ dedicatedIoThreads = 2
 [http://fortigate-hec]
 disabled = 0
 token = xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-index = fortigate_security
+index = fortianalyzer
 sourcetype = fortigate:security
 ```
 
@@ -125,7 +125,7 @@ sourcetype = fortigate:security
    Token Name: fortigate-hec-token
    Source name override: fortianalyzer
    Source type: fortigate:security
-   Index: fortigate_security
+   Index: fortianalyzer
    ```
 3. **Review → Submit**
 4. **Token 값 복사** (한 번만 표시됨):
@@ -140,7 +140,7 @@ sourcetype = fortigate:security
 curl -k -u admin:changeme \
   https://localhost:8089/servicesNS/admin/splunk_httpinput/data/inputs/http \
   -d name=fortigate-hec \
-  -d index=fortigate_security \
+  -d index=fortianalyzer \
   -d sourcetype=fortigate:security
 
 # 응답에서 token 값 확인
@@ -156,10 +156,10 @@ curl -k -u admin:changeme \
 ### 2.3 인덱스 생성
 
 ```bash
-# fortigate_security 인덱스 생성
+# fortianalyzer 인덱스 생성
 curl -k -u admin:changeme \
   https://localhost:8089/services/data/indexes \
-  -d name=fortigate_security \
+  -d name=fortianalyzer \
   -d datatype=event \
   -d maxDataSizeMB=10000 \
   -d maxHotBuckets=10
@@ -170,10 +170,10 @@ curl -k -u admin:changeme \
 ```ini
 # /opt/splunk/etc/apps/fortigate/local/indexes.conf
 
-[fortigate_security]
-homePath = $SPLUNK_DB/fortigate_security/db
-coldPath = $SPLUNK_DB/fortigate_security/colddb
-thawedPath = $SPLUNK_DB/fortigate_security/thaweddb
+[fortianalyzer]
+homePath = $SPLUNK_DB/fortianalyzer/db
+coldPath = $SPLUNK_DB/fortianalyzer/colddb
+thawedPath = $SPLUNK_DB/fortianalyzer/thaweddb
 maxDataSize = 10000
 maxHotBuckets = 10
 maxWarmDBCount = 300
@@ -208,7 +208,7 @@ SPLUNK_HEC_TOKEN=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 SPLUNK_HEC_SCHEME=https
 
 # Index
-SPLUNK_INDEX_FORTIGATE=fortigate_security
+SPLUNK_INDEX_FORTIGATE=fortianalyzer
 ```
 
 **Cloudflare Workers 배포 (Secrets)**:
@@ -220,7 +220,7 @@ npm run secret:splunk-token     # HEC token 입력
 
 # wrangler.toml (Public variables)
 [vars]
-SPLUNK_INDEX_FORTIGATE = "fortigate_security"
+SPLUNK_INDEX_FORTIGATE = "fortianalyzer"
 ```
 
 ### 3.2 코드 구현 (Zero Dependencies)
@@ -234,7 +234,7 @@ class SplunkHECConnector {
     this.port = env.SPLUNK_HEC_PORT || '8088';
     this.token = env.SPLUNK_HEC_TOKEN;
     this.scheme = env.SPLUNK_HEC_SCHEME || 'https';
-    this.index = env.SPLUNK_INDEX_FORTIGATE || 'fortigate_security';
+    this.index = env.SPLUNK_INDEX_FORTIGATE || 'fortianalyzer';
   }
 
   async sendEvents(events) {
@@ -394,7 +394,7 @@ clearTimeout(timeoutId);
   "host": "fortigate-fw01",
   "source": "fortianalyzer",
   "sourcetype": "fortigate:security",
-  "index": "fortigate_security",
+  "index": "fortianalyzer",
   "event": {
     "severity": "high",
     "src_ip": "192.168.1.100",
@@ -432,7 +432,7 @@ const hecEvents = events.map(e => JSON.stringify({
   time: e.timestamp,
   source: 'fortianalyzer',
   sourcetype: 'fortigate:security',
-  index: 'fortigate_security',
+  index: 'fortianalyzer',
   event: e
 }));
 
@@ -463,7 +463,7 @@ const body = hecEvents.join('\n'); // 개행 문자로 연결
   "time": 1704067200,
   "source": "fortianalyzer",
   "sourcetype": "fortigate:security",
-  "index": "fortigate_security",
+  "index": "fortianalyzer",
   "event": {
     "timestamp": 1704067200,
     "device": "FortiGate-FW01",
@@ -731,7 +731,7 @@ curl -k https://splunk.jclee.me:8088/services/collector/event/1.0 \
     "time": 1704067200,
     "source": "test",
     "sourcetype": "fortigate:security",
-    "index": "fortigate_security",
+    "index": "fortianalyzer",
     "event": {
       "severity": "high",
       "src_ip": "192.168.1.100",
@@ -778,12 +778,12 @@ node scripts/generate-mock-data.js --count=100 --send
 
 ```spl
 # 5. 최근 수신된 이벤트 확인
-index=fortigate_security earliest=-5m
+index=fortianalyzer earliest=-5m
 | head 10
 | table _time, severity, src_ip, dst_ip, event_type
 
 # 6. HEC 통계 확인
-index=_internal source=*metrics.log component=Metrics group=per_index_thruput series=fortigate_security
+index=_internal source=*metrics.log component=Metrics group=per_index_thruput series=fortianalyzer
 | timechart sum(kb) as KB
 ```
 
@@ -940,13 +940,13 @@ Settings → Data Inputs → HTTP Event Collector
 
 1. **인덱스 존재 여부**
    ```spl
-   | eventcount summarize=false index=fortigate_security
+   | eventcount summarize=false index=fortianalyzer
    ```
 
 2. **시간 범위 확장**
    ```spl
    # 지난 24시간으로 확대
-   index=fortigate_security earliest=-24h
+   index=fortianalyzer earliest=-24h
    ```
 
 3. **_internal 로그 확인**
@@ -1046,7 +1046,7 @@ const client = new SplunkHECClient({
   host: 'splunk.jclee.me',
   port: 8088,
   token: process.env.SPLUNK_HEC_TOKEN,
-  index: 'fortigate_security'
+  index: 'fortianalyzer'
 });
 
 const events = [

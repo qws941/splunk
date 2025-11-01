@@ -21,7 +21,7 @@ const config = {
   splunkHecHost: process.env.SPLUNK_HEC_HOST || 'splunk.jclee.me',
   splunkHecPort: process.env.SPLUNK_HEC_PORT || '8088',
   splunkHecToken: process.env.SPLUNK_HEC_TOKEN || 'your_token_here',
-  splunkIndex: process.env.SPLUNK_INDEX_FORTIGATE || 'fortigate_security',
+  splunkIndex: process.env.SPLUNK_INDEX_FORTIGATE || 'fortianalyzer',
   eventCount: 1000,
   sendToSplunk: false,
   outputFile: null

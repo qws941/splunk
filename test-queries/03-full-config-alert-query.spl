@@ -1,0 +1,30 @@
+```spl
+# 3. 전체 설정 변경 Alert 쿼리 (수정 완료 버전)
+# 목적: Alert에서 사용할 최종 쿼리
+# 실행: Splunk 검색창에 붙여넣기 또는 Alert 저장
+
+index=fortianalyzer earliest=-1h type=event subtype=system \
+    (logid=0100044546 OR logid=0100044547) \
+    (cfgpath="firewall.policy*" OR cfgpath="firewall.address*" OR cfgpath="firewall.service*" OR cfgpath="system.interface*" OR cfgpath="router.*" OR cfgpath="vpn.*") \
+| dedup devname, user, cfgpath \
+| eval device = devname \
+| eval admin = coalesce(user, "system") \
+| eval access_method = case(logid="0100044546", "CLI", logid="0100044547", "GUI", 1=1, coalesce(ui, "N/A")) \
+| eval config_path = cfgpath \
+| eval action_type = coalesce(action, "Modified") \
+| eval object_name = coalesce(cfgobj, "-") \
+| eval details = case(isnull(cfgattr), "No details", 1=1, substr(cfgattr, 1, 100)) \
+| eval alert_message = "🔥 FortiGate Config Change - Device: " + device + " | Admin: " + admin + " (" + access_method + ") | Action: " + action_type + " | Path: " + config_path + " | Object: " + object_name + " | Details: " + details \
+| table alert_message, device, admin, config_path
+```
+
+**Alert 설정 시 추가 파라미터**:
+- Schedule: Real-time, Every minute (cron: * * * * *)
+- Trigger: number of events > 0
+- Action: Slack (#security-firewall-alert)
+- Suppress: 15 seconds, fields: user, cfgpath
+
+**Slack 출력 예시**:
+```
+🔥 FortiGate Config Change - Device: FGT-01 | Admin: admin (CLI) | Action: Modified | Path: firewall.policy[10] | Object: policy_10 | Details: srcaddr=all dstaddr=all service=HTTP
+```

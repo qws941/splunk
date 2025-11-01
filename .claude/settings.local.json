@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3:*)",
+      "Bash(chmod:*)",
+      "WebSearch",
+      "WebFetch(domain:docs.splunk.com)",
+      "Read(//home/jclee/**)",
+      "Read(//tmp/**)",
+      "Bash(cat:*)"
+    ]
+  },
+  "outputStyle": "concise"
+}

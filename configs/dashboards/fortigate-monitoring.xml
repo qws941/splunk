@@ -1,0 +1,541 @@
+<form version="1.1">
+  <label>FortiGate Monitoring</label>
+  <description>Configuration Changes + Operational Events</description>
+
+  <fieldset submitButton="true" autoRun="true">
+    <input type="time" token="time_picker">
+      <label>시간 범위</label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+  </fieldset>
+
+  <!-- ========== Alert 제어 섹션 ========== -->
+
+  <!-- Row 0: Alert 상태 및 ON/OFF 제어 -->
+  <row>
+    <panel>
+      <title>⚙️ Slack Alert 제어 (Real-time)</title>
+      <table id="element1">
+        <search>
+          <query>
+| rest /services/saved/searches
+| search title="FortiGate_*"
+| eval status = if(disabled==0, "✅ ON", "🔴 OFF")
+| eval alert_type = case(
+    match(title, "Config_Change"), "설정 변경",
+    match(title, "Critical_Event"), "Critical 이벤트",
+    match(title, "HA_Event"), "HA 이벤트",
+    1=1, "기타")
+| eval channel = "security-firewall-alert"
+| eval window = "rt-30s"
+| eval suppress = "15초"
+| table title, alert_type, status, channel, window, suppress, realtime_schedule
+| rename title AS "Alert 이름", alert_type AS "타입", status AS "상태", channel AS "채널", window AS "윈도우", suppress AS "Suppress", realtime_schedule AS "Real-time"
+          </query>
+          <refresh>30s</refresh>
+          <refreshType>delay</refreshType>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">none</option>
+        <option name="wrap">true</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="상태">
+          <colorPalette type="map">{"✅ ON":#53A051,"🔴 OFF":#DC4E41}</colorPalette>
+        </format>
+      </table>
+      <html>
+        <style>
+          .control-button {
+            display: inline-block;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            text-align: center;
+            min-width: 80px;
+            border: none;
+          }
+          .btn-enable {
+            background-color: #28a745;
+            color: white;
+          }
+          .btn-disable {
+            background-color: #dc3545;
+            color: white;
+          }
+          .btn-enable:hover {
+            background-color: #218838;
+          }
+          .btn-disable:hover {
+            background-color: #c82333;
+          }
+          .alert-row {
+            padding: 15px;
+            border-bottom: 1px solid #ddd;
+            background-color: #f8f9fa;
+            margin-bottom: 10px;
+          }
+          .alert-name {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 8px;
+          }
+          .alert-status {
+            display: inline-block;
+            padding: 3px 8px;
+            margin-left: 10px;
+            border-radius: 3px;
+            font-size: 12px;
+          }
+          .status-enabled {
+            background-color: #d4edda;
+            color: #155724;
+          }
+          .status-disabled {
+            background-color: #f8d7da;
+            color: #721c24;
+          }
+          #status-message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+            display: none;
+          }
+          .success {
+            background-color: #d4edda;
+            color: #155724;
+          }
+          .error {
+            background-color: #f8d7da;
+            color: #721c24;
+          }
+          #alert-controls-container {
+            min-height: 50px;
+          }
+          .loading {
+            text-align: center;
+            padding: 20px;
+            color: #6c757d;
+          }
+        </style>
+
+        <div id="status-message"></div>
+        <div id="alert-controls-container">
+          <div class="loading">⏳ Loading alerts...</div>
+        </div>
+
+        <script>
+          require([
+            'splunkjs/mvc',
+            'splunkjs/mvc/simplexml/ready!'
+          ], function(mvc) {
+
+            // Load existing alerts dynamically
+            function loadAlerts() {
+              var service = mvc.createService();
+              var container = document.getElementById('alert-controls-container');
+
+              service.get(
+                '/servicesNS/nobody/search/saved/searches',
+                { search: 'title=FortiGate_*', count: 100 },
+                function(err, response) {
+                  if (err) {
+                    container.innerHTML = '&lt;div class="error"&gt;❌ Failed to load alerts: ' + err.message + '&lt;/div&gt;';
+                    return;
+                  }
+
+                  var alerts = [];
+                  if (response.data &amp;&amp; response.data.entry) {
+                    alerts = response.data.entry;
+                  }
+
+                  if (alerts.length === 0) {
+                    container.innerHTML = '&lt;div class="loading"&gt;📭 No FortiGate alerts found&lt;/div&gt;';
+                    return;
+                  }
+
+                  // Build dynamic control buttons
+                  var html = '';
+                  alerts.forEach(function(alert) {
+                    var name = alert.name;
+                    var disabled = alert.content.disabled === '1';
+                    var statusClass = disabled ? 'status-disabled' : 'status-enabled';
+                    var statusText = disabled ? '🔴 Disabled' : '✅ Enabled';
+
+                    // Determine icon based on alert name
+                    var icon = '📌';
+                    if (name.indexOf('Config_Change') &gt;= 0) icon = '📝';
+                    else if (name.indexOf('Critical_Event') &gt;= 0) icon = '🔴';
+                    else if (name.indexOf('HA_Event') &gt;= 0) icon = '🔄';
+
+                    html += '&lt;div class="alert-row"&gt;';
+                    html += '&lt;div class="alert-name"&gt;' + icon + ' ' + name;
+                    html += '&lt;span class="alert-status ' + statusClass + '"&gt;' + statusText + '&lt;/span&gt;';
+                    html += '&lt;/div&gt;';
+                    html += '&lt;button class="control-button btn-enable" onclick="toggleAlert(\'' + name + '\', 0)"&gt;ON&lt;/button&gt;';
+                    html += '&lt;button class="control-button btn-disable" onclick="toggleAlert(\'' + name + '\', 1)"&gt;OFF&lt;/button&gt;';
+                    html += '&lt;/div&gt;';
+                  });
+
+                  container.innerHTML = html;
+                }
+              );
+            }
+
+            // Initial load
+            loadAlerts();
+
+            // Toggle alert on/off
+            window.toggleAlert = function(alertName, disabledValue) {
+              var service = mvc.createService();  // Auto-detects current Splunk host
+              var statusDiv = document.getElementById('status-message');
+              var action = disabledValue === 0 ? 'ENABLED' : 'DISABLED';
+
+              statusDiv.innerHTML = '⏳ Processing...';
+              statusDiv.className = '';
+              statusDiv.style.display = 'block';
+
+              service.post(
+                '/servicesNS/nobody/search/saved/searches/' + encodeURIComponent(alertName),
+                { disabled: disabledValue },
+                function(err, response) {
+                  if (err) {
+                    statusDiv.innerHTML = '❌ Error: ' + err.message;
+                    statusDiv.className = 'error';
+                  } else {
+                    statusDiv.innerHTML = '✅ ' + alertName + ' ' + action + ' successfully!';
+                    statusDiv.className = 'success';
+
+                    // Refresh controls and status table
+                    setTimeout(function() {
+                      loadAlerts();  // Reload controls to show updated status
+                      mvc.Components.get('element1').startSearch();
+                    }, 500);
+                  }
+
+                  setTimeout(function() {
+                    statusDiv.style.display = 'none';
+                  }, 3000);
+                }
+              );
+            };
+
+          });
+        </script>
+
+        <p style="margin-top: 20px;"><b>⚙️ Alternative Methods:</b></p>
+        <ul>
+          <li><b>Web UI:</b> Settings → Searches, reports, and alerts → Alert 클릭 → Enable 체크박스</li>
+          <li><b>REST API:</b> <code>curl -k -u admin:password -d 'disabled=0' https://YOUR_SPLUNK_HOST:8089/servicesNS/nobody/search/saved/searches/[ALERT_NAME]</code></li>
+        </ul>
+      </html>
+    </panel>
+  </row>
+
+  <!-- ========== 설정 변경 섹션 ========== -->
+
+  <!-- Row 1: 설정 변경 통계 -->
+  <row>
+    <panel>
+      <title>📝 설정 변경</title>
+      <single>
+        <search>
+          <query>
+index=fortianalyzer earliest=$time_picker.earliest$ latest=$time_picker.latest$ type=event subtype=system (logid=0100044546 OR logid=0100044547 OR cfgpath=*)
+| stats count
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0x53A051","0xF8BE34","0xDC4E41"]</option>
+        <option name="rangeValues">[0,50,100]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>👤 관리자 수</title>
+      <single>
+        <search>
+          <query>
+index=fortianalyzer earliest=$time_picker.earliest$ latest=$time_picker.latest$ type=event subtype=system user=* (logid=0100044546 OR cfgpath=*)
+| stats dc(user) as count
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>⚠️ Warning 이상</title>
+      <single>
+        <search>
+          <query>
+index=fortianalyzer earliest=$time_picker.earliest$ latest=$time_picker.latest$ type=event subtype=system (level=warning OR level=error OR level=critical OR level=alert OR level=emergency)
+| stats count
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0x53A051","0xF8BE34","0xDC4E41"]</option>
+        <option name="rangeValues">[0,10,50]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>🖥️ 장비 수</title>
+      <single>
+        <search>
+          <query>
+index=fortianalyzer earliest=$time_picker.earliest$ latest=$time_picker.latest$ type=event subtype=system
+| stats dc(devname) as count
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </single>
+    </panel>
+  </row>
+
+  <!-- Row 2: 설정 변경 상세 -->
+  <row>
+    <panel>
+      <title>📋 설정 변경 내역 (최근 50개)</title>
+      <table>
+        <search>
+          <query>
+index=fortianalyzer earliest=$time_picker.earliest$ latest=$time_picker.latest$ type=event subtype=system (logid=0100044546 OR logid=0100044547 OR cfgpath=*)
+| eval event_time = strftime(_time, "%Y-%m-%d %H:%M:%S")
+| eval device = coalesce(devname, "Unknown")
+| eval admin = coalesce(user, "system")
+| eval access_method = coalesce(ui, "N/A")
+| eval change_type = case(
+    match(cfgpath, "firewall\.policy") OR match(cfgpath, "firewall\.rule"), "정책",
+    match(cfgpath, "firewall\.address") OR match(cfgpath, "firewall\.addrgrp"), "주소객체",
+    match(cfgpath, "firewall\.service") OR match(cfgpath, "firewall\.servicegrp"), "서비스객체",
+    match(cfgpath, "system\.") OR match(cfgpath, "log\."), "시스템설정",
+    isnotnull(cfgpath), "기타설정",
+    1=1, "설정변경")
+| eval action_type = coalesce(action, "modify")
+| eval object_name = coalesce(cfgobj, "")
+| eval change_detail = if(isnotnull(cfgattr) AND len(cfgattr) &lt; 300, cfgattr, "")
+| eval description = coalesce(logdesc, msg, cfgpath, "Configuration change")
+| eval line1 = "*FortiGate " + change_type + " 변경: " + action_type + "*"
+| eval line2 = "관리자: " + admin
+| eval line3 = "장비: " + device
+| eval line4 = "접속: " + access_method
+| eval line5 = "객체: " + object_name
+| eval line6 = "경로: " + coalesce(cfgpath, "N/A")
+| eval line7 = "변경내용: " + if(isnotnull(change_detail) AND change_detail!="", change_detail, "N/A")
+| eval alert_message = line1 + " | " + line2 + " | " + line3 + " | " + line4 + " | " + line5 + " | " + line6 + " | " + line7
+| fields - line1, line2, line3, line4, line5, line6, line7
+| table event_time, device, admin, access_method, change_type, action_type, object_name, change_detail, alert_message, description, cfgpath, logid
+| rename event_time as "시간", device as "장비", admin as "관리자", access_method as "접속방법", change_type as "변경유형", action_type as "작업", object_name as "객체명", change_detail as "변경상세", alert_message as "알림메시지", description as "설명"
+| head 50
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="count">50</option>
+        <option name="drilldown">cell</option>
+        <option name="wrap">true</option>
+        <option name="rowNumbers">true</option>
+        <format type="color" field="변경유형">
+          <colorPalette type="map">{"정책":#F7BC38,"주소객체":#65A637,"서비스객체":#6DB7C6,"시스템설정":#A569BD,"기타설정":#8B4789,"설정변경":#87CEEB}</colorPalette>
+        </format>
+        <format type="color" field="작업">
+          <colorPalette type="map">{"Delete":#DC4E41,"Add":#53A051,"Edit":#F8BE34,"modify":#87CEEB,"Set":#6DB7C6}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 3: 설정 변경 차트 -->
+  <row>
+    <panel>
+      <title>📊 설정 변경 추이</title>
+      <chart>
+        <search>
+          <query>
+index=fortianalyzer earliest=$time_picker.earliest$ latest=$time_picker.latest$ type=event subtype=system (logid=0100044546 OR cfgpath=*)
+| timechart span=1h count
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.axisTitleY.text">변경 횟수</option>
+        <option name="charting.seriesColors">[0x6DB7C6]</option>
+      </chart>
+    </panel>
+
+    <panel>
+      <title>📊 유형별 통계</title>
+      <chart>
+        <search>
+          <query>
+index=fortianalyzer earliest=$time_picker.earliest$ latest=$time_picker.latest$ type=event subtype=system (logid=0100044546 OR cfgpath=*)
+| eval change_type = case(
+    match(cfgpath, "firewall\.policy") OR match(cfgpath, "firewall\.rule"), "정책",
+    match(cfgpath, "firewall\.address") OR match(cfgpath, "firewall\.addrgrp"), "주소객체",
+    match(cfgpath, "firewall\.service") OR match(cfgpath, "firewall\.servicegrp"), "서비스객체",
+    match(cfgpath, "system\.") OR match(cfgpath, "log\."), "시스템설정",
+    1=1, "기타")
+| stats count by change_type
+| rename change_type as "변경유형"
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.legend.placement">right</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- ========== 운영 이벤트 섹션 ========== -->
+
+  <!-- Row 4: 운영 이벤트 상세 -->
+  <row>
+    <panel>
+      <title>🖥️ Critical 운영 이벤트 (Update/Host Fail 제외, 최근 50개)</title>
+      <table>
+        <search>
+          <query>
+index=fortianalyzer earliest=$time_picker.earliest$ latest=$time_picker.latest$ type=event subtype=system level=critical logid!=0100044546 logid!=0100044547 NOT cfgpath=*
+| search NOT msg="*Update Fail*" NOT msg="*Host Fail*"
+| eval event_time = strftime(_time, "%Y-%m-%d %H:%M:%S")
+| eval device = coalesce(devname, "Unknown")
+| eval severity = coalesce(level, "critical")
+| eval event_type = case(
+    match(logid, "^0104"), "시스템상태",
+    match(logid, "^0103"), "HA이벤트",
+    match(logid, "^0105"), "인터페이스",
+    match(logid, "^0106"), "성능통계",
+    match(logid, "^0107"), "로그",
+    match(logid, "^0108"), "인증",
+    match(logid, "^0109"), "VPN",
+    1=1, "기타")
+| eval description = coalesce(logdesc, msg, "Critical event")
+| eval line1 = "*FortiGate " + upper(severity) + " - " + event_type + "*"
+| eval line2 = "장비: " + device
+| eval line3 = "LogID: " + logid
+| eval line4 = "설명: " + description
+| eval alert_message = line1 + " | " + line2 + " | " + line3 + " | " + line4
+| fields - line1, line2, line3, line4
+| table event_time, device, event_type, severity, logid, description, alert_message
+| rename event_time as "시간", device as "장비", event_type as "이벤트유형", severity as "심각도", description as "설명", alert_message as "알림메시지"
+| head 50
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="count">50</option>
+        <option name="drilldown">cell</option>
+        <option name="wrap">true</option>
+        <option name="rowNumbers">true</option>
+        <format type="color" field="심각도">
+          <colorPalette type="map">{"emergency":#DC4E41,"alert":#DC4E41,"critical":#DC4E41,"error":#F8BE34,"warning":#F7BC38,"notice":#6DB7C6,"information":#53A051,"info":#53A051,"debug":#87CEEB}</colorPalette>
+        </format>
+        <format type="color" field="이벤트유형">
+          <colorPalette type="map">{"시스템상태":#6DB7C6,"HA이벤트":#F7BC38,"인터페이스":#65A637,"성능통계":#A569BD,"로그":#87CEEB,"인증":#F8BE34,"VPN":#8B4789,"기타":#CCCCCC}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 5: 운영 이벤트 차트 -->
+  <row>
+    <panel>
+      <title>📈 이벤트 추이</title>
+      <chart>
+        <search>
+          <query>
+index=fortianalyzer earliest=$time_picker.earliest$ latest=$time_picker.latest$ type=event subtype=system logid!=0100044546 logid!=0100044547 NOT cfgpath=*
+| timechart span=1h count
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.axisTitleY.text">이벤트 수</option>
+        <option name="charting.seriesColors">[0x6DB7C6]</option>
+      </chart>
+    </panel>
+
+    <panel>
+      <title>⚠️ 심각도별 분포</title>
+      <chart>
+        <search>
+          <query>
+index=fortianalyzer earliest=$time_picker.earliest$ latest=$time_picker.latest$ type=event subtype=system logid!=0100044546 logid!=0100044547 NOT cfgpath=*
+| eval severity = coalesce(level, "info")
+| stats count by severity
+| rename severity as "심각도"
+| sort -count
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.axisTitleY.text">이벤트 수</option>
+        <option name="charting.seriesColors">[0xF7BC38,0xDC4E41,0x53A051,0x6DB7C6]</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Row 6: Critical/Error 이벤트 -->
+  <row>
+    <panel>
+      <title>🚨 Critical 이벤트만 (Update/Host Fail 제외, 최근 30개)</title>
+      <table>
+        <search>
+          <query>
+index=fortianalyzer earliest=$time_picker.earliest$ latest=$time_picker.latest$ type=event subtype=system level=critical
+| search NOT msg="*Update Fail*" NOT msg="*Host Fail*"
+| eval event_time = strftime(_time, "%Y-%m-%d %H:%M:%S")
+| eval device = coalesce(devname, "Unknown")
+| eval severity = coalesce(level, "critical")
+| eval event_type = case(
+    match(logid, "^0103"), "HA",
+    match(logid, "^0104"), "시스템",
+    match(logid, "^0105"), "인터페이스",
+    match(logid, "^0106"), "성능",
+    1=1, "기타")
+| eval description = coalesce(logdesc, msg, "Critical event")
+| eval line1 = "*FortiGate " + upper(severity) + " - " + event_type + "*"
+| eval line2 = "장비: " + device
+| eval line3 = "LogID: " + logid
+| eval line4 = "설명: " + description
+| eval alert_message = line1 + " | " + line2 + " | " + line3 + " | " + line4
+| fields - line1, line2, line3, line4
+| table event_time, device, severity, logid, description, alert_message
+| rename event_time as "시간", device as "장비", severity as "심각도", description as "설명", alert_message as "알림메시지"
+| head 30
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="count">30</option>
+        <option name="drilldown">cell</option>
+        <option name="wrap">true</option>
+        <option name="rowNumbers">true</option>
+        <format type="color" field="심각도">
+          <colorPalette type="map">{"emergency":#DC4E41,"alert":#DC4E41,"critical":#DC4E41,"error":#F8BE34}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+</form>

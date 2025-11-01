@@ -1,0 +1,342 @@
+<form version="1.1" theme="dark">
+  <label>🔐 FMG/FAZ Security Dashboard (Optimized)</label>
+  <description>FortiManager &amp; FortiAnalyzer Monitoring | Slack Alerts Enabled</description>
+
+  <fieldset submitButton="false" autoRun="true">
+    <input type="time" token="time_picker" searchWhenChanged="true">
+      <label>⏰ 시간 범위</label>
+      <default>
+        <earliest>-1h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="dropdown" token="device_type" searchWhenChanged="true">
+      <label>🔧 장비 유형</label>
+      <choice value="*">전체</choice>
+      <choice value="FortiGate*">FortiGate</choice>
+      <choice value="FortiManager*">FortiManager</choice>
+      <choice value="FortiAnalyzer*">FortiAnalyzer</choice>
+      <default>*</default>
+    </input>
+    <input type="dropdown" token="action_filter" searchWhenChanged="true">
+      <label>🚦 방화벽 동작</label>
+      <choice value="*">전체</choice>
+      <choice value="accept">허용 (Accept)</choice>
+      <choice value="deny">차단 (Deny)</choice>
+      <choice value="drop">드롭 (Drop)</choice>
+      <default>*</default>
+    </input>
+  </fieldset>
+
+  <!-- Row 1: 핵심 지표 (KPI) -->
+  <row>
+    <panel>
+      <single>
+        <title>📊 전체 이벤트</title>
+        <search>
+          <query>
+index=fw devname=$device_type$
+| stats count
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="numberPrecision">0</option>
+        <option name="useThousandSeparators">1</option>
+        <option name="underLabel">Total Events</option>
+      </single>
+    </panel>
+
+    <panel>
+      <single>
+        <title>✅ 허용 트래픽</title>
+        <search>
+          <query>
+index=fw devname=$device_type$ (action=accept OR action=allowed OR action=permit)
+| stats count
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorBy">value</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x53A051"]</option>
+        <option name="useColors">1</option>
+        <option name="underLabel">Allowed</option>
+      </single>
+    </panel>
+
+    <panel>
+      <single>
+        <title>🚫 차단 트래픽</title>
+        <search>
+          <query>
+index=fw devname=$device_type$ (action=deny OR action=drop OR action=blocked OR action=close)
+| stats count
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorBy">value</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0xDC4E41"]</option>
+        <option name="useColors">1</option>
+        <option name="underLabel">Blocked</option>
+      </single>
+    </panel>
+
+    <panel>
+      <single>
+        <title>🛡️ 활성 정책 수</title>
+        <search>
+          <query>
+index=fw type=traffic policyid=* devname=$device_type$
+| stats dc(policyid) as policies
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="numberPrecision">0</option>
+        <option name="underLabel">Active Policies</option>
+      </single>
+    </panel>
+
+    <panel>
+      <single>
+        <title>📈 차단율</title>
+        <search>
+          <query>
+index=fw type=traffic devname=$device_type$
+| stats count(eval(action="deny" OR action="drop")) as blocked, count as total
+| eval percentage = round((blocked/total)*100, 2)
+| fields percentage
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="numberPrecision">2</option>
+        <option name="unit">%</option>
+        <option name="underLabel">Block Rate</option>
+        <option name="colorBy">value</option>
+        <option name="colorMode">block</option>
+        <option name="rangeValues">[0,5,10,20]</option>
+        <option name="rangeColors">["0x53A051","0xF1813F","0xDC4E41","0x9E2520"]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+
+  <!-- Row 2: 시간대별 트래픽 추이 -->
+  <row>
+    <panel>
+      <title>📊 시간대별 트래픽 추이</title>
+      <chart>
+        <search>
+          <query>
+index=fw devname=$device_type$
+| timechart span=5m count by action limit=10
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.axisTitleX.text">시간</option>
+        <option name="charting.axisTitleY.text">이벤트 수</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.drilldown">none</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Row 4: 정책 관리 (통합) - 트래픽 + 변경 이력 -->
+  <row>
+    <panel>
+      <title>🔝 정책별 트래픽 (Top 10)</title>
+      <table>
+        <search>
+          <query>
+index=fw type=traffic policyid=* action=$action_filter$ devname=$device_type$
+| stats count as hits,
+        sum(sentbyte) as sent,
+        sum(rcvdbyte) as rcvd,
+        dc(srcip) as unique_src,
+        dc(dstip) as unique_dst
+        by policyid, policyname
+| eval total_gb = round((sent+rcvd)/1073741824, 2)
+| sort -hits limit=10
+| table policyid, policyname, hits, total_gb, unique_src, unique_dst
+| rename policyid as "정책 ID", policyname as "정책 이름", hits as "히트 수",
+         total_gb as "트래픽(GB)", unique_src as "출발지 수", unique_dst as "목적지 수"
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+
+    <panel>
+      <title>⚙️ FMG/FAZ 설정 변경 이력 (주소/서비스/정책)</title>
+      <table>
+        <search>
+          <query>
+index=fw (cfgpath=firewall.policy OR cfgpath=firewall.rule OR cfgpath=firewall.address OR cfgpath=firewall.addrgrp OR cfgpath=firewall.service OR cfgpath=firewall.servicegrp OR logid=0100044547 OR logid=0100044546 OR logid=0100032001 OR logid=0100032002)
+| eval config_hash = md5(cfgpath . policy_obj . policy_attr . user . _time)
+| stats first(_time) as _time,
+        first(devname) as devname,
+        first(user) as user,
+        first(action) as action,
+        first(cfgpath) as cfgpath,
+        first(policy_obj) as policy_obj,
+        first(policy_attr) as policy_attr,
+        first(ip) as ip
+        by config_hash
+| eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
+| eval mgmt_source = case(
+    match(devname, "FortiManager"), "🔧 FortiManager",
+    match(devname, "FortiAnalyzer"), "📊 FortiAnalyzer",
+    1=1, "🛡️ FortiGate"
+)
+| eval change_type = case(
+    match(cfgpath, "firewall.policy") OR match(cfgpath, "firewall.rule"), "🛡️ 정책",
+    match(cfgpath, "firewall.address") OR match(cfgpath, "firewall.addrgrp"), "🌐 주소",
+    match(cfgpath, "firewall.service") OR match(cfgpath, "firewall.servicegrp"), "🔌 서비스",
+    1=1, "⚙️ 기타"
+)
+| eval change_detail = case(
+    isnotnull(policy_obj) AND isnotnull(policy_attr), policy_obj . " → " . policy_attr,
+    isnotnull(policy_obj), policy_obj,
+    1=1, "설정 변경"
+)
+| sort -_time limit=20
+| table timestamp, mgmt_source, change_type, user, action, change_detail, ip
+| rename timestamp as "변경 시각", mgmt_source as "관리 출처", change_type as "변경 유형", user as "사용자",
+         action as "작업", change_detail as "변경 내용", ip as "관리 IP"
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">row</option>
+        <option name="count">20</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 6: Top 출발지/목적지 IP -->
+  <row>
+    <panel>
+      <title>🌐 Top 출발지 IP (Source)</title>
+      <table>
+        <search>
+          <query>
+index=fw type=traffic srcip=* devname=$device_type$
+| stats count as connections,
+        sum(sentbyte) as sent_bytes,
+        dc(dstip) as unique_dst,
+        values(action) as actions
+        by srcip
+| eval sent_mb = round(sent_bytes/1048576, 2)
+| sort -connections limit=10
+| table srcip, connections, sent_mb, unique_dst, actions
+| rename srcip as "출발지 IP", connections as "연결 수", sent_mb as "전송량(MB)",
+         unique_dst as "목적지 수", actions as "동작"
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+
+    <panel>
+      <title>🎯 Top 목적지 IP (Destination)</title>
+      <table>
+        <search>
+          <query>
+index=fw type=traffic dstip=* devname=$device_type$
+| stats count as connections,
+        sum(rcvdbyte) as rcvd_bytes,
+        dc(srcip) as unique_src,
+        dc(dstport) as unique_ports
+        by dstip
+| eval rcvd_mb = round(rcvd_bytes/1048576, 2)
+| sort -connections limit=10
+| table dstip, connections, rcvd_mb, unique_src, unique_ports
+| rename dstip as "목적지 IP", connections as "연결 수", rcvd_mb as "수신량(MB)",
+         unique_src as "출발지 수", unique_ports as "포트 수"
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 7: 보안 위협 분석 -->
+  <row>
+    <panel>
+      <title>⚠️ 보안 위협 로그 (IPS/UTM)</title>
+      <table>
+        <search>
+          <query>
+index=fw (type=utm OR type=ips OR attack=* OR threat=*) devname=$device_type$
+| eval severity_level = case(
+    level="critical" OR level="emergency", "🔴 Critical",
+    level="alert" OR level="warning", "🟡 High",
+    level="notice", "🟢 Medium",
+    1=1, "⚪ Low"
+)
+| stats count as event_count,
+        dc(srcip) as unique_sources,
+        values(attack) as attacks,
+        values(threat) as threats
+        by severity_level
+| sort -event_count
+| table severity_level, event_count, unique_sources, attacks, threats
+| rename severity_level as "위협 수준", event_count as "이벤트 수",
+         unique_sources as "출발지 수", attacks as "공격 유형", threats as "위협 유형"
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">row</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 8: 상세 로그 (최근 100건) -->
+  <row>
+    <panel>
+      <title>📋 최근 로그 (Latest 100 Events)</title>
+      <table>
+        <search>
+          <query>
+index=fw devname=$device_type$ action=$action_filter$
+| eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
+| table timestamp, devname, srcip, srcport, dstip, dstport, action, policyid, service, app
+| rename timestamp as "시각", devname as "장비", srcip as "출발지", srcport as "출발지포트",
+         dstip as "목적지", dstport as "목적지포트", action as "동작",
+         policyid as "정책ID", service as "서비스", app as "애플리케이션"
+| head 100
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">row</option>
+        <option name="count">20</option>
+        <option name="showPager">true</option>
+      </table>
+    </panel>
+  </row>
+
+</form>

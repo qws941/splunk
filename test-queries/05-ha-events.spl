@@ -1,0 +1,26 @@
+```spl
+# 5. HA (High Availability) 이벤트 확인
+# 목적: HA 장애, Failover, Sync 실패 확인
+# 실행: Splunk 검색창에 붙여넣기
+
+index=fortianalyzer earliest=-24h type=event subtype=system logid=0103* \
+| dedup devname, logid, level \
+| eval device = devname \
+| eval log_id = logid \
+| eval severity = level \
+| eval description = coalesce(logdesc, msg, "HA event occurred") \
+| eval icon = case(level="critical", "🔴", level="error", "🟠", level="warning", "🟡", 1=1, "🔵") \
+| eval alert_message = icon + " FortiGate HA Event - Device: " + device + " | Severity: " + severity + " | LogID: " + log_id + " | Description: " + description \
+| table _time, alert_message, device, log_id, severity, description
+```
+
+**확인할 것**:
+- HA 이벤트가 있나요?
+- Severity 분포는? (critical/error/warning/info)
+- Failover 이벤트가 있나요?
+
+**주요 HA LogID**:
+- 0103008001: HA sync failed
+- 0103008002: HA member down
+- 0103008003: HA failover
+- 0103008004: HA member up

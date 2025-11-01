@@ -1,4 +1,0 @@
-ip,vt_score,malicious_votes,suspicious_votes,harmless_votes,last_analysis_date
-192.168.1.100,9,18,3,0,2025-10-23
-203.0.113.50,7,14,5,2,2025-10-23
-198.51.100.75,5,10,8,3,2025-10-22

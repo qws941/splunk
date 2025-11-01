@@ -1,0 +1,5 @@
+index=fw earliest=-7d
+| dedup logid, type, subtype, devname, cfgpath, interface, user
+| table _time, logid, type, subtype, level, devname, user, srcip, dstip, action, cfgpath, cfgobj, cfgattr, interface, port, msg
+| sort logid
+| head 1000

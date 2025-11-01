@@ -3,7 +3,7 @@
 # Compares data counts between original and fixed dashboard
 
 SPLUNK_HOST="${SPLUNK_HOST:-localhost}"
-SPLUNK_PORT="${SPLUNK_PORT:-8089}"
+SPLUNK_PORT="${SPLUNK_PORT:-8065}"
 SPLUNK_USER="${SPLUNK_USER:-admin}"
 
 if [ -z "${SPLUNK_PASSWORD}" ]; then

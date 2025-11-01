@@ -1,0 +1,73 @@
+### FortiGate 7.4.5 대시보드 v2 테스트 쿼리
+### (실제 로그 구조 기반 - type=event subtype=system)
+
+## 1. Event System 로그 확인 (기본)
+index=fw earliest=-1h type=event subtype=system
+| head 10
+| table _time, devname, type, subtype, logid, cfgpath, user, action, logdesc, msg
+
+## 2. 설정 변경 로그만 (LogID 기반)
+index=fw earliest=-1h type=event subtype=system (logid=0100044546 OR logid=0100044547)
+| head 20
+| table _time, devname, logid, cfgpath, user, action, logdesc, msg
+
+## 3. cfgpath 필드가 있는 로그만
+index=fw earliest=-1h type=event subtype=system cfgpath=*
+| head 20
+| table _time, devname, cfgpath, user, action, logdesc
+
+## 4. cfgpath 경로별 통계
+index=fw earliest=-24h type=event subtype=system cfgpath=*
+| stats count by cfgpath
+| sort -count
+| head 20
+
+## 5. Policy 변경 로그 (firewall.policy)
+index=fw earliest=-24h type=event subtype=system cfgpath=firewall.policy*
+| table _time, devname, user, action, cfgpath, logdesc, msg
+
+## 6. Address 객체 변경 (firewall.address)
+index=fw earliest=-24h type=event subtype=system cfgpath=firewall.address*
+| table _time, devname, user, action, cfgpath, logdesc, msg
+
+## 7. Service 객체 변경 (firewall.service)
+index=fw earliest=-24h type=event subtype=system cfgpath=firewall.service*
+| table _time, devname, user, action, cfgpath, logdesc, msg
+
+## 8. 작업 유형별 통계 (Add/Edit/Delete)
+index=fw earliest=-24h type=event subtype=system (logid=0100044546 OR cfgpath=*)
+| stats count by action
+| sort -count
+
+## 9. 관리자별 변경 횟수
+index=fw earliest=-24h type=event subtype=system user=* (logid=0100044546 OR cfgpath=*)
+| stats count by user
+| sort -count
+| head 10
+
+## 10. 최근 1시간 원본 로그 1개 (모든 필드 확인)
+index=fw earliest=-1h type=event subtype=system (logid=0100044546 OR cfgpath=*)
+| head 1
+| transpose
+| rename column AS "필드명", "row 1" AS "값"
+| where isnotnull(값) AND 값 != ""
+
+---
+
+### 예상되는 결과:
+
+**정상적인 경우**:
+- 쿼리 1: Event system 로그 10개 표시
+- 쿼리 2: LogID 0100044546/0100044547 로그 표시
+- 쿼리 3-7: cfgpath별로 분류된 설정 변경 로그
+- 쿼리 8-9: 통계 차트 데이터
+
+**데이터가 없는 경우**:
+1. FortiGate 7.4.5에서 설정 변경 로그를 보내지 않음
+2. Splunk index=fw로 들어오지 않음
+3. 필드 이름이 다름 (쿼리 10으로 확인)
+
+**다음 단계**:
+- 쿼리 1 실행 → 데이터 확인
+- 쿼리 10 실행 → 실제 필드명 확인
+- 결과 공유 → 쿼리 수정

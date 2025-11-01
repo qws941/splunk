@@ -1,5 +1,0 @@
-ip,abuse_score,country,isp,domain,last_reported,total_reports,distinct_users
-192.168.1.100,95,CN,China Telecom,example.cn,2025-10-23 12:00:00,150,25
-203.0.113.50,88,RU,Russian Networks,example.ru,2025-10-23 11:30:00,120,18
-198.51.100.75,72,VN,Vietnam ISP,example.vn,2025-10-23 10:45:00,85,12
-10.0.0.1,0,US,Internal Network,internal.local,2025-10-23 09:00:00,0,0

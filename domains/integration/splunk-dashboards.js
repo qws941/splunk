@@ -11,7 +11,7 @@
  */
 class SplunkDashboards {
   constructor() {
-    this.baseIndex = 'fortigate_security';
+    this.baseIndex = 'fortianalyzer';
     this.fmgIndex = 'fortimanager_direct';
     this.fazIndex = 'fortianalyzer_security';
   }

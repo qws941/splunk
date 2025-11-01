@@ -41,8 +41,8 @@ EVENT_BATCH_SIZE = "100"
 ALERT_THRESHOLD_CRITICAL = "10"
 ALERT_THRESHOLD_HIGH = "50"
 
-# Splunk Index
-SPLUNK_INDEX_FORTIGATE = "fortigate_security"
+# Splunk Index (HEC Production Standard)
+SPLUNK_INDEX_FORTIGATE = "fortianalyzer"
 
 # Monitoring
 METRICS_ENABLED = "true"

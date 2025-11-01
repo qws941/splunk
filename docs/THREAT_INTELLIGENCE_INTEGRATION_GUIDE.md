@@ -217,7 +217,7 @@ case_sensitive_match = false
 # LOOKUP-abuseipdb = abuseipdb_lookup ip AS srcip OUTPUT abuse_score, country, isp
 
 # Manual lookup in SPL queries recommended:
-# index=fw | lookup abuseipdb_lookup ip AS srcip OUTPUT abuse_score, country
+# index=fortianalyzer | lookup abuseipdb_lookup ip AS srcip OUTPUT abuse_score, country
 ```
 
 ---
@@ -228,7 +228,7 @@ case_sensitive_match = false
 
 **Basic IP Reputation Check**:
 ```spl
-index=fw action=deny
+index=fortianalyzer action=deny
 | lookup abuseipdb_lookup ip AS srcip OUTPUT abuse_score, country, isp, is_whitelisted
 | where abuse_score > 50
 | table _time, srcip, dstip, abuse_score, country, isp, action
@@ -253,7 +253,7 @@ index=fw
 
 **Blocked IPs with Abuse Intelligence**:
 ```spl
-index=fw action=deny
+index=fortianalyzer action=deny
 | stats count as block_count by srcip
 | lookup abuseipdb_lookup ip AS srcip OUTPUT abuse_score, country, is_whitelisted
 | where isnotnull(abuse_score)
@@ -275,7 +275,7 @@ index=fw action=deny
 
 **Malicious Files Detected**:
 ```spl
-index=fw filehash=*
+index=fortianalyzer filehash=*
 | lookup virustotal_lookup hash AS filehash OUTPUT detection_rate, malware_type, threat_category
 | where threat_category IN ("malicious", "suspicious")
 | table _time, filename, filehash, detection_rate, malware_type, threat_category, srcip, dstip
@@ -284,7 +284,7 @@ index=fw filehash=*
 
 **File Hash Analysis Summary**:
 ```spl
-index=fw filehash=*
+index=fortianalyzer filehash=*
 | lookup virustotal_lookup hash AS filehash OUTPUT detection_rate, threat_category, vendor_detections
 | stats count by threat_category, malware_type
 | sort - count
@@ -302,7 +302,7 @@ index=fw filehash=*
   <map>
     <search>
       <query><![CDATA[
-index=fw action=deny
+index=fortianalyzer action=deny
 | stats count by srcip
 | lookup abuseipdb_lookup ip AS srcip OUTPUT abuse_score, country, isp
 | where abuse_score > 75
@@ -367,7 +367,7 @@ index=fw
     <!-- Drill-down to detailed events -->
     <drilldown>
       <link target="_blank">
-        /app/search/search?q=search index=fw srcip=$row.srcip$ earliest=-24h | table _time, srcip, dstip, action, msg
+        /app/search/search?q=search index=fortianalyzer srcip=$row.srcip$ earliest=-24h | table _time, srcip, dstip, action, msg
       </link>
     </drilldown>
   </table>
@@ -384,7 +384,7 @@ index=fw
   <chart>
     <search>
       <query><![CDATA[
-index=fw filehash=*
+index=fortianalyzer filehash=*
 | lookup virustotal_lookup hash AS filehash OUTPUT threat_category, malware_type
 | stats count by threat_category, malware_type
 | sort - count
@@ -568,7 +568,7 @@ ls -lh lookups/*.csv
 
 ```bash
 # Test SPL query with lookup
-$SPLUNK_HOME/bin/splunk search "index=fw | lookup abuseipdb_lookup ip AS srcip OUTPUT abuse_score | head 10"
+$SPLUNK_HOME/bin/splunk search "index=fortianalyzer | lookup abuseipdb_lookup ip AS srcip OUTPUT abuse_score | head 10"
 
 # Test dashboard panel rendering
 # Open Splunk Web → Dashboards → FortiGate Security Dashboard

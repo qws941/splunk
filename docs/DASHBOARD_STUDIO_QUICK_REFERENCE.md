@@ -58,7 +58,7 @@ Need beautiful UI, no code? ─────────────► Dashboard
     "ds_id": {
       "type": "ds.search",             // or ds.savedSearch, ds.chain
       "options": {
-        "query": "index=fw | stats count",
+        "query": "index=fortianalyzer | stats count",
         "queryParameters": {
           "earliest": "$time.earliest$",
           "latest": "$time.latest$"
@@ -106,7 +106,7 @@ Need beautiful UI, no code? ─────────────► Dashboard
 ### Use Token in Search
 ```json
 "options": {
-  "query": "index=fw earliest=$global_time.earliest$ latest=$global_time.latest$ | stats count",
+  "query": "index=fortianalyzer earliest=$global_time.earliest$ latest=$global_time.latest$ | stats count",
   "queryParameters": {
     "earliest": "$global_time.earliest$",  // ✅ Proper token substitution
     "latest": "$global_time.latest$"
@@ -159,7 +159,7 @@ $env:user$          - Current username
 {
   "type": "drilldown.openInSearch",
   "options": {
-    "q": "index=fw src_ip=$click.value$",
+    "q": "index=fortianalyzer src_ip=$click.value$",
     "earliest": "-1h",
     "latest": "now"
   }
@@ -276,7 +276,7 @@ $env:user$          - Current username
 "ds_example": {
   "type": "ds.search",
   "options": {
-    "query": "index=fw | stats count",
+    "query": "index=fortianalyzer | stats count",
     "refresh": "1m",              // Auto-refresh interval
     "refreshType": "delay"        // "delay" or "interval"
   }
@@ -339,7 +339,7 @@ $env:user$          - Current username
 ```spl
 | rest /services/saved/searches           ✅ Read-only REST API
 | inputlookup slack_alert_toggle          ✅ Read KV Store
-| tstats count WHERE index=fw             ✅ Fast stats
+| tstats count WHERE index=fortianalyzer             ✅ Fast stats
 ```
 
 ### Write Data
@@ -362,7 +362,7 @@ $env:user$          - Current username
 ### 1. Use `tstats` for Fast Queries
 ```spl
 # ❌ SLOW (full index scan)
-index=fw | stats count by src_ip
+index=fortianalyzer | stats count by src_ip
 
 # ✅ FAST (uses data model acceleration)
 | tstats count WHERE datamodel=Fortinet_Security.Security_Events BY Security_Events.src_ip
@@ -379,7 +379,7 @@ index=fw | stats count by src_ip
 ### 3. Use Summary Indexes
 ```spl
 # ❌ SLOW (recalculate every refresh)
-index=fw earliest=-24h | stats count by src_ip | where count > 100
+index=fortianalyzer earliest=-24h | stats count by src_ip | where count > 100
 
 # ✅ FAST (pre-calculated hourly)
 index=summary_fw marker="correlation_detection=*" | stats sum(count) as count by src_ip
@@ -414,10 +414,10 @@ index=summary_fw marker="correlation_detection=*" | stats sum(count) as count by
 ### 2. Using SPL in `query` Instead of `queryParameters`
 ```json
 // ❌ WRONG (tokens won't substitute)
-"query": "index=fw earliest=$time$ | stats count"
+"query": "index=fortianalyzer earliest=$time$ | stats count"
 
 // ✅ CORRECT (tokens in queryParameters)
-"query": "index=fw | stats count",
+"query": "index=fortianalyzer | stats count",
 "queryParameters": {
   "earliest": "$time.earliest$"
 }
@@ -478,7 +478,7 @@ jq empty configs/dashboards/studio/my-dashboard.json
     "ds_main": {
       "type": "ds.search",
       "options": {
-        "query": "index=fw | stats count",
+        "query": "index=fortianalyzer | stats count",
         "queryParameters": {
           "earliest": "$global_time.earliest$",
           "latest": "$global_time.latest$"

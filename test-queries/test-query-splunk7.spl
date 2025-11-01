@@ -1,0 +1,11 @@
+# Test 1: Basic operational log query
+index=fortianalyzer logid="0104*" earliest=-1h | stats count
+
+# Test 2: Config change query (simplified)
+index=fortianalyzer cfgpath="firewall.*" earliest=-24h | head 10 | table _time, devname, user, cfgpath, action
+
+# Test 3: Latest.xml config change pattern
+index=fortianalyzer (cfgpath="firewall.policy" OR cfgpath="firewall.address") earliest=-24h
+| rex field=_raw "cfgobj=\"(?<policy_obj>[^\"]+)\""
+| table _time, devname, user, cfgpath, policy_obj, action
+| head 10

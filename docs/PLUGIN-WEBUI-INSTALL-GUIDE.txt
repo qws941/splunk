@@ -1,0 +1,62 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📦 Splunk 플러그인 설치 가이드 (Web UI)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Docker cp 명령어 오류로 인해 Web UI를 통한 설치를 권장합니다.
+
+설치 단계:
+-----------
+
+1. Splunk Web UI 접속
+   URL: http://localhost:8800
+   계정: admin / (your password)
+
+2. 플러그인 설치 화면으로 이동
+   Apps → Manage Apps → Install app from file
+
+3. 첫 번째 플러그인 설치
+   Browse 클릭 → 다음 파일 선택:
+   /home/jclee/app/splunk/plugins/slack-notification-alert_232.tgz
+   
+   Upload 클릭
+
+4. 두 번째 플러그인 설치
+   다시 "Install app from file" 클릭
+   Browse → 다음 파일 선택:
+   /home/jclee/app/splunk/plugins/fortinet-fortigate-add-on-for-splunk_169.tgz
+   
+   Upload 클릭
+
+5. 세 번째 플러그인 설치
+   다시 "Install app from file" 클릭
+   Browse → 다음 파일 선택:
+   /home/jclee/app/splunk/plugins/splunk-common-information-model-cim_620.tgz
+   
+   Upload 클릭
+
+6. Splunk 재시작
+   Settings → Server Controls → Restart Splunk
+   
+   또는 명령어:
+   docker restart splunk-test
+
+7. 설치 확인
+   Apps → Manage Apps 에서 다음 앱 확인:
+   - Slack Notification Alert
+   - Fortinet FortiGate Add-on for Splunk  
+   - Splunk Common Information Model (CIM)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+설치 후 설정 (Slack 플러그인)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Settings → Alert actions → Setup Slack Alerts
+
+2. Webhook URL 입력:
+   https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+
+3. 테스트:
+   Search & Reporting에서 다음 쿼리 실행:
+   | sendalert slack param.channel="#test" param.message="테스트"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

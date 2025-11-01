@@ -1,0 +1,295 @@
+<form version="1.1" theme="dark">
+  <label>FortiGate Alert Format Test Dashboard</label>
+  <description>Real-time alert testing - Config Changes &amp; Interface Status</description>
+
+  <fieldset submitButton="false" autoRun="true">
+    <input type="time" token="time_token">
+      <label>Time Range</label>
+      <default>
+        <earliest>rt-5m</earliest>
+        <latest>rt</latest>
+      </default>
+    </input>
+
+    <input type="dropdown" token="severity_filter">
+      <label>Severity Filter</label>
+      <choice value="*">All</choice>
+      <choice value="HIGH">High</choice>
+      <choice value="MEDIUM">Medium</choice>
+      <choice value="LOW">Low</choice>
+      <choice value="GOOD">Good</choice>
+      <default>*</default>
+    </input>
+  </fieldset>
+
+  <!-- Row 1: Real-time Statistics -->
+  <row>
+    <panel>
+      <title>Config Changes (Last 5 min)</title>
+      <single>
+        <search>
+          <query>
+index=fw type=event subtype=system
+    (logid=0100044546 OR logid=0100044547)
+| stats count
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>30s</refresh>
+          <refreshType>delay</refreshType>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="numberPrecision">0</option>
+        <option name="rangeColors">["0x65A637","0x6DB7C6","0xF7BC38","0xF58F39","0xD93F3C"]</option>
+        <option name="rangeValues">[0,5,10,20]</option>
+        <option name="underLabel">Config Events</option>
+        <option name="useColors">1</option>
+        <option name="useThousandSeparators">1</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>Interface Status Changes (Last 5 min)</title>
+      <single>
+        <search>
+          <query>
+index=fw type=event subtype=system
+    (logid=0100032001 OR logid=0100020007)
+| stats count
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>30s</refresh>
+          <refreshType>delay</refreshType>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="numberPrecision">0</option>
+        <option name="rangeColors">["0x65A637","0x6DB7C6","0xF7BC38","0xF58F39","0xD93F3C"]</option>
+        <option name="rangeValues">[0,3,6,10]</option>
+        <option name="underLabel">Interface Events</option>
+        <option name="useColors">1</option>
+        <option name="useThousandSeparators">1</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>High Severity Alerts</title>
+      <single>
+        <search>
+          <query>
+index=fw type=event subtype=system
+    ((logid=0100044546 OR logid=0100044547) OR (logid=0100032001 OR logid=0100020007))
+| eval severity = case(
+    (logid="0100044546" OR logid="0100044547") AND match(cfgpath, "firewall\\.policy|vpn\\."), "HIGH",
+    (logid="0100032001" OR logid="0100020007"), "HIGH",
+    1=1, "OTHER")
+| search severity="HIGH"
+| stats count
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>30s</refresh>
+          <refreshType>delay</refreshType>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="numberPrecision">0</option>
+        <option name="rangeColors">["0x65A637","0xF7BC38","0xD93F3C"]</option>
+        <option name="rangeValues">[0,1]</option>
+        <option name="underLabel">Critical Events</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+
+  <!-- Row 2: Config Change Alert Preview -->
+  <row>
+    <panel>
+      <title>🛡️ Config Change Alert Preview (Real-time)</title>
+      <table>
+        <search>
+          <query>
+index=fw type=event subtype=system
+    (logid=0100044546 OR logid=0100044547)
+| eval device = coalesce(devname, "unknown")
+| eval admin = coalesce(user, "system")
+| eval access_method = case(logid="0100044546", "CLI", logid="0100044547", "GUI", 1=1, coalesce(ui, "N/A"))
+| eval config_path = coalesce(cfgpath, "unknown")
+| eval action_type = coalesce(action, "Modified")
+| eval object_name = coalesce(cfgobj, "-")
+| eval details = coalesce(cfgattr, "No details")
+| eval severity = case(
+    match(config_path, "firewall\\.policy"), "HIGH",
+    match(config_path, "vpn\\."), "HIGH",
+    match(config_path, "router\\."), "MEDIUM",
+    1=1, "LOW")
+| eval change_type = case(
+    match(config_path, "firewall\\.policy"), "Policy Change",
+    match(config_path, "firewall\\.address"), "Address Object",
+    match(config_path, "firewall\\.service"), "Service Object",
+    match(config_path, "system\\.interface"), "Interface Config",
+    match(config_path, "router\\."), "Routing Change",
+    match(config_path, "vpn\\."), "VPN Change",
+    1=1, "Configuration Change")
+| search severity="$severity_filter$" OR "$severity_filter$"="*"
+| eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
+| dedup device, admin, config_path
+| table timestamp, change_type, device, admin, access_method, severity, config_path, object_name, details
+| head 20
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>30s</refresh>
+          <refreshType>delay</refreshType>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="rowNumbers">true</option>
+        <option name="wrap">false</option>
+        <format type="color" field="severity">
+          <colorPalette type="map">{"HIGH":#DC4E41,"MEDIUM":#F1813F,"LOW":#53A051}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 3: Interface Status Alert Preview -->
+  <row>
+    <panel>
+      <title>🔌 Interface Status Alert Preview (Real-time)</title>
+      <table>
+        <search>
+          <query>
+index=fw type=event subtype=system
+    (logid=0100032001 OR logid=0100020007)
+| eval device = coalesce(devname, "unknown")
+| eval interface = coalesce(interface, port, "-")
+| eval status = case(
+    logid="0100032001", "DOWN",
+    logid="0100020007", "LINK_DOWN",
+    1=1, "UNKNOWN")
+| eval severity = "HIGH"
+| eval status_icon = "🔴"
+| eval reason = coalesce(msg, "No additional details")
+| search severity="$severity_filter$" OR "$severity_filter$"="*"
+| eval timestamp = strftime(_time, "%Y-%m-%d %H:%M:%S")
+| dedup device, interface, status
+| table timestamp, status_icon, device, interface, status, severity, reason
+| head 20
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+          <refresh>30s</refresh>
+          <refreshType>delay</refreshType>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="rowNumbers">true</option>
+        <option name="wrap">false</option>
+        <format type="color" field="severity">
+          <colorPalette type="map">{"HIGH":#DC4E41,"MEDIUM":#F1813F,"GOOD":#53A051}</colorPalette>
+        </format>
+        <format type="color" field="status">
+          <colorPalette type="map">{"DOWN":#DC4E41,"LINK_DOWN":#DC4E41,"UP":#53A051,"UNKNOWN":#F1813F}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 4: Slack Block Kit JSON Format Check -->
+  <row>
+    <panel>
+      <title>Slack Block Kit JSON Format Preview</title>
+      <table>
+        <search>
+          <query>
+index=fw type=event subtype=system
+    (logid=0100044546 OR logid=0100044547)
+| head 3
+| eval device = coalesce(devname, "unknown")
+| eval admin = coalesce(user, "system")
+| eval config_path = coalesce(cfgpath, "unknown")
+| eval severity = case(
+    match(config_path, "firewall\\.policy"), "HIGH",
+    match(config_path, "vpn\\."), "HIGH",
+    1=1, "MEDIUM")
+| eval color = case(severity="HIGH", "danger", severity="MEDIUM", "warning", 1=1, "good")
+| eval device_safe = replace(device, "\"", "'")
+| eval admin_safe = replace(admin, "\"", "'")
+| eval config_path_safe = replace(config_path, "\"", "'")
+| eval timestamp_formatted = strftime(_time, "%Y-%m-%d %H:%M:%S %Z")
+| eval blockkit_json = "{\"attachments\":[{\"color\":\"" + color + "\",\"blocks\":["
+    + "{\"type\":\"header\",\"text\":{\"type\":\"plain_text\",\"text\":\"🛡️ Config Change\"}},"
+    + "{\"type\":\"section\",\"fields\":["
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Device:*\\n" + device_safe + "\"},"
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Admin:*\\n" + admin_safe + "\"},"
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Severity:*\\n" + severity + "\"}"
+    + "]},"
+    + "{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"*Config Path:*\\n`" + config_path_safe + "`\"}},"
+    + "{\"type\":\"context\",\"elements\":[{\"type\":\"mrkdwn\",\"text\":\"🕒 " + timestamp_formatted + "\"}]}"
+    + "]}]}"
+| table _time, blockkit_json
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="count">3</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 5: Statistics Charts -->
+  <row>
+    <panel>
+      <title>Config Changes by Type (Last Hour)</title>
+      <chart>
+        <search>
+          <query>
+index=fw type=event subtype=system
+    (logid=0100044546 OR logid=0100044547)
+| eval change_type = case(
+    match(cfgpath, "firewall\\.policy"), "Policy",
+    match(cfgpath, "firewall\\.address"), "Address",
+    match(cfgpath, "firewall\\.service"), "Service",
+    match(cfgpath, "system\\.interface"), "Interface",
+    match(cfgpath, "router\\."), "Routing",
+    match(cfgpath, "vpn\\."), "VPN",
+    1=1, "Other")
+| stats count by change_type
+| sort -count
+          </query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+      </chart>
+    </panel>
+
+    <panel>
+      <title>Alerts by Severity (Last Hour)</title>
+      <chart>
+        <search>
+          <query>
+index=fw type=event subtype=system
+    ((logid=0100044546 OR logid=0100044547) OR (logid=0100032001 OR logid=0100020007))
+| eval severity = case(
+    (logid="0100044546" OR logid="0100044547") AND match(cfgpath, "firewall\\.policy|vpn\\."), "HIGH",
+    (logid="0100032001" OR logid="0100020007"), "HIGH",
+    1=1, "MEDIUM")
+| stats count by severity
+          </query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.fieldColors">{"HIGH":#DC4E41,"MEDIUM":#F1813F,"GOOD":#53A051}</option>
+      </chart>
+    </panel>
+  </row>
+
+</form>

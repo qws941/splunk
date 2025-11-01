@@ -44,7 +44,7 @@ FAZSplunkProcessor
 ┌─────────────────────────────────────┐
 │ 3. Splunk HEC API                   │
 │    - Batch send events              │
-│    - Index: fortigate_security      │
+│    - Index: fortianalyzer      │
 └─────────────────────────────────────┘
     ↓
 ┌─────────────────────────────────────┐
@@ -507,7 +507,7 @@ LOG_LEVEL = "warn"  # info → warn 또는 error
 - [ ] Production 배포 (`wrangler publish`)
 - [ ] Health check 확인 (`curl /health`)
 - [ ] Cron Trigger 실행 확인 (`wrangler tail`)
-- [ ] Splunk에서 데이터 유입 확인 (`index=fortigate_security`)
+- [ ] Splunk에서 데이터 유입 확인 (`index=fortianalyzer`)
 - [ ] Slack 알림 수신 확인 (Critical 이벤트 발생 시)
 - [ ] Cloudflare Dashboard에서 메트릭 확인
 - [ ] 커스텀 도메인 설정 (선택)

@@ -1,8 +1,0 @@
-alert_name,enabled,updated_by,updated_time
-all,1,admin,2025-10-23 00:00:00
-Correlation_Multi_Factor_Threat_Score,1,admin,2025-10-23 00:00:00
-Correlation_Repeated_High_Risk_Events,1,admin,2025-10-23 00:00:00
-Correlation_Weak_Signal_Combination,1,admin,2025-10-23 00:00:00
-Correlation_Geo_Attack_Pattern,1,admin,2025-10-23 00:00:00
-Correlation_Time_Anomaly,1,admin,2025-10-23 00:00:00
-Correlation_Cross_Event_Type,1,admin,2025-10-23 00:00:00

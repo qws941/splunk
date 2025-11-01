@@ -17,7 +17,7 @@ class SplunkAPIConnector {
     this.sessionKey = null;
     this.isConnected = false;
     this.indexes = {
-      security: 'fortigate_security',
+      security: 'fortianalyzer',
       logs: 'fortigate_logs', 
       metrics: 'fortigate_metrics'
     };
@@ -293,7 +293,7 @@ class SplunkAPIConnector {
     
     if (searchJob.query.includes('stats count')) {
       mockResults = [{ count: 42, _time: Date.now() }];
-    } else if (searchJob.query.includes('fortigate_security')) {
+    } else if (searchJob.query.includes('fortianalyzer')) {
       mockResults = this.generateMockSecurityResults();
     }
     

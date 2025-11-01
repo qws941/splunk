@@ -1,0 +1,67 @@
+```spl
+# 11. Policy Changes Detail (정책 변경 상세)
+# 목적: 방화벽 정책 생성/수정/삭제 상세 추적
+# 실행: Splunk 검색창에 붙여넣기
+
+index=fortianalyzer earliest=-24h type=event subtype=system \
+    (logid=0100044546 OR logid=0100044547) \
+    cfgpath="firewall.policy*" \
+| eval device = devname \
+| eval admin = coalesce(user, "system") \
+| eval access_method = case(
+    logid="0100044546", "CLI",
+    logid="0100044547", "GUI",
+    1=1, "Unknown") \
+| eval action_type = case(
+    match(action, "(?i)add|create"), "Created",
+    match(action, "(?i)edit|modify|set"), "Modified",
+    match(action, "(?i)delete|remove"), "Deleted",
+    match(action, "(?i)move"), "Moved",
+    match(action, "(?i)enable"), "Enabled",
+    match(action, "(?i)disable"), "Disabled",
+    1=1, coalesce(action, "Modified")) \
+| eval policy_id = coalesce(cfgobj, "N/A") \
+| eval policy_name = coalesce(policyname, "N/A") \
+| eval changes = case(
+    isnull(cfgattr), "No details",
+    1=1, cfgattr) \
+| rex field=changes "srcaddr=(?<src_addr>[^\s]+)" \
+| rex field=changes "dstaddr=(?<dst_addr>[^\s]+)" \
+| rex field=changes "service=(?<service>[^\s]+)" \
+| rex field=changes "action=(?<policy_action>[^\s]+)" \
+| eval src_addr = coalesce(src_addr, "N/A") \
+| eval dst_addr = coalesce(dst_addr, "N/A") \
+| eval service = coalesce(service, "N/A") \
+| eval policy_action = coalesce(policy_action, "N/A") \
+| table _time, device, admin, access_method, action_type, policy_id, policy_name, src_addr, dst_addr, service, policy_action, changes \
+| sort -_time \
+| head 50
+```
+
+**확인할 것**:
+- 어떤 관리자가 정책을 변경했는가?
+- CLI vs GUI 어디서 변경했는가?
+- 정책 삭제가 있었는가? (보안 취약점)
+- 정책 action이 accept로 변경되었는가?
+- Source/Destination이 any로 변경되었는가?
+
+**주요 Policy 변경 패턴**:
+- srcaddr=all or any (모든 출발지 허용)
+- dstaddr=all or any (모든 목적지 허용)
+- service=ALL (모든 서비스 허용)
+- action=accept (허용 정책)
+
+**위험한 변경 탐지**:
+```spl
+index=fortianalyzer earliest=-24h (logid=0100044546 OR logid=0100044547) \
+    cfgpath="firewall.policy*" \
+| eval changes = coalesce(cfgattr, "") \
+| where match(changes, "srcaddr=all|srcaddr=any|dstaddr=all|dstaddr=any|service=ALL") \
+| table _time, devname, user, action, cfgobj, cfgattr
+```
+
+**Alert 조건 제안**:
+- Policy deleted (정책 삭제)
+- Policy changed to accept with src/dst=any (과도한 허용)
+- Policy disabled (보안 정책 비활성화)
+```

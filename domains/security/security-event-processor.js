@@ -399,7 +399,7 @@ class SecurityEventProcessor {
 
       await this.integrations.splunkConnector.sendEvent({
         sourcetype: event.source_system || 'security:event',
-        index: 'fortigate_security',
+        index: 'fortianalyzer',
         event: {
           ...event,
           timestamp: event.processed_at

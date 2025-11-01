@@ -294,7 +294,7 @@ class SplunkHECConnector {
     this.port = env.SPLUNK_HEC_PORT || '8088';
     this.token = env.SPLUNK_HEC_TOKEN;
     this.scheme = env.SPLUNK_HEC_SCHEME || 'https';
-    this.index = env.SPLUNK_INDEX_FORTIGATE || 'fortigate_security';
+    this.index = env.SPLUNK_INDEX_FORTIGATE || 'fortianalyzer';
   }
 
   async sendEvents(events) {

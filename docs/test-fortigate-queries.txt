@@ -1,0 +1,53 @@
+### FortiGate 7.4.5 로그 검증 쿼리 (Splunk 9에서 실행)
+
+## 1. 기본 로그 확인 (아무 로그나)
+index=fw earliest=-1h
+| head 10
+| table _time, devname, logid, type, subtype, level, _raw
+
+## 2. Config change 로그 확인
+index=fw earliest=-24h (cfgpath=* OR logdesc="*config*" OR msg="*config*")
+| head 20
+| table _time, devname, logid, user, cfgpath, cfgobj, cfgattr, action, _raw
+
+## 3. System event 로그 확인
+index=fw earliest=-1h logid="0104*"
+| head 20
+| table _time, devname, logid, level, msg, _raw
+
+## 4. 사용 가능한 필드 목록 확인
+index=fw earliest=-1h
+| head 100
+| fieldsummary
+| table field, count, distinct_count
+| where count > 0
+| sort -count
+
+## 5. Config change 상세 (FMG/FAZ)
+index=fw earliest=-7d (devname="*FMG*" OR devname="*FAZ*") (cfgpath=* OR logid="0100*" OR logid="0101*")
+| head 50
+| table _time, devname, user, logid, cfgpath, cfgobj, action, msg, _raw
+
+## 6. Critical event 로그 확인
+index=fw earliest=-1h (level="critical" OR severity="critical" OR logid="0104*")
+| head 20
+| table _time, devname, logid, level, severity, msg, _raw
+
+## 7. HA event 로그 확인
+index=fw earliest=-24h logid="0103008*"
+| head 20
+| table _time, devname, logid, msg, _raw
+
+===================================================================
+실행 방법:
+1. Splunk Web UI → Search & Reporting
+2. 위 쿼리를 하나씩 복사하여 실행
+3. 결과를 확인하여 실제 필드명과 값을 파악
+4. 에러 메시지가 있다면 복사해서 제공해주세요
+===================================================================
+
+주요 확인 사항:
+- cfgpath 필드가 실제로 존재하는지
+- logid 포맷이 "0104*" 형식인지 아니면 다른 포맷인지
+- user, action, devname 필드가 올바르게 파싱되는지
+- FortiGate 7.4.5에서 config change 로그가 어떤 logid를 사용하는지

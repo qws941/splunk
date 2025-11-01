@@ -1,0 +1,29 @@
+### FortiGate 7.4.5 실제 데이터 확인 (Splunk 9)
+
+## 1단계: fw 인덱스에 데이터가 있는지 확인
+index=fortianalyzer earliest=-24h
+| head 1
+| table _time, _raw
+
+## 2단계: cfgpath 필드가 있는지 확인
+index=fortianalyzer earliest=-24h cfgpath=*
+| head 10
+| table _time, devname, cfgpath, _raw
+
+## 3단계: 설정 변경 로그를 넓게 검색
+index=fortianalyzer earliest=-24h (config OR policy OR address OR service)
+| head 20
+| table _time, devname, logdesc, msg, type, subtype, _raw
+
+## 4단계: FMG/FAZ 로그만 확인
+index=fortianalyzer earliest=-24h (devname="*FMG*" OR devname="*FAZ*" OR devname="*FortiManager*" OR devname="*FortiAnalyzer*")
+| head 20
+| table _time, devname, logdesc, msg, _raw
+
+## 5단계: 모든 필드 목록 확인
+index=fortianalyzer earliest=-1h
+| head 100
+| fieldsummary
+| where count > 0
+| table field, count, distinct_count
+| sort -count

@@ -1,0 +1,28 @@
+```spl
+# 4. Critical 이벤트 확인 (Update Fail 제외)
+# 목적: 하드웨어 장애, HA 이벤트 등 실제 Critical 확인
+# 실행: Splunk 검색창에 붙여넣기
+
+index=fortianalyzer earliest=-24h type=event subtype=system level=critical \
+    logid!=0100044546 logid!=0100044547 logid!=010032021 \
+| search NOT msg="*Update Fail*" NOT msg="*Login Fail*" \
+| dedup devname, logid \
+| eval device = devname \
+| eval log_id = logid \
+| eval severity = level \
+| eval description = coalesce(logdesc, msg, "No details available") \
+| eval alert_message = "🚨 FortiGate CRITICAL Event - Device: " + device + " | LogID: " + log_id + " | Description: " + description \
+| table _time, alert_message, device, log_id, severity, description
+```
+
+**확인할 것**:
+- Critical 이벤트가 몇 개나 있나요?
+- 대부분 어떤 종류인가요? (HA? 하드웨어? 시스템?)
+- "Update Fail" 메시지가 제대로 제외되었나요?
+
+**예상 Critical 이벤트**:
+- HA failover
+- Disk full
+- Fan failure
+- Memory critical
+- Service crashed

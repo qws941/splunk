@@ -106,7 +106,7 @@ cp configs/dashboards/*.xml \
 
 #### 데이터 확인
 ```spl
-index=fw earliest=-1h | head 10
+index=fortianalyzer earliest=-1h | head 10
 ```
 
 **결과 없음?** → FortiAnalyzer Syslog 설정 확인 필요
@@ -193,7 +193,7 @@ vim configs/dashboards/correlation-analysis.xml
 **SPL 쿼리 수정** (line 44-46):
 ```xml
 <query>
-index=fw action=deny earliest=$time_picker.earliest$ latest=$time_picker.latest$
+index=fortianalyzer action=deny earliest=$time_picker.earliest$ latest=$time_picker.latest$
 | stats count as deny_events
 </query>
 ```
@@ -219,7 +219,7 @@ node scripts/deploy-dashboards.js
 **해결**:
 ```spl
 # 데이터 확인
-index=fw earliest=-1h | head 10
+index=fortianalyzer earliest=-1h | head 10
 
 # 인덱스 확인
 | eventcount summarize=false index=fw
@@ -290,7 +290,7 @@ https://your-splunk:8000/app/search/fortinet_management_slack_control
 
 ### 데이터 확인
 ```spl
-index=fw earliest=-1h | stats count by sourcetype, action, severity
+index=fortianalyzer earliest=-1h | stats count by sourcetype, action, severity
 ```
 
 ---

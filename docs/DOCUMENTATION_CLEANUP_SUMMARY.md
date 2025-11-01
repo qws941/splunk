@@ -102,7 +102,7 @@ Updated project guidance file to reflect:
 ### Index Migration Status
 ```diff
 - index=fortigate_security → 7 references (LEGACY - needs migration)
-+ index=fw → 104+ references (PRIMARY - Syslog data)
++ index=fortianalyzer → 104+ references (PRIMARY - Syslog data)
 ```
 
 **Status**: ✅ Migration complete, all configs updated

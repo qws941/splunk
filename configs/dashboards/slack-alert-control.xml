@@ -1,0 +1,236 @@
+<form version="1.1" theme="dark">
+  <label>FortiGate Slack Alert Control Panel</label>
+  <description>ON/OFF control, status monitoring, and test alerts for 6 FortiGate alerts</description>
+
+  <fieldset submitButton="false" autoRun="true">
+    <input type="time" token="time_token">
+      <label>Time Range (for test queries)</label>
+      <default>
+        <earliest>-1h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+  </fieldset>
+
+  <!-- Row 1: Alert Status Overview -->
+  <row>
+    <panel>
+      <title>📊 Alert Status Overview</title>
+      <table>
+        <search>
+          <query>
+| rest /services/saved/searches splunk_server=local
+| search title="FortiGate_*"
+| table title, disabled, cron_schedule, actions, alert.suppress.period
+| eval status = if(disabled=0, "✅ ENABLED", "🔴 DISABLED")
+| eval alert_name = replace(title, "FortiGate_", "")
+| eval suppress = coalesce('alert.suppress.period', "N/A")
+| table alert_name, status, disabled, cron_schedule, actions, suppress
+| sort alert_name
+          </query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+        <option name="rowNumbers">true</option>
+        <format type="color" field="status">
+          <colorPalette type="map">{"✅ ENABLED":#53A051,"🔴 DISABLED":#DC4E41}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 2: Manual Control Instructions -->
+  <row>
+    <panel>
+      <title>🎛️ Alert Control Instructions</title>
+      <html>
+        <div style="padding: 20px; background: #1a1a1a; border: 1px solid #444; border-radius: 5px;">
+          <h3>Enable/Disable Individual Alert</h3>
+          <p style="color: #ccc;">Use Splunk REST API or Web UI:</p>
+          <pre style="background: #000; padding: 15px; border-radius: 5px; color: #0f0; overflow-x: auto;">
+# Enable alert (disabled=0)
+curl -k -u admin:password \
+  -d "disabled=0" \
+  https://localhost:8089/servicesNS/nobody/search/saved/searches/FortiGate_Config_Change
+
+# Disable alert (disabled=1)
+curl -k -u admin:password \
+  -d "disabled=1" \
+  https://localhost:8089/servicesNS/nobody/search/saved/searches/FortiGate_Config_Change
+          </pre>
+
+          <h3 style="margin-top: 30px;">Alert Names (for REST API)</h3>
+          <ul style="color: #ccc; line-height: 2;">
+            <li><code>FortiGate_Config_Change</code> - Configuration changes</li>
+            <li><code>FortiGate_Interface_Status</code> - Interface down events</li>
+            <li><code>FortiGate_HA_Status</code> - HA state changes</li>
+            <li><code>FortiGate_Device_Events</code> - Hardware events</li>
+            <li><code>FortiGate_System_Resource</code> - CPU/Memory/Disk alerts</li>
+            <li><code>FortiGate_Admin_Activity</code> - Admin activity</li>
+          </ul>
+
+          <h3 style="margin-top: 30px;">Send Test Alert</h3>
+          <pre style="background: #000; padding: 15px; border-radius: 5px; color: #0f0; overflow-x: auto;">
+# Trigger alert manually
+splunk search "| savedsearch FortiGate_Config_Change"
+
+# Or via REST API
+curl -k -u admin:password \
+  -d "trigger_actions=1" \
+  https://localhost:8089/servicesNS/nobody/search/saved/searches/FortiGate_Config_Change/dispatch
+          </pre>
+
+          <h3 style="margin-top: 30px;">Batch Operations</h3>
+          <pre style="background: #000; padding: 15px; border-radius: 5px; color: #0f0; overflow-x: auto;">
+# Enable all FortiGate alerts
+for alert in Config_Change Interface_Status HA_Status Device_Events System_Resource Admin_Activity; do
+  curl -k -u admin:password \
+    -d "disabled=0" \
+    https://localhost:8089/servicesNS/nobody/search/saved/searches/FortiGate_$alert
+done
+
+# Disable all FortiGate alerts
+for alert in Config_Change Interface_Status HA_Status Device_Events System_Resource Admin_Activity; do
+  curl -k -u admin:password \
+    -d "disabled=1" \
+    https://localhost:8089/servicesNS/nobody/search/saved/searches/FortiGate_$alert
+done
+          </pre>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <!-- Row 3: Block Kit Format Preview -->
+  <row>
+    <panel>
+      <title>📋 Block Kit Format Preview (Last 5 Config Change Events)</title>
+      <table>
+        <search>
+          <query>
+index=fw type=event subtype=system (logid=0100044546 OR logid=0100044547)
+| head 5
+| eval device = coalesce(devname, "unknown")
+| eval admin = coalesce(user, "system")
+| eval config_path = coalesce(cfgpath, "unknown")
+| eval severity = case(
+    like(config_path, "%firewall.policy%"), "HIGH",
+    like(config_path, "%vpn.%"), "HIGH",
+    1=1, "MEDIUM")
+| eval color = case(severity="HIGH", "danger", severity="MEDIUM", "warning", 1=1, "good")
+| eval timestamp_formatted = strftime(_time, "%Y-%m-%d %H:%M:%S %Z")
+| eval device_safe = replace(device, "\"", "'")
+| eval admin_safe = replace(admin, "\"", "'")
+| eval config_path_safe = replace(config_path, "\"", "'")
+| eval blockkit_json = "{\"attachments\":[{\"color\":\"" + color + "\",\"blocks\":["
+    + "{\"type\":\"header\",\"text\":{\"type\":\"plain_text\",\"text\":\":shield: Config Change\"}},"
+    + "{\"type\":\"section\",\"fields\":["
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Device:*\\n" + device_safe + "\"},"
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Admin:*\\n" + admin_safe + "\"},"
+    + "{\"type\":\"mrkdwn\",\"text\":\"*Severity:*\\n" + severity + "\"}"
+    + "]},"
+    + "{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"*Config Path:*\\n`" + config_path_safe + "`\"}},"
+    + "{\"type\":\"context\",\"elements\":[{\"type\":\"mrkdwn\",\"text\":\":clock3: " + timestamp_formatted + "\"}]}"
+    + "]}]}"
+| table _time, device, admin, config_path, severity, blockkit_json
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="count">5</option>
+        <option name="wrap">true</option>
+        <format type="color" field="severity">
+          <colorPalette type="map">{"HIGH":#DC4E41,"MEDIUM":#F1813F,"LOW":#53A051}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 4: Recent Alert Executions -->
+  <row>
+    <panel>
+      <title>📜 Recent Alert Executions (Last 24h)</title>
+      <table>
+        <search>
+          <query>
+index=_internal source=*scheduler.log savedsearch_name="FortiGate_*"
+| stats count, latest(_time) as last_run, avg(run_time) as avg_runtime, max(run_time) as max_runtime by savedsearch_name, status
+| eval last_run = strftime(last_run, "%Y-%m-%d %H:%M:%S")
+| eval avg_runtime = round(avg_runtime, 2)
+| eval max_runtime = round(max_runtime, 2)
+| eval alert_name = replace(savedsearch_name, "FortiGate_", "")
+| table alert_name, count, last_run, status, avg_runtime, max_runtime
+| sort -count
+          </query>
+          <earliest>-24h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+        <option name="rowNumbers">true</option>
+        <format type="color" field="status">
+          <colorPalette type="map">{"success":#53A051,"failure":#DC4E41,"skipped":#F1813F}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 5: Test Alert Generator -->
+  <row>
+    <panel>
+      <title>🧪 Test Alert Generator</title>
+      <html>
+        <div style="padding: 20px; background: #1a1a1a; border: 1px solid #444; border-radius: 5px;">
+          <h3>Generate Test Slack Alerts</h3>
+          <p style="color: #ccc;">Manually trigger saved searches to test Slack notifications:</p>
+
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-top: 20px;">
+            <div style="border: 1px solid #444; padding: 15px; background: #000; border-radius: 5px;">
+              <h4 style="color: #53A051;">1. Config Change Test</h4>
+              <pre style="color: #0f0; margin: 10px 0;">| savedsearch FortiGate_Config_Change</pre>
+            </div>
+
+            <div style="border: 1px solid #444; padding: 15px; background: #000; border-radius: 5px;">
+              <h4 style="color: #53A051;">2. Interface Status Test</h4>
+              <pre style="color: #0f0; margin: 10px 0;">| savedsearch FortiGate_Interface_Status</pre>
+            </div>
+
+            <div style="border: 1px solid #444; padding: 15px; background: #000; border-radius: 5px;">
+              <h4 style="color: #53A051;">3. HA Status Test</h4>
+              <pre style="color: #0f0; margin: 10px 0;">| savedsearch FortiGate_HA_Status</pre>
+            </div>
+
+            <div style="border: 1px solid #444; padding: 15px; background: #000; border-radius: 5px;">
+              <h4 style="color: #53A051;">4. Device Events Test</h4>
+              <pre style="color: #0f0; margin: 10px 0;">| savedsearch FortiGate_Device_Events</pre>
+            </div>
+
+            <div style="border: 1px solid #444; padding: 15px; background: #000; border-radius: 5px;">
+              <h4 style="color: #53A051;">5. System Resource Test</h4>
+              <pre style="color: #0f0; margin: 10px 0;">| savedsearch FortiGate_System_Resource</pre>
+            </div>
+
+            <div style="border: 1px solid #444; padding: 15px; background: #000; border-radius: 5px;">
+              <h4 style="color: #53A051;">6. Admin Activity Test</h4>
+              <pre style="color: #0f0; margin: 10px 0;">| savedsearch FortiGate_Admin_Activity</pre>
+            </div>
+          </div>
+
+          <div style="margin-top: 30px; padding: 15px; background: #2a1a1a; border: 2px solid #F1813F; border-radius: 5px;">
+            <h4 style="color: #F1813F;">⚠️ Note</h4>
+            <ul style="color: #ccc; line-height: 1.8;">
+              <li>Test alerts will only fire if matching events exist in index=fw</li>
+              <li>All alerts are currently real-time, so they trigger automatically on new events</li>
+              <li>Slack channel: <code>#security-firewall-alert</code></li>
+              <li>Message format: Slack Block Kit JSON (from $result.blockkit_json$)</li>
+            </ul>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+</form>

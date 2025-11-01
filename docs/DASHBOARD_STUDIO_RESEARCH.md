@@ -60,7 +60,7 @@ Dashboard Studio **CANNOT** make REST API calls to modify saved searches or trig
   "ds_example": {
     "type": "ds.search",  // or ds.savedSearch, ds.chain
     "options": {
-      "query": "index=fw | stats count",
+      "query": "index=fortianalyzer | stats count",
       "queryParameters": {
         "earliest": "$global_time.earliest$",  // Token usage
         "latest": "$global_time.latest$"
@@ -112,7 +112,7 @@ Dashboard Studio **CANNOT** make REST API calls to modify saved searches or trig
 
 **Token Usage in Searches**:
 ```spl
-index=fw status=$slack_status$  /* Token substitution */
+index=fortianalyzer status=$slack_status$  /* Token substitution */
 | where enabled="$slack_status$"
 ```
 
@@ -163,7 +163,7 @@ Dashboard Studio supports **5 drilldown types** (added in 2023):
 {
   "type": "drilldown.customUrl",
   "options": {
-    "url": "/app/search/search?q=index=fw ip=$row.src_ip$",
+    "url": "/app/search/search?q=index=fortianalyzer ip=$row.src_ip$",
     "newTab": true
   }
 }
@@ -196,7 +196,7 @@ Dashboard Studio supports **5 drilldown types** (added in 2023):
 {
   "type": "drilldown.openInSearch",
   "options": {
-    "q": "index=fw src_ip=$click.value$",
+    "q": "index=fortianalyzer src_ip=$click.value$",
     "earliest": "-1h",
     "latest": "now"
   }
