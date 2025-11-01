@@ -1,0 +1,63 @@
+# FortiGate Sample Events for Splunk Testing
+# Usage: Copy-paste into Splunk Search & Reporting → Add Data → Monitor → Files & Directories
+# Or use: index=fw | inputlookup sample-events.txt
+
+# 1. Config Change via CLI (logid=0100044546)
+date=2025-11-02 time=14:23:15 devname="FGT-HQ-01" devid="FG200E1234567890" logid="0100044546" type="event" subtype="system" level="notice" vd="root" logdesc="Configuration changed" user="admin" ui="CLI" cfgpath="firewall.policy" cfgattr="name='Block-Malicious-IP'" cfgobj="policy-123" action="Edit"
+
+# 2. Config Change via GUI (logid=0100044547)
+date=2025-11-02 time=14:25:30 devname="FGT-Branch-02" devid="FG60F9876543210" logid="0100044547" type="event" subtype="system" level="notice" vd="root" logdesc="Configuration changed" user="admin" ui="GUI(192.168.1.100)" cfgpath="vpn.ipsec.phase1-interface" cfgattr="peerip='203.0.113.50'" cfgobj="HeadOffice-VPN" action="Edit"
+
+# 3. VPN Config Change (logid=0100044547)
+date=2025-11-02 time=14:27:00 devname="FGT-HQ-01" devid="FG200E1234567890" logid="0100044547" type="event" subtype="system" level="notice" vd="root" logdesc="Configuration changed" user="netadmin" ui="GUI(10.0.0.50)" cfgpath="vpn.ipsec.phase2-interface" cfgattr="proposal='aes256-sha256'" cfgobj="Phase2-Settings" action="Edit"
+
+# 4. Interface Down (logid=0100032001)
+date=2025-11-02 time=14:28:45 devname="FGT-HQ-01" devid="FG200E1234567890" logid="0100032001" type="event" subtype="system" level="warning" vd="root" logdesc="Link monitor is down" interface="port3" port="port3" msg="Interface port3 link is down"
+
+# 5. Link Monitor Down (logid=0100020007)
+date=2025-11-02 time=14:29:10 devname="FGT-Branch-02" devid="FG60F9876543210" logid="0100020007" type="event" subtype="system" level="warning" vd="root" logdesc="Link monitor failure" interface="wan1" msg="Link monitor detected failure on wan1"
+
+# 6. HA State Change to Master (logid=0100020010)
+date=2025-11-02 time=14:30:12 devname="FGT-HQ-01" devid="FG200E1234567890" logid="0100020010" type="event" subtype="system" level="notice" vd="root" logdesc="HA status change" ha_state="master" from_state="slave" msg="HA state changed from slave to master"
+
+# 7. HA Member State Change (logid=0104043544)
+date=2025-11-02 time=14:31:00 devname="FGT-HQ-02" devid="FG200E0987654321" logid="0104043544" type="event" subtype="system" level="notice" vd="root" logdesc="HA member change" ha_state="slave" member="FGT-HQ-02" serial="FG200E0987654321" msg="HA member state changed to slave"
+
+# 8. HA Config Change (logid=0104043545)
+date=2025-11-02 time=14:31:30 devname="FGT-HQ-01" devid="FG200E1234567890" logid="0104043545" type="event" subtype="system" level="notice" vd="root" logdesc="HA configuration change" msg="HA configuration synchronized"
+
+# 9. Fan Failure (logid=0103040001)
+date=2025-11-02 time=14:32:00 devname="FGT-Branch-03" devid="FG100F5555555555" logid="0103040001" type="event" subtype="system" level="warning" vd="root" logdesc="Fan failure" msg="Fan1 failure detected, temperature rising"
+
+# 10. Power Supply Issue (logid=0103040002)
+date=2025-11-02 time=14:33:00 devname="FGT-Branch-03" devid="FG100F5555555555" logid="0103040002" type="event" subtype="system" level="critical" vd="root" logdesc="Power supply failure" msg="Power supply 2 failure detected"
+
+# 11. Temperature Warning (logid=0103040003)
+date=2025-11-02 time=14:34:00 devname="FGT-HQ-01" devid="FG200E1234567890" logid="0103040003" type="event" subtype="system" level="warning" vd="root" logdesc="Temperature warning" msg="System temperature exceeded threshold: 75°C"
+
+# 12. CPU High Usage (logid=0104043001)
+date=2025-11-02 time=14:35:20 devname="FGT-HQ-01" devid="FG200E1234567890" logid="0104043001" type="event" subtype="system" level="warning" vd="root" logdesc="CPU usage high" msg="CPU usage exceeded 90% for 5 minutes"
+
+# 13. Memory High Usage (logid=0104043002)
+date=2025-11-02 time=14:36:00 devname="FGT-Branch-02" devid="FG60F9876543210" logid="0104043002" type="event" subtype="system" level="warning" vd="root" logdesc="Memory usage high" msg="Memory usage at 85%, running low"
+
+# 14. Disk Full Warning (logid=0104043003)
+date=2025-11-02 time=14:37:00 devname="FGT-HQ-01" devid="FG200E1234567890" logid="0104043003" type="event" subtype="system" level="critical" vd="root" logdesc="Disk full" msg="Log disk usage at 95%, clean up required"
+
+# 15. Session Limit Warning (logid=0104043004)
+date=2025-11-02 time=14:37:30 devname="FGT-HQ-01" devid="FG200E1234567890" logid="0104043004" type="event" subtype="system" level="warning" vd="root" logdesc="Session limit" msg="Session count reached 80% of maximum (8000/10000)"
+
+# 16. Admin Login Success (logid=0105032003)
+date=2025-11-02 time=14:38:45 devname="FGT-Branch-02" devid="FG60F9876543210" logid="0105032003" type="event" subtype="system" level="notice" vd="root" logdesc="Admin login successful" user="admin" srcip="192.168.1.50" ui="GUI(192.168.1.50)" msg="Admin login from 192.168.1.50"
+
+# 17. Admin Config Activity (logid=0105043001)
+date=2025-11-02 time=14:40:00 devname="FGT-HQ-01" devid="FG200E1234567890" logid="0105043001" type="event" subtype="system" level="notice" vd="root" logdesc="Admin configuration" user="admin" srcip="10.0.0.100" msg="Admin modified system configuration"
+
+# 18. Admin Logout (logid=0105032004)
+date=2025-11-02 time=14:45:00 devname="FGT-Branch-02" devid="FG60F9876543210" logid="0105032004" type="event" subtype="system" level="notice" vd="root" logdesc="Admin logout" user="admin" msg="Admin logged out"
+
+# 19. Permission Denied (logid=0105032005)
+date=2025-11-02 time=14:46:00 devname="FGT-HQ-01" devid="FG200E1234567890" logid="0105032005" type="event" subtype="system" level="warning" vd="root" logdesc="Permission denied" user="operator" srcip="192.168.1.75" msg="User operator attempted unauthorized configuration change"
+
+# 20. System Config Backup (logid=0105043002)
+date=2025-11-02 time=14:50:00 devname="FGT-HQ-01" devid="FG200E1234567890" logid="0105043002" type="event" subtype="system" level="notice" vd="root" logdesc="Configuration backup" user="admin" msg="System configuration backup completed"
