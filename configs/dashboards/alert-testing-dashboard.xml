@@ -1,0 +1,524 @@
+<form version="1.1" theme="dark">
+  <label>FortiGate Alert Testing Dashboard</label>
+  <description>Test and monitor all 6 alert categories - Config, Interface, HA, Device, Resource, Admin</description>
+
+  <!-- Time Range Picker -->
+  <fieldset submitButton="true" autoRun="true">
+    <input type="time" token="time_picker">
+      <label>Time Range</label>
+      <default>
+        <earliest>-60m@m</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="dropdown" token="alert_category">
+      <label>Alert Category Filter</label>
+      <choice value="*">All Categories</choice>
+      <choice value="0100044546 OR logid=0100044547">Config Change</choice>
+      <choice value="0100032001 OR logid=0100020007">Interface Status</choice>
+      <choice value="0100020010 OR logid=0104043544 OR logid=0104043545">HA Status</choice>
+      <choice value="0103040*">Device Events</choice>
+      <choice value="0104*">System Resource</choice>
+      <choice value="0105*">Admin Activity</choice>
+      <default>*</default>
+    </input>
+  </fieldset>
+
+  <!-- Alert Status Overview -->
+  <row>
+    <panel>
+      <title>📊 Alert Status Overview (Last Hour)</title>
+      <table>
+        <search>
+          <query>
+index=fw type=event subtype=system earliest=-1h
+| eval alert_category = case(
+    logid="0100044546" OR logid="0100044547", "Config Change",
+    logid="0100032001" OR logid="0100020007", "Interface Status",
+    logid="0100020010" OR logid="0104043544" OR logid="0104043545", "HA Status",
+    like(logid, "0103040%"), "Device Events",
+    like(logid, "0104%"), "System Resource",
+    like(logid, "0105%"), "Admin Activity",
+    1=1, "Other")
+| where alert_category != "Other"
+| stats count as total_events,
+    dc(devname) as devices,
+    min(_time) as first_seen,
+    max(_time) as last_seen
+  by alert_category, logid
+| eval first_seen = strftime(first_seen, "%H:%M:%S")
+| eval last_seen = strftime(last_seen, "%H:%M:%S")
+| sort - total_events
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">row</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="count">10</option>
+        <format type="color" field="total_events">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F1813F" minColor="#53A051"></colorPalette>
+        </format>
+        <format type="number" field="total_events">
+          <option name="precision">0</option>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 1: Config Change &amp; Interface Status -->
+  <row>
+    <panel>
+      <title>🔧 1. Config Change Alerts (LogID: 0100044546, 0100044547)</title>
+      <table>
+        <search>
+          <query>
+index=fw type=event subtype=system (logid=0100044546 OR logid=0100044547)
+| eval device = coalesce(devname, "unknown")
+| eval admin = coalesce(user, "system")
+| eval config_path = coalesce(cfgpath, "unknown")
+| eval method = case(logid="0100044546", "CLI", logid="0100044547", "GUI", 1=1, "N/A")
+| eval severity = case(
+    like(config_path, "%firewall.policy%"), "HIGH",
+    like(config_path, "%vpn.%"), "HIGH",
+    1=1, "MEDIUM")
+| eval time = strftime(_time, "%H:%M:%S")
+| table time, device, admin, method, config_path, severity, logid
+| head 20
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+        <format type="color" field="severity">
+          <colorPalette type="map">{"HIGH":"#DC4E41","MEDIUM":"#F1813F","LOW":"#53A051"}</colorPalette>
+        </format>
+      </table>
+      <html>
+        <div style="padding: 10px; background: #1a1a1a; border-left: 4px solid #00ff00;">
+          <b>✅ Test Command:</b>
+          <pre style="color: #00ff00; margin: 5px 0;">| savedsearch FortiGate_Config_Change</pre>
+          <b>📋 Trigger Condition:</b> Any CLI/GUI config change
+          <br/>
+          <b>🔕 Suppression:</b> 30 seconds per unique change
+        </div>
+      </html>
+    </panel>
+
+    <panel>
+      <title>🔌 2. Interface Status Alerts (LogID: 0100032001, 0100020007)</title>
+      <table>
+        <search>
+          <query>
+index=fw type=event subtype=system (logid=0100032001 OR logid=0100020007)
+| eval device = coalesce(devname, "unknown")
+| eval interface = coalesce(interface, port, "-")
+| eval status = case(
+    logid="0100032001", "DOWN",
+    logid="0100020007", "LINK_DOWN",
+    1=1, "UNKNOWN")
+| eval reason = coalesce(msg, "No details")
+| eval time = strftime(_time, "%H:%M:%S")
+| table time, device, interface, status, reason, logid
+| head 20
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+        <format type="color" field="status">
+          <colorPalette type="map">{"DOWN":"#DC4E41","LINK_DOWN":"#DC4E41","UP":"#53A051"}</colorPalette>
+        </format>
+      </table>
+      <html>
+        <div style="padding: 10px; background: #1a1a1a; border-left: 4px solid #ff9900;">
+          <b>✅ Test Command:</b>
+          <pre style="color: #ff9900; margin: 5px 0;">| savedsearch FortiGate_Interface_Status</pre>
+          <b>📋 Trigger Condition:</b> Interface link down events
+          <br/>
+          <b>🔕 Suppression:</b> 2 minutes per interface
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <!-- Row 2: HA Status &amp; Device Events -->
+  <row>
+    <panel>
+      <title>🔄 3. HA Status Alerts (LogID: 0100020010, 0104043544, 0104043545)</title>
+      <table>
+        <search>
+          <query>
+index=fw type=event subtype=system (logid=0100020010 OR logid=0104043544 OR logid=0104043545)
+| eval device = coalesce(devname, "unknown")
+| eval ha_state = coalesce(ha_state, to_state, "unknown")
+| eval from_state = coalesce(from_state, "-")
+| eval severity = case(
+    ha_state="standalone", "HIGH",
+    ha_state="down", "HIGH",
+    ha_state="master" OR ha_state="primary", "GOOD",
+    1=1, "MEDIUM")
+| eval reason = coalesce(msg, "No details")
+| eval time = strftime(_time, "%H:%M:%S")
+| table time, device, from_state, ha_state, severity, reason, logid
+| head 20
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+        <format type="color" field="severity">
+          <colorPalette type="map">{"HIGH":"#DC4E41","GOOD":"#53A051","MEDIUM":"#F1813F"}</colorPalette>
+        </format>
+      </table>
+      <html>
+        <div style="padding: 10px; background: #1a1a1a; border-left: 4px solid #0099ff;">
+          <b>✅ Test Command:</b>
+          <pre style="color: #0099ff; margin: 5px 0;">| savedsearch FortiGate_HA_Status</pre>
+          <b>📋 Trigger Condition:</b> HA state changes (failover, config changes)
+          <br/>
+          <b>🔕 Suppression:</b> 3 minutes per state change
+        </div>
+      </html>
+    </panel>
+
+    <panel>
+      <title>⚙️ 4. Device Events Alerts (LogID: 0103040*)</title>
+      <table>
+        <search>
+          <query>
+index=fw type=event subtype=system logid=0103040*
+| eval device = coalesce(devname, "unknown")
+| eval event_type = case(
+    like(msg, "%fan%"), "Fan Failure",
+    like(msg, "%power%"), "Power Supply",
+    like(msg, "%temperature%"), "Temperature",
+    1=1, "Hardware")
+| eval severity = case(
+    like(msg, "%fail%") OR like(msg, "%critical%"), "HIGH",
+    like(msg, "%warning%"), "MEDIUM",
+    1=1, "LOW")
+| eval description = coalesce(msg, "No details")
+| eval time = strftime(_time, "%H:%M:%S")
+| table time, device, event_type, severity, description, logid
+| head 20
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+        <format type="color" field="severity">
+          <colorPalette type="map">{"HIGH":"#DC4E41","MEDIUM":"#F1813F","LOW":"#53A051"}</colorPalette>
+        </format>
+      </table>
+      <html>
+        <div style="padding: 10px; background: #1a1a1a; border-left: 4px solid #ff0066;">
+          <b>✅ Test Command:</b>
+          <pre style="color: #ff0066; margin: 5px 0;">| savedsearch FortiGate_Device_Events</pre>
+          <b>📋 Trigger Condition:</b> Hardware events (fan, power, temp)
+          <br/>
+          <b>🔕 Suppression:</b> 24 hours per message
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <!-- Row 3: System Resource &amp; Admin Activity -->
+  <row>
+    <panel>
+      <title>💻 5. System Resource Alerts (LogID: 0104*)</title>
+      <table>
+        <search>
+          <query>
+index=fw type=event subtype=system logid=0104*
+| eval device = coalesce(devname, "unknown")
+| eval resource_type = case(
+    like(msg, "%cpu%") OR like(msg, "%CPU%"), "CPU",
+    like(msg, "%memory%") OR like(msg, "%Memory%"), "Memory",
+    like(msg, "%disk%") OR like(msg, "%Disk%"), "Disk",
+    like(msg, "%session%"), "Sessions",
+    1=1, "Resource")
+| eval severity = case(
+    like(msg, "%critical%") OR like(msg, "%high%"), "HIGH",
+    like(msg, "%warning%"), "MEDIUM",
+    1=1, "LOW")
+| eval description = coalesce(msg, "No details")
+| eval time = strftime(_time, "%H:%M:%S")
+| table time, device, resource_type, severity, description, logid
+| head 20
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+        <format type="color" field="severity">
+          <colorPalette type="map">{"HIGH":"#DC4E41","MEDIUM":"#F1813F","LOW":"#53A051"}</colorPalette>
+        </format>
+      </table>
+      <html>
+        <div style="padding: 10px; background: #1a1a1a; border-left: 4px solid #9933ff;">
+          <b>✅ Test Command:</b>
+          <pre style="color: #9933ff; margin: 5px 0;">| savedsearch FortiGate_System_Resource</pre>
+          <b>📋 Trigger Condition:</b> CPU/Memory/Disk/Session alerts
+          <br/>
+          <b>🔕 Suppression:</b> 24 hours per message
+        </div>
+      </html>
+    </panel>
+
+    <panel>
+      <title>👤 6. Admin Activity Alerts (LogID: 0105*)</title>
+      <table>
+        <search>
+          <query>
+index=fw type=event subtype=system logid=0105*
+| eval device = coalesce(devname, "unknown")
+| eval admin = coalesce(user, "unknown")
+| eval activity_type = case(
+    like(msg, "%config%"), "Configuration",
+    like(msg, "%login%"), "Login",
+    like(msg, "%logout%"), "Logout",
+    like(msg, "%permission%"), "Permission",
+    1=1, "Activity")
+| eval severity = case(
+    activity_type="Configuration", "MEDIUM",
+    activity_type="Permission", "HIGH",
+    1=1, "LOW")
+| eval description = coalesce(msg, "No details")
+| eval time = strftime(_time, "%H:%M:%S")
+| table time, device, admin, activity_type, severity, description, logid
+| head 20
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+        <format type="color" field="severity">
+          <colorPalette type="map">{"HIGH":"#DC4E41","MEDIUM":"#F1813F","LOW":"#53A051"}</colorPalette>
+        </format>
+      </table>
+      <html>
+        <div style="padding: 10px; background: #1a1a1a; border-left: 4px solid #00ffff;">
+          <b>✅ Test Command:</b>
+          <pre style="color: #00ffff; margin: 5px 0;">| savedsearch FortiGate_Admin_Activity</pre>
+          <b>📋 Trigger Condition:</b> Admin config/login/permission activities
+          <br/>
+          <b>🔕 Suppression:</b> 24 hours per message
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <!-- Alert Execution Status -->
+  <row>
+    <panel>
+      <title>⏱️ Alert Execution Status (Scheduler Logs)</title>
+      <table>
+        <search>
+          <query>
+index=_internal source=*scheduler.log savedsearch_name="FortiGate_*"
+| stats count as executions,
+    avg(run_time) as avg_runtime_sec,
+    max(run_time) as max_runtime_sec,
+    latest(_time) as last_run,
+    latest(status) as last_status
+  by savedsearch_name
+| eval avg_runtime_sec = round(avg_runtime_sec, 2)
+| eval max_runtime_sec = round(max_runtime_sec, 2)
+| eval last_run = strftime(last_run, "%Y-%m-%d %H:%M:%S")
+| eval alert_enabled = if(like(last_run, "%-%"), "✅ Active", "⚠️ Not Running")
+| sort - executions
+          </query>
+          <earliest>$time_picker.earliest$</earliest>
+          <latest>$time_picker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+        <format type="color" field="last_status">
+          <colorPalette type="map">{"success":"#53A051","failure":"#DC4E41","skipped":"#F1813F"}</colorPalette>
+        </format>
+        <format type="number" field="avg_runtime_sec">
+          <option name="precision">2</option>
+          <option name="unit">s</option>
+        </format>
+        <format type="number" field="max_runtime_sec">
+          <option name="precision">2</option>
+          <option name="unit">s</option>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Quick Test Commands -->
+  <row>
+    <panel>
+      <title>🧪 Quick Test Commands (Copy &amp; Paste to Splunk Search)</title>
+      <html>
+        <div style="font-family: monospace; background: #0a0a0a; padding: 20px; border-radius: 5px;">
+          <h3 style="color: #00ff00; margin-top: 0;">Manual Alert Testing</h3>
+
+          <div style="margin: 15px 0; padding: 10px; background: #1a1a1a; border-left: 3px solid #00ff00;">
+            <b style="color: #00ff00;">1. Config Change Alert Test:</b>
+            <pre style="color: #aaa; margin: 5px 0;">| savedsearch FortiGate_Config_Change</pre>
+          </div>
+
+          <div style="margin: 15px 0; padding: 10px; background: #1a1a1a; border-left: 3px solid #ff9900;">
+            <b style="color: #ff9900;">2. Interface Status Alert Test:</b>
+            <pre style="color: #aaa; margin: 5px 0;">| savedsearch FortiGate_Interface_Status</pre>
+          </div>
+
+          <div style="margin: 15px 0; padding: 10px; background: #1a1a1a; border-left: 3px solid #0099ff;">
+            <b style="color: #0099ff;">3. HA Status Alert Test:</b>
+            <pre style="color: #aaa; margin: 5px 0;">| savedsearch FortiGate_HA_Status</pre>
+          </div>
+
+          <div style="margin: 15px 0; padding: 10px; background: #1a1a1a; border-left: 3px solid #ff0066;">
+            <b style="color: #ff0066;">4. Device Events Alert Test:</b>
+            <pre style="color: #aaa; margin: 5px 0;">| savedsearch FortiGate_Device_Events</pre>
+          </div>
+
+          <div style="margin: 15px 0; padding: 10px; background: #1a1a1a; border-left: 3px solid #9933ff;">
+            <b style="color: #9933ff;">5. System Resource Alert Test:</b>
+            <pre style="color: #aaa; margin: 5px 0;">| savedsearch FortiGate_System_Resource</pre>
+          </div>
+
+          <div style="margin: 15px 0; padding: 10px; background: #1a1a1a; border-left: 3px solid #00ffff;">
+            <b style="color: #00ffff;">6. Admin Activity Alert Test:</b>
+            <pre style="color: #aaa; margin: 5px 0;">| savedsearch FortiGate_Admin_Activity</pre>
+          </div>
+
+          <h3 style="color: #ff9900; margin-top: 20px;">Test All Alerts at Once:</h3>
+          <div style="margin: 15px 0; padding: 10px; background: #1a1a1a; border-left: 3px solid #ff0000;">
+            <pre style="color: #aaa; margin: 5px 0;">
+| savedsearch FortiGate_Config_Change
+| append [| savedsearch FortiGate_Interface_Status]
+| append [| savedsearch FortiGate_HA_Status]
+| append [| savedsearch FortiGate_Device_Events]
+| append [| savedsearch FortiGate_System_Resource]
+| append [| savedsearch FortiGate_Admin_Activity]
+            </pre>
+          </div>
+
+          <h3 style="color: #0099ff; margin-top: 20px;">Check Alert Performance:</h3>
+          <div style="margin: 15px 0; padding: 10px; background: #1a1a1a; border-left: 3px solid #0099ff;">
+            <pre style="color: #aaa; margin: 5px 0;">
+index=_internal source=*scheduler.log savedsearch_name="FortiGate_*"
+| stats avg(run_time) as avg_runtime, count by savedsearch_name, status
+            </pre>
+          </div>
+
+          <h3 style="color: #9933ff; margin-top: 20px;">Verify Slack Notifications:</h3>
+          <div style="margin: 15px 0; padding: 10px; background: #1a1a1a; border-left: 3px solid #9933ff;">
+            <b>1. Check if bot is in channel:</b>
+            <pre style="color: #aaa; margin: 5px 0;">Slack → #security-firewall-alert → Members → Should see your bot</pre>
+            <b>2. Invite bot if missing:</b>
+            <pre style="color: #aaa; margin: 5px 0;">/invite @your-splunk-bot</pre>
+            <b>3. Test Slack action manually:</b>
+            <pre style="color: #aaa; margin: 5px 0;">Settings → Searches/Alerts → FortiGate_Config_Change → Edit → Trigger Actions → Send Test Notification</pre>
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <!-- LogID Reference Guide -->
+  <row>
+    <panel>
+      <title>📚 LogID Reference Guide</title>
+      <html>
+        <div style="font-family: monospace; background: #0a0a0a; padding: 20px; border-radius: 5px;">
+          <table style="width: 100%; color: #aaa; border-collapse: collapse;">
+            <tr style="background: #1a1a1a; font-weight: bold;">
+              <th style="padding: 10px; border: 1px solid #333;">Category</th>
+              <th style="padding: 10px; border: 1px solid #333;">LogID</th>
+              <th style="padding: 10px; border: 1px solid #333;">Description</th>
+              <th style="padding: 10px; border: 1px solid #333;">Severity</th>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #333; color: #00ff00;">Config Change</td>
+              <td style="padding: 8px; border: 1px solid #333;">0100044546</td>
+              <td style="padding: 8px; border: 1px solid #333;">Config change via CLI</td>
+              <td style="padding: 8px; border: 1px solid #333;">HIGH/MEDIUM</td>
+            </tr>
+            <tr style="background: #0f0f0f;">
+              <td style="padding: 8px; border: 1px solid #333; color: #00ff00;">Config Change</td>
+              <td style="padding: 8px; border: 1px solid #333;">0100044547</td>
+              <td style="padding: 8px; border: 1px solid #333;">Config change via GUI</td>
+              <td style="padding: 8px; border: 1px solid #333;">HIGH/MEDIUM</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #333; color: #ff9900;">Interface</td>
+              <td style="padding: 8px; border: 1px solid #333;">0100032001</td>
+              <td style="padding: 8px; border: 1px solid #333;">Interface link down</td>
+              <td style="padding: 8px; border: 1px solid #333;">HIGH</td>
+            </tr>
+            <tr style="background: #0f0f0f;">
+              <td style="padding: 8px; border: 1px solid #333; color: #ff9900;">Interface</td>
+              <td style="padding: 8px; border: 1px solid #333;">0100020007</td>
+              <td style="padding: 8px; border: 1px solid #333;">Link monitor down</td>
+              <td style="padding: 8px; border: 1px solid #333;">HIGH</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #333; color: #0099ff;">HA Status</td>
+              <td style="padding: 8px; border: 1px solid #333;">0100020010</td>
+              <td style="padding: 8px; border: 1px solid #333;">HA state change</td>
+              <td style="padding: 8px; border: 1px solid #333;">HIGH/GOOD</td>
+            </tr>
+            <tr style="background: #0f0f0f;">
+              <td style="padding: 8px; border: 1px solid #333; color: #0099ff;">HA Status</td>
+              <td style="padding: 8px; border: 1px solid #333;">0104043544</td>
+              <td style="padding: 8px; border: 1px solid #333;">HA member state change</td>
+              <td style="padding: 8px; border: 1px solid #333;">MEDIUM</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #333; color: #0099ff;">HA Status</td>
+              <td style="padding: 8px; border: 1px solid #333;">0104043545</td>
+              <td style="padding: 8px; border: 1px solid #333;">HA configuration change</td>
+              <td style="padding: 8px; border: 1px solid #333;">MEDIUM</td>
+            </tr>
+            <tr style="background: #0f0f0f;">
+              <td style="padding: 8px; border: 1px solid #333; color: #ff0066;">Device Events</td>
+              <td style="padding: 8px; border: 1px solid #333;">0103040*</td>
+              <td style="padding: 8px; border: 1px solid #333;">Hardware events (fan, power, temp)</td>
+              <td style="padding: 8px; border: 1px solid #333;">HIGH/MEDIUM</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #333; color: #9933ff;">System Resource</td>
+              <td style="padding: 8px; border: 1px solid #333;">0104*</td>
+              <td style="padding: 8px; border: 1px solid #333;">CPU/Memory/Disk/Session alerts</td>
+              <td style="padding: 8px; border: 1px solid #333;">HIGH/MEDIUM</td>
+            </tr>
+            <tr style="background: #0f0f0f;">
+              <td style="padding: 8px; border: 1px solid #333; color: #00ffff;">Admin Activity</td>
+              <td style="padding: 8px; border: 1px solid #333;">0105*</td>
+              <td style="padding: 8px; border: 1px solid #333;">Admin config/login/permission</td>
+              <td style="padding: 8px; border: 1px solid #333;">MEDIUM/LOW</td>
+            </tr>
+          </table>
+
+          <h3 style="color: #ff0000; margin-top: 20px;">❌ Excluded LogIDs (Not Monitored):</h3>
+          <table style="width: 100%; color: #aaa; border-collapse: collapse; margin-top: 10px;">
+            <tr style="background: #1a0000;">
+              <td style="padding: 8px; border: 1px solid #333;">0100032002</td>
+              <td style="padding: 8px; border: 1px solid #333;">Admin login failed (excluded - too noisy)</td>
+            </tr>
+            <tr style="background: #1a0000;">
+              <td style="padding: 8px; border: 1px solid #333;">0100046001</td>
+              <td style="padding: 8px; border: 1px solid #333;">Firmware/Policy update failed (excluded - maintenance)</td>
+            </tr>
+            <tr style="background: #1a0000;">
+              <td style="padding: 8px; border: 1px solid #333;">0100046002</td>
+              <td style="padding: 8px; border: 1px solid #333;">Policy package install failed (excluded - FMG/FAZ)</td>
+            </tr>
+          </table>
+        </div>
+      </html>
+    </panel>
+  </row>
+</form>
