@@ -1,0 +1,381 @@
+<form version="1.1">
+  <label>Security Alert Monitoring - Production</label>
+  <description>Real-time monitoring of 5 active FortiGate alerts (001-005) with standardized 1m suppression</description>
+
+  <fieldset submitButton="false" autoRun="true">
+    <input type="time" token="time_token">
+      <label>Time Range</label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+  </fieldset>
+
+  <!-- Row 1: Alert Status Overview (5 alerts) -->
+  <row>
+    <panel>
+      <title>🟢 001: Config Change</title>
+      <single>
+        <search>
+          <query>
+index=_internal source=*scheduler.log savedsearch_name="001.alert_FortiGate_Config_Change" earliest=-24h
+| stats count as executions,
+        sum(eval(if(status="success",1,0))) as success,
+        sum(eval(if(status="failure",1,0))) as failure
+| eval success_rate = round((success/executions)*100,1)
+| fields success_rate
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0xdc4e41","0xf1813f","0x53a051"]</option>
+        <option name="rangeValues">[70,90]</option>
+        <option name="underLabel">Success Rate (%)</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>🔒 002: VPN Failure</title>
+      <single>
+        <search>
+          <query>
+index=_internal source=*scheduler.log savedsearch_name="002.alert_FortiGate_VPN_Failure" earliest=-24h
+| stats count as executions,
+        sum(eval(if(status="success",1,0))) as success
+| eval success_rate = round((success/executions)*100,1)
+| fields success_rate
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0xdc4e41","0xf1813f","0x53a051"]</option>
+        <option name="rangeValues">[70,90]</option>
+        <option name="underLabel">Success Rate (%)</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>📡 003: LogDev Warning</title>
+      <single>
+        <search>
+          <query>
+index=_internal source=*scheduler.log savedsearch_name="003.alert_FortiAnalyzer_LogDev_Warning" earliest=-24h
+| stats count as executions,
+        sum(eval(if(status="success",1,0))) as success
+| eval success_rate = round((success/executions)*100,1)
+| fields success_rate
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0xdc4e41","0xf1813f","0x53a051"]</option>
+        <option name="rangeValues">[70,90]</option>
+        <option name="underLabel">Success Rate (%)</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>🔥 004: Metrics Anomaly</title>
+      <single>
+        <search>
+          <query>
+index=_internal source=*scheduler.log savedsearch_name="004.alert_FortiGate_Metrics_Anomaly" earliest=-24h
+| stats count as executions,
+        sum(eval(if(status="success",1,0))) as success
+| eval success_rate = round((success/executions)*100,1)
+| fields success_rate
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0xdc4e41","0xf1813f","0x53a051"]</option>
+        <option name="rangeValues">[70,90]</option>
+        <option name="underLabel">Success Rate (%)</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>🚨 005: System Critical</title>
+      <single>
+        <search>
+          <query>
+index=_internal source=*scheduler.log savedsearch_name="005.alert_FortiGate_System_Critical" earliest=-24h
+| stats count as executions,
+        sum(eval(if(status="success",1,0))) as success
+| eval success_rate = round((success/executions)*100,1)
+| fields success_rate
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0xdc4e41","0xf1813f","0x53a051"]</option>
+        <option name="rangeValues">[70,90]</option>
+        <option name="underLabel">Success Rate (%)</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+
+  <!-- Row 2: LogID Event Distribution -->
+  <row>
+    <panel>
+      <title>📊 LogID Event Distribution (Last 24h)</title>
+      <chart>
+        <search>
+          <query>
+index=fw earliest=-24h
+| eval logid_name = case(
+    logid="0100044546", "Config Change (CLI)",
+    logid="0100044547", "Config Change (GUI)",
+    logid="0101037131", "VPN Auth Failed",
+    logid="0101037124", "VPN Tunnel Down",
+    logid="0101037134", "VPN Disconnected",
+    logid="220001", "LogDev Warning",
+    1=1, "Other")
+| stats count by logid_name
+| sort -count
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.chart.showPercent">true</option>
+        <option name="charting.legend.placement">right</option>
+      </chart>
+    </panel>
+
+    <panel>
+      <title>📈 Alert Execution Timeline</title>
+      <chart>
+        <search>
+          <query>
+index=_internal source=*scheduler.log savedsearch_name="*.alert_FortiGate*" OR savedsearch_name="*.alert_FortiAnalyzer*" earliest=-24h
+| timechart span=1h count by savedsearch_name
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Row 3: Slack Notification Status -->
+  <row>
+    <panel>
+      <title>💬 Slack Notification Status (Last 24h)</title>
+      <table>
+        <search>
+          <query>
+index=_internal source=*splunkd.log "action=slack" earliest=-24h
+| rex field=_raw "savedsearch_name=\"(?&lt;alert_name&gt;[^\"]+)\""
+| rex field=_raw "Successfully sent slack message|Slack API responded with HTTP status=(?&lt;http_status&gt;\d+)"
+| eval status = if(like(_raw,"%Successfully sent%"),"✅ Success",if(like(_raw,"%error%"),"❌ Error","⚠️ Warning"))
+| stats count by alert_name, status, http_status
+| sort -count
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 4: Recent Alert Executions -->
+  <row>
+    <panel>
+      <title>🔔 Recent Alert Executions (Last 50)</title>
+      <table>
+        <search>
+          <query>
+index=_internal source=*scheduler.log savedsearch_name="*.alert_*" earliest=-24h
+| eval alert_id = replace(savedsearch_name, "\.alert_.*", "")
+| eval alert_type = case(
+    like(savedsearch_name,"%Config_Change%"), "Config Change",
+    like(savedsearch_name,"%VPN_Failure%"), "VPN Failure",
+    like(savedsearch_name,"%LogDev_Warning%"), "LogDev Warning",
+    like(savedsearch_name,"%Metrics_Anomaly%"), "Metrics Anomaly",
+    like(savedsearch_name,"%System_Critical%"), "System Critical",
+    1=1, "Other")
+| eval status_icon = case(
+    status="success", "✅",
+    status="failure", "❌",
+    status="skipped", "⏭️",
+    1=1, "❓")
+| eval execution_time_sec = round(run_time,2)
+| table _time, alert_id, alert_type, status_icon, execution_time_sec, result_count, suppressed
+| rename _time as "Time", alert_id as "ID", alert_type as "Type", status_icon as "Status", execution_time_sec as "Runtime (s)", result_count as "Results", suppressed as "Suppressed"
+| head 50
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">15</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 5: Alert Suppression Effectiveness -->
+  <row>
+    <panel>
+      <title>🛡️ Alert Suppression Effectiveness</title>
+      <chart>
+        <search>
+          <query>
+index=_internal source=*scheduler.log savedsearch_name="*.alert_*" earliest=-24h
+| eval alert_name = replace(savedsearch_name, "^\d+\.", "")
+| stats count as total,
+        sum(eval(if(suppressed="1",1,0))) as suppressed_count
+  by alert_name
+| eval suppression_rate = round((suppressed_count/total)*100,1)
+| eval rating = case(
+    suppression_rate &lt; 10, "🟢 Low (Good)",
+    suppression_rate &lt; 30, "🟡 Moderate",
+    suppression_rate &lt; 50, "🟠 High",
+    1=1, "🔴 Very High (Review)")
+| table alert_name, total, suppressed_count, suppression_rate, rating
+| rename alert_name as "Alert Name", total as "Total", suppressed_count as "Suppressed", suppression_rate as "Rate (%)", rating as "Assessment"
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.legend.placement">none</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Row 6: Metrics Collection Status (NEW) -->
+  <row>
+    <panel>
+      <title>📊 Metrics Collection Status (summary_fw index)</title>
+      <table>
+        <search>
+          <query>
+index=summary_fw earliest=-1h
+| stats count as events,
+    latest(_time) as last_collection,
+    values(metric_type) as metric_types
+  by source
+| eval last_collection = strftime(last_collection, "%Y-%m-%d %H:%M:%S")
+| table source, metric_types, events, last_collection
+| rename source as "Collector", metric_types as "Metric Type", events as "Events (1h)", last_collection as "Last Collection"
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+
+    <panel>
+      <title>📈 Metrics by LogID (Last 24h)</title>
+      <chart>
+        <search>
+          <query>
+index=summary_fw metric_type IN ("config_change","vpn_failure","logdev_warning") earliest=-24h
+| stats sum(event_count) as total_events by logid, metric_type
+| sort -total_events
+          </query>
+          <earliest>$time_token.earliest$</earliest>
+          <latest>$time_token.latest$</latest>
+        </search>
+        <option name="charting.chart">bar</option>
+        <option name="charting.legend.placement">right</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Row 7: Configuration Summary -->
+  <row>
+    <panel>
+      <html>
+        <h2>⚙️ Active Alert Configuration</h2>
+        <h3 style="margin-bottom: 10px;">🔔 Channel 1: #security-firewall-alert (Real-time Alerts)</h3>
+        <table style="width:100%; border-collapse: collapse; margin-bottom: 20px;">
+          <tr style="background-color: #2e7d32; color: white;">
+            <th style="padding: 10px; border: 1px solid #ddd;">ID</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">Alert Name</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">Schedule</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">LogIDs</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">Suppression</th>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd;">001</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">🟢 Config Change</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">Real-time (rt-1m)</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">0100044546, 0100044547</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">1m (device, admin, config_path)</td>
+          </tr>
+          <tr style="background-color: #f5f5f5;">
+            <td style="padding: 8px; border: 1px solid #ddd;">002</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">🔒 VPN Failure</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">Real-time (rt-1m)</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">0101037131, 0101037124, 0101037134</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">1m (device, vpn_user, remote_ip)</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd;">003</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">📡 LogDev Warning</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">Real-time (rt-1m)</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">220001</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">1m (logid)</td>
+          </tr>
+          <tr style="background-color: #f5f5f5;">
+            <td style="padding: 8px; border: 1px solid #ddd;">004</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">🔥 Metrics Anomaly</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">Real-time (rt-1m)</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">0100032001, 0100040704, 0100040705</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">1m (device, issue)</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd;">005</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">🚨 System Critical</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">Real-time (rt-1m)</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">level=critical/error</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">1m (device, message)</td>
+          </tr>
+        </table>
+
+        <h3 style="margin-top: 20px;">📋 Notes</h3>
+        <ul>
+          <li><b>Standardized Suppression:</b> All real-time alerts use 1m suppression for consistent behavior</li>
+          <li><b>LogID-Based Filtering:</b> Simplified queries using specific LogID values for accuracy</li>
+          <li><b>Suppress Fields:</b> Aligned with query output (device, admin, config_path instead of raw fields)</li>
+          <li><b>Single Channel:</b> All alerts to #security-firewall-alert for centralized monitoring</li>
+        </ul>
+
+        <h3 style="margin-top: 20px;">🚀 Deployment</h3>
+        <pre style="background: #f5f5f5; padding: 10px; border-radius: 5px;">
+# Deploy configuration
+curl -k -u admin:password \
+  --data-urlencode "name=savedsearches-fortigate-production-alerts" \
+  --data-urlencode "eai:data=$(cat /home/jclee/app/splunk/configs/savedsearches-fortigate-production-alerts.conf)" \
+  https://splunk.jclee.me:8089/servicesNS/nobody/search/configs/conf-savedsearches
+
+# Verify alerts enabled and scheduled
+/opt/splunk/bin/splunk list saved-searches | grep -E "^(001|002|003|004|005)" | grep -v "\-2"
+
+# Check alert execution
+index=_internal source=*scheduler.log savedsearch_name="00*" | stats count by savedsearch_name
+        </pre>
+      </html>
+    </panel>
+  </row>
+</form>
