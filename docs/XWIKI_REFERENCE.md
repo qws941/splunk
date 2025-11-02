@@ -79,7 +79,7 @@
 (((//(tab2|Bot Token 발급)
 {{code language="bash"}}
 # .env 파일에 저장
-SLACK_BOT_TOKEN=xoxb-1234567890-...
+SLACK_BOT_TOKEN=SLACK_BOT_TOKEN_PLACEHOLDER-HERE
 {{/code}}
 //)))
 {{/tabs}}
