@@ -1,0 +1,97 @@
+[
+  {
+    "time": "2025-11-02T07:30:00+09:00",
+    "logid": "0100044546",
+    "type": "event",
+    "subtype": "system",
+    "level": "notice",
+    "devname": "FGT-MAIN-01",
+    "user": "admin",
+    "cfgpath": "system.interface.wan1",
+    "action": "Edit",
+    "msg": "Configuration change via CLI",
+    "status": "success"
+  },
+  {
+    "time": "2025-11-02T07:31:00+09:00",
+    "logid": "0100044547",
+    "type": "event",
+    "subtype": "system",
+    "level": "notice",
+    "devname": "FGT-MAIN-01",
+    "user": "admin",
+    "cfgpath": "firewall.policy.10",
+    "action": "Edit",
+    "msg": "Configuration change via GUI",
+    "status": "success"
+  },
+  {
+    "time": "2025-11-02T07:32:00+09:00",
+    "logid": "0101037131",
+    "type": "event",
+    "subtype": "vpn",
+    "level": "warning",
+    "devname": "FGT-MAIN-01",
+    "user": "vpnuser1",
+    "remip": "203.0.113.50",
+    "reason": "Invalid credentials",
+    "msg": "SSL-VPN login fail",
+    "status": "failure"
+  },
+  {
+    "time": "2025-11-02T07:33:00+09:00",
+    "logid": "0101037124",
+    "type": "event",
+    "subtype": "vpn",
+    "level": "error",
+    "devname": "FGT-MAIN-01",
+    "user": "vpnuser2",
+    "remip": "198.51.100.25",
+    "reason": "Tunnel negotiation timeout",
+    "msg": "IPsec tunnel down",
+    "status": "failure"
+  },
+  {
+    "time": "2025-11-02T07:34:00+09:00",
+    "logid": "0101037134",
+    "type": "event",
+    "subtype": "vpn",
+    "level": "notice",
+    "devname": "FGT-MAIN-01",
+    "user": "vpnuser3",
+    "remip": "192.0.2.100",
+    "reason": "User logout",
+    "msg": "SSL-VPN user disconnected",
+    "status": "success"
+  },
+  {
+    "time": "2025-11-02T07:35:00+09:00",
+    "logid": "220001",
+    "type": "event",
+    "subtype": "logdev",
+    "level": "warning",
+    "devname": ".self",
+    "msg": "Device FGT-BRANCH-02 offline for 5 minutes",
+    "status": "warning"
+  },
+  {
+    "time": "2025-11-02T07:36:00+09:00",
+    "logid": "220001",
+    "type": "event",
+    "subtype": "logdev",
+    "level": "error",
+    "devname": ".self",
+    "msg": "Disk usage critical: 95% on log volume",
+    "status": "error"
+  },
+  {
+    "time": "2025-11-02T07:37:00+09:00",
+    "type": "traffic",
+    "subtype": "forward",
+    "level": "notice",
+    "devname": "FGT-MAIN-01",
+    "cpu": 85,
+    "mem": 78,
+    "msg": "High CPU and memory usage detected"
+  }
+]
