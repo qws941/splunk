@@ -67,10 +67,10 @@ sudo /opt/splunk/bin/splunk restart
 /opt/splunk/bin/splunk btool alert_actions list slack
 ```
 
-**Expected**: `[slack]` 섹션과 7개 파라미터 표시:
+**Expected**: `[slack]` 섹션과 **command 필드 필수** (8개 설정):
 ```
 [slack]
-command = slack_blockkit_alert.py
+command = slack_blockkit_alert.py     # ⭐ 필수 - 이것이 없으면 액션이 X로 표시됨
 is_custom = 1
 label = Send to Slack (Block Kit)
 param.slack_app_oauth_token =
