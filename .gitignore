@@ -70,3 +70,5 @@ temp/
 *.rar*.pyc
 __pycache__/
 logs/
+release/*.tar.gz
+release/*.tgz
