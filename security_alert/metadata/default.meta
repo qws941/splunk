@@ -1,11 +1,14 @@
 []
-# secmon 사용자 전용 role로 접근 제한
-# Splunk에서 secmon_role 생성 후 secmon 사용자를 이 role에 할당
-access = read : [ secmon_role, admin ], write : [ admin ]
+# 기본: admin, power role만 접근 (에러 없음, 바로 작동)
+access = read : [ admin, power ], write : [ admin ]
 export = system
 
-# 다른 role 추가 예시:
-# access = read : [ secmon_role, security_team, admin ], write : [ admin ]
+# 특정 사용자만 접근하려면:
+# 1. Splunk Web → Settings → Access controls → Roles → New Role
+# 2. Role name: secmon_role 생성
+# 3. Settings → Users → secmon → Roles에서 secmon_role 추가
+# 4. 아래 주석 해제:
+# access = read : [ secmon_role, admin ], write : [ admin ]
 
 [transforms]
 export = system
