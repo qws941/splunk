@@ -67,4 +67,6 @@ temp/
 # Large files
 *.zip
 *.tar.gz
-*.rar
+*.rar*.pyc
+__pycache__/
+logs/
