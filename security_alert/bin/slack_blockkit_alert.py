@@ -166,7 +166,7 @@ def build_block_kit_message(alert_name, search_name, results, view_link=""):
 
     return blocks
 
-def send_to_slack(webhook_url, bot_token, channel, blocks):
+def send_to_slack(webhook_url, bot_token, channel, blocks, proxies=None):
     """Send message to Slack via webhook or Bot Token"""
 
     payload = {
@@ -186,7 +186,8 @@ def send_to_slack(webhook_url, bot_token, channel, blocks):
                 headers={
                     'Content-Type': 'application/json',
                     'Authorization': f'Bearer {bot_token}'
-                }
+                },
+                proxies=proxies
             )
             response.raise_for_status()
             result = response.json()
@@ -204,7 +205,8 @@ def send_to_slack(webhook_url, bot_token, channel, blocks):
                 webhook_url,
                 json=payload,
                 timeout=10,
-                headers={'Content-Type': 'application/json'}
+                headers={'Content-Type': 'application/json'},
+                proxies=proxies
             )
             response.raise_for_status()
 
@@ -238,6 +240,9 @@ def main():
     bot_token = os.environ.get('SLACK_BOT_TOKEN')
     channel = os.environ.get('SLACK_CHANNEL', '#security-firewall-alert')
 
+    # Proxy configuration
+    proxies = None
+
     # Try to read from stdin for configuration (Splunk alert action format)
     try:
         config_str = sys.stdin.read()
@@ -253,6 +258,28 @@ def main():
             channel = '#security-firewall-alert'
             search_name = config.get('search_name', 'Unknown Alert')
             view_link = config.get('results_link', '')
+
+            # Read proxy configuration
+            proxy_enabled = config.get('configuration', {}).get('proxy_enabled', '0')
+            if proxy_enabled == '1' or proxy_enabled is True:
+                proxy_url = config.get('configuration', {}).get('proxy_url', '')
+                proxy_port = config.get('configuration', {}).get('proxy_port', '')
+                proxy_username = config.get('configuration', {}).get('proxy_username', '')
+                proxy_password = config.get('configuration', {}).get('proxy_password', '')
+
+                if proxy_url and proxy_port:
+                    # Build proxy URL
+                    if proxy_username and proxy_password:
+                        proxy_auth = f"{proxy_username}:{proxy_password}@"
+                    else:
+                        proxy_auth = ""
+
+                    proxy_full_url = f"http://{proxy_auth}{proxy_url}:{proxy_port}"
+                    proxies = {
+                        'http': proxy_full_url,
+                        'https': proxy_full_url
+                    }
+                    print(f"Using proxy: {proxy_url}:{proxy_port}", file=sys.stderr)
     except:
         search_name = sys.argv[1] if len(sys.argv) > 1 else 'Manual Alert'
         view_link = ''
@@ -279,7 +306,7 @@ def main():
 
     # Build and send message
     blocks = build_block_kit_message(alert_name, search_name, results, view_link)
-    success = send_to_slack(webhook_url, bot_token, channel, blocks)
+    success = send_to_slack(webhook_url, bot_token, channel, blocks, proxies)
 
     sys.exit(0 if success else 1)
 

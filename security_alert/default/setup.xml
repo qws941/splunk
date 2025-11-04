@@ -27,6 +27,40 @@
     <!-- These fields removed to match Splunk official parameter schema -->
   </block>
 
+  <block title="Proxy Configuration (Optional)">
+    <text>
+      <![CDATA[
+      <p><strong>Configure HTTP/HTTPS proxy for Slack API calls.</strong></p>
+      <p>Required if your network requires proxy for external API access.</p>
+      ]]>
+    </text>
+
+    <input field="param.proxy_enabled">
+      <label>Enable Proxy</label>
+      <type>checkbox</type>
+    </input>
+
+    <input field="param.proxy_url">
+      <label>Proxy Server</label>
+      <type>text</type>
+    </input>
+
+    <input field="param.proxy_port">
+      <label>Proxy Port</label>
+      <type>text</type>
+    </input>
+
+    <input field="param.proxy_username">
+      <label>Proxy Username (Optional)</label>
+      <type>text</type>
+    </input>
+
+    <input field="param.proxy_password">
+      <label>Proxy Password (Optional)</label>
+      <type>password</type>
+    </input>
+  </block>
+
   <block title="Setup Instructions">
     <text>
       <![CDATA[
