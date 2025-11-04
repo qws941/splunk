@@ -25,13 +25,12 @@
     <!-- Channel is hardcoded in Python script (#security-firewall-alert) -->
     <!-- Username and icon_emoji are hardcoded in Python script -->
     <!-- These fields removed to match Splunk official parameter schema -->
-  </block>
 
-  <block title="Proxy Configuration (Optional)">
     <text>
       <![CDATA[
-      <p><strong>Configure HTTP/HTTPS proxy for Slack API calls.</strong></p>
-      <p>Required if your network requires proxy for external API access.</p>
+      <hr/>
+      <h3>Proxy Configuration (Optional)</h3>
+      <p>Configure HTTP/HTTPS proxy for Slack API calls if your network requires proxy for external API access.</p>
       ]]>
     </text>
 
