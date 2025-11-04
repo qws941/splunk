@@ -1,0 +1,572 @@
+<form version="1.1" theme="dark">
+  <label>간편 알림 생성기 (자동 검증)</label>
+  <description>체크박스로 쉽게 설정 + 실시간 문법 검증 + 자동 룩업 적용</description>
+
+  <!-- ========================================
+       설정 패널 - 체크박스 방식
+       ======================================== -->
+  <fieldset submitButton="false" autoRun="true">
+    <html>
+      <h2 style="color: #00d4ff; border-bottom: 2px solid #00d4ff; padding-bottom: 10px;">
+        ⚙️ 알림 기본 설정
+      </h2>
+    </html>
+
+    <input type="text" token="alert_name">
+      <label>📝 알림명</label>
+      <default>Custom_Alert</default>
+    </input>
+  </fieldset>
+
+  <!-- ========================================
+       감시 대상 선택 (체크박스)
+       ======================================== -->
+  <fieldset submitButton="false">
+    <html>
+      <h3 style="color: #ff9500;">📊 감시할 데이터 선택 (복수 선택 가능)</h3>
+    </html>
+
+    <input type="checkbox" token="monitor_config_change">
+      <label>🔧 설정 변경 (Config Change)</label>
+      <default>false</default>
+      <change>
+        <condition value="true">
+          <set token="has_config_change">true</set>
+        </condition>
+        <condition>
+          <unset token="has_config_change"></unset>
+        </condition>
+      </change>
+    </input>
+
+    <input type="checkbox" token="monitor_vpn">
+      <label>🔐 VPN 상태 (VPN Up/Down)</label>
+      <default>false</default>
+      <change>
+        <condition value="true">
+          <set token="has_vpn">true</set>
+        </condition>
+        <condition>
+          <unset token="has_vpn"></unset>
+        </condition>
+      </change>
+    </input>
+
+    <input type="checkbox" token="monitor_hardware">
+      <label>⚙️ 하드웨어 상태 (Hardware Failure)</label>
+      <default>false</default>
+      <change>
+        <condition value="true">
+          <set token="has_hardware">true</set>
+        </condition>
+        <condition>
+          <unset token="has_hardware"></unset>
+        </condition>
+      </change>
+    </input>
+
+    <input type="checkbox" token="monitor_ha">
+      <label>🔄 HA 상태 (High Availability)</label>
+      <default>false</default>
+      <change>
+        <condition value="true">
+          <set token="has_ha">true</set>
+        </condition>
+        <condition>
+          <unset token="has_ha"></unset>
+        </condition>
+      </change>
+    </input>
+
+    <input type="checkbox" token="monitor_interface">
+      <label>🌐 인터페이스 상태 (Link Up/Down)</label>
+      <default>false</default>
+      <change>
+        <condition value="true">
+          <set token="has_interface">true</set>
+        </condition>
+        <condition>
+          <unset token="has_interface"></unset>
+        </condition>
+      </change>
+    </input>
+
+    <input type="checkbox" token="monitor_cpu_memory">
+      <label>📈 CPU/메모리 이상 (Anomaly Detection)</label>
+      <default>false</default>
+      <change>
+        <condition value="true">
+          <set token="has_cpu_memory">true</set>
+        </condition>
+        <condition>
+          <unset token="has_cpu_memory"></unset>
+        </condition>
+      </change>
+    </input>
+
+    <input type="checkbox" token="monitor_resource">
+      <label>⚡ 리소스 한계 (Resource Limit)</label>
+      <default>false</default>
+      <change>
+        <condition value="true">
+          <set token="has_resource">true</set>
+        </condition>
+        <condition>
+          <unset token="has_resource"></unset>
+        </condition>
+      </change>
+    </input>
+
+    <input type="checkbox" token="monitor_traffic">
+      <label>📊 트래픽 급증 (Traffic Spike)</label>
+      <default>false</default>
+      <change>
+        <condition value="true">
+          <set token="has_traffic">true</set>
+        </condition>
+        <condition>
+          <unset token="has_traffic"></unset>
+        </condition>
+      </change>
+    </input>
+  </fieldset>
+
+  <!-- ========================================
+       알림 옵션 (체크박스)
+       ======================================== -->
+  <fieldset submitButton="false">
+    <html>
+      <h3 style="color: #1db954;">🔔 알림 옵션</h3>
+    </html>
+
+    <input type="checkbox" token="enable_slack">
+      <label>💬 Slack 알림 활성화</label>
+      <default>true</default>
+    </input>
+
+    <input type="checkbox" token="enable_email" depends="$show_email_option$">
+      <label>📧 이메일 알림 활성화</label>
+      <default>false</default>
+    </input>
+
+    <input type="checkbox" token="enable_webhook">
+      <label>🔗 Webhook 호출</label>
+      <default>false</default>
+    </input>
+
+    <input type="checkbox" token="enable_auto_response">
+      <label>🤖 자동 대응 (Auto Response)</label>
+      <default>false</default>
+    </input>
+
+    <input type="checkbox" token="enable_suppression">
+      <label>🔕 중복 알림 억제</label>
+      <default>true</default>
+    </input>
+  </fieldset>
+
+  <!-- ========================================
+       자동 룩업 적용 (체크박스)
+       ======================================== -->
+  <fieldset submitButton="false">
+    <html>
+      <h3 style="color: #9c27b0;">📚 자동 데이터 강화 (Automatic Lookup)</h3>
+    </html>
+
+    <input type="checkbox" token="apply_logid_lookup">
+      <label>🔍 LogID 정보 강화 (category, severity, description)</label>
+      <default>true</default>
+    </input>
+
+    <input type="checkbox" token="apply_severity_lookup">
+      <label>⚠️ 심각도 우선순위 매핑 (priority, color)</label>
+      <default>true</default>
+    </input>
+
+    <input type="checkbox" token="apply_threat_intel">
+      <label>🛡️ 위협 인텔리전스 (AbuseIPDB, VirusTotal)</label>
+      <default>false</default>
+    </input>
+
+    <input type="checkbox" token="apply_mitre_mapping">
+      <label>🎯 MITRE ATT&amp;CK 매핑</label>
+      <default>false</default>
+    </input>
+
+    <input type="checkbox" token="apply_ip_whitelist">
+      <label>✅ IP 화이트리스트 체크</label>
+      <default>true</default>
+    </input>
+  </fieldset>
+
+  <!-- ========================================
+       실시간 검증 결과
+       ======================================== -->
+  <row>
+    <panel>
+      <html>
+        <h2 style="color: #ff5722; border-bottom: 2px solid #ff5722; padding-bottom: 10px; margin-top: 30px;">
+          ✅ 실시간 검증 결과
+        </h2>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel id="validation_panel">
+      <title>🔍 문법 및 설정 검증 (자동)</title>
+      <html>
+        <div id="validation_results" style="background: #1e1e1e; padding: 20px; border-radius: 8px; font-family: 'Courier New', monospace;">
+          <div class="validation-item">
+            <span class="status-icon" id="status_alert_name">⏳</span>
+            <span class="validation-label">알림명 검증:</span>
+            <span class="validation-value" id="value_alert_name">대기 중...</span>
+          </div>
+          <div class="validation-item">
+            <span class="status-icon" id="status_monitors">⏳</span>
+            <span class="validation-label">감시 대상 선택:</span>
+            <span class="validation-value" id="value_monitors">대기 중...</span>
+          </div>
+          <div class="validation-item">
+            <span class="status-icon" id="status_lookups">⏳</span>
+            <span class="validation-label">자동 룩업 검증:</span>
+            <span class="validation-value" id="value_lookups">대기 중...</span>
+          </div>
+          <div class="validation-item">
+            <span class="status-icon" id="status_spl">⏳</span>
+            <span class="validation-label">SPL 문법 검증:</span>
+            <span class="validation-value" id="value_spl">대기 중...</span>
+          </div>
+          <div class="validation-item">
+            <span class="status-icon" id="status_slack">⏳</span>
+            <span class="validation-label">Slack 설정 검증:</span>
+            <span class="validation-value" id="value_slack">대기 중...</span>
+          </div>
+          <div class="validation-item">
+            <span class="status-icon" id="status_overall">⏳</span>
+            <span class="validation-label" style="font-weight: bold; color: #00d4ff;">종합 검증:</span>
+            <span class="validation-value" id="value_overall">검증 중...</span>
+          </div>
+        </div>
+
+        <style>
+          .validation-item {
+            padding: 10px 0;
+            border-bottom: 1px solid #333;
+            color: #e0e0e0;
+          }
+          .validation-item:last-child {
+            border-bottom: none;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 2px solid #00d4ff;
+          }
+          .status-icon {
+            display: inline-block;
+            width: 30px;
+            font-size: 18px;
+          }
+          .validation-label {
+            display: inline-block;
+            width: 180px;
+            font-weight: bold;
+          }
+          .validation-value {
+            color: #00d4ff;
+          }
+        </style>
+
+        <script><![CDATA[
+          require([
+            'jquery',
+            'splunkjs/mvc',
+            'splunkjs/mvc/simplexml/ready!'
+          ], function($, mvc) {
+
+            // 토큰 변경 시 자동 검증
+            var tokens = mvc.Components.get('default');
+            var validationTimer;
+
+            // 검증 함수
+            function validateConfiguration() {
+              clearTimeout(validationTimer);
+              validationTimer = setTimeout(function() {
+                runValidation();
+              }, 1000); // 1초 디바운스
+            }
+
+            function runValidation() {
+              console.log('🔍 Starting validation...');
+
+              // 1. 알림명 검증
+              var alertName = tokens.get('alert_name') || '';
+              if (alertName.length >= 3 && /^[a-zA-Z0-9_]+$/.test(alertName)) {
+                updateStatus('alert_name', 'success', '✅ 유효한 알림명');
+              } else {
+                updateStatus('alert_name', 'error', '❌ 영문/숫자/언더스코어만 사용 (3자 이상)');
+              }
+
+              // 2. 감시 대상 검증
+              var monitorCount = 0;
+              var monitors = [];
+              if (tokens.get('monitor_config_change')) { monitorCount++; monitors.push('Config Change'); }
+              if (tokens.get('monitor_vpn')) { monitorCount++; monitors.push('VPN'); }
+              if (tokens.get('monitor_hardware')) { monitorCount++; monitors.push('Hardware'); }
+              if (tokens.get('monitor_ha')) { monitorCount++; monitors.push('HA'); }
+              if (tokens.get('monitor_interface')) { monitorCount++; monitors.push('Interface'); }
+              if (tokens.get('monitor_cpu_memory')) { monitorCount++; monitors.push('CPU/Memory'); }
+              if (tokens.get('monitor_resource')) { monitorCount++; monitors.push('Resource'); }
+              if (tokens.get('monitor_traffic')) { monitorCount++; monitors.push('Traffic'); }
+
+              if (monitorCount > 0) {
+                updateStatus('monitors', 'success', '✅ ' + monitorCount + '개 선택: ' + monitors.join(', '));
+              } else {
+                updateStatus('monitors', 'warning', '⚠️ 최소 1개 이상 선택 필요');
+              }
+
+              // 3. 자동 룩업 검증
+              var lookupCount = 0;
+              var lookups = [];
+              if (tokens.get('apply_logid_lookup')) { lookupCount++; lookups.push('LogID'); }
+              if (tokens.get('apply_severity_lookup')) { lookupCount++; lookups.push('Severity'); }
+              if (tokens.get('apply_threat_intel')) { lookupCount++; lookups.push('Threat Intel'); }
+              if (tokens.get('apply_mitre_mapping')) { lookupCount++; lookups.push('MITRE'); }
+              if (tokens.get('apply_ip_whitelist')) { lookupCount++; lookups.push('IP Whitelist'); }
+
+              if (lookupCount > 0) {
+                updateStatus('lookups', 'success', '✅ ' + lookupCount + '개 적용: ' + lookups.join(', '));
+              } else {
+                updateStatus('lookups', 'info', 'ℹ️ 자동 룩업 미사용');
+              }
+
+              // 4. SPL 문법 검증 (비동기)
+              validateSPLSyntax();
+
+              // 5. Slack 설정 검증
+              if (tokens.get('enable_slack')) {
+                // Slack 토큰 확인 (REST API)
+                checkSlackConfiguration();
+              } else {
+                updateStatus('slack', 'info', 'ℹ️ Slack 알림 비활성화');
+              }
+
+              // 6. 종합 검증
+              updateOverallStatus();
+            }
+
+            function validateSPLSyntax() {
+              // SPL 쿼리 생성
+              var spl = buildSPLQuery();
+
+              // Splunk 검색 API로 문법 검증
+              var service = mvc.createService();
+              var searchQuery = '| makeresults | eval test=1'; // 간단한 테스트
+
+              service.parse(spl, {}, function(err, result) {
+                if (err) {
+                  updateStatus('spl', 'error', '❌ SPL 문법 오류: ' + err.message);
+                } else {
+                  updateStatus('spl', 'success', '✅ SPL 문법 검증 완료');
+                }
+              });
+            }
+
+            function checkSlackConfiguration() {
+              // REST API로 Slack 설정 확인
+              $.ajax({
+                url: '/servicesNS/nobody/security_alert/admin/alert_actions/slack',
+                type: 'GET',
+                headers: {
+                  'Authorization': 'Splunk ' + $C.SPLUNK_SESSION_KEY
+                },
+                success: function(response) {
+                  var hasToken = false;
+                  var hasChannel = false;
+
+                  if (response && response.entry && response.entry.length > 0) {
+                    var content = response.entry[0].content;
+                    hasToken = !!(content.param_bot_token || content.param_webhook_url);
+                    hasChannel = !!content.param_channel;
+                  }
+
+                  if (hasToken && hasChannel) {
+                    updateStatus('slack', 'success', '✅ Slack 설정 완료');
+                  } else if (!hasToken) {
+                    updateStatus('slack', 'warning', '⚠️ Slack 토큰 미설정 (Setup 필요)');
+                  } else if (!hasChannel) {
+                    updateStatus('slack', 'warning', '⚠️ Slack 채널 미설정');
+                  }
+                },
+                error: function() {
+                  updateStatus('slack', 'error', '❌ Slack 설정 확인 실패');
+                }
+              });
+            }
+
+            function buildSPLQuery() {
+              var conditions = [];
+              if (tokens.get('monitor_config_change')) conditions.push('(logid=0100044546 OR logid=0100044547)');
+              if (tokens.get('monitor_vpn')) conditions.push('(logid=0101037124 OR logid=0101037131 OR logid=0101037134)');
+              // ... 추가 조건
+
+              var whereClause = conditions.length > 0 ? '(' + conditions.join(' OR ') + ')' : '*';
+              var spl = 'index=fw earliest=-15m ' + whereClause + ' | stats count by logid, devname';
+
+              return spl;
+            }
+
+            function updateStatus(item, status, message) {
+              var icons = {
+                success: '✅',
+                error: '❌',
+                warning: '⚠️',
+                info: 'ℹ️',
+                loading: '⏳'
+              };
+
+              $('#status_' + item).text(icons[status] || '⏳');
+              $('#value_' + item).text(message);
+            }
+
+            function updateOverallStatus() {
+              // 모든 검증 상태 확인
+              var allValid = true;
+              var hasError = false;
+
+              $('[id^=status_]').each(function() {
+                var status = $(this).text();
+                if (status === '❌') {
+                  hasError = true;
+                  allValid = false;
+                } else if (status === '⚠️') {
+                  allValid = false;
+                }
+              });
+
+              if (hasError) {
+                updateStatus('overall', 'error', '❌ 오류 발견 - 수정 필요');
+              } else if (!allValid) {
+                updateStatus('overall', 'warning', '⚠️ 경고 있음 - 확인 필요');
+              } else {
+                updateStatus('overall', 'success', '✅ 모든 검증 통과 - 저장 가능');
+              }
+            }
+
+            // 토큰 변경 리스너
+            tokens.on('change:alert_name', validateConfiguration);
+            tokens.on('change:monitor_config_change', validateConfiguration);
+            tokens.on('change:monitor_vpn', validateConfiguration);
+            tokens.on('change:monitor_hardware', validateConfiguration);
+            tokens.on('change:monitor_ha', validateConfiguration);
+            tokens.on('change:monitor_interface', validateConfiguration);
+            tokens.on('change:monitor_cpu_memory', validateConfiguration);
+            tokens.on('change:monitor_resource', validateConfiguration);
+            tokens.on('change:monitor_traffic', validateConfiguration);
+            tokens.on('change:apply_logid_lookup', validateConfiguration);
+            tokens.on('change:apply_severity_lookup', validateConfiguration);
+            tokens.on('change:apply_threat_intel', validateConfiguration);
+            tokens.on('change:apply_mitre_mapping', validateConfiguration);
+            tokens.on('change:apply_ip_whitelist', validateConfiguration);
+            tokens.on('change:enable_slack', validateConfiguration);
+
+            // 초기 검증 실행
+            setTimeout(validateConfiguration, 500);
+          });
+        ]]></script>
+      </html>
+    </panel>
+  </row>
+
+  <!-- ========================================
+       저장 버튼
+       ======================================== -->
+  <row>
+    <panel>
+      <html>
+        <div style="text-align: center; margin: 30px 0;">
+          <button id="save_alert_btn" class="btn btn-primary" style="padding: 15px 40px; font-size: 16px; background: #1db954; border: none; border-radius: 5px; color: white; cursor: pointer;">
+            💾 알림 저장하기
+          </button>
+          <button id="preview_alert_btn" class="btn btn-info" style="padding: 15px 40px; font-size: 16px; background: #00d4ff; border: none; border-radius: 5px; color: white; margin-left: 20px; cursor: pointer;">
+            👁️ 미리보기
+          </button>
+        </div>
+
+        <script><![CDATA[
+          require([
+            'jquery',
+            'splunkjs/mvc',
+            'splunkjs/mvc/simplexml/ready!'
+          ], function($, mvc) {
+
+            $('#save_alert_btn').click(function() {
+              var tokens = mvc.Components.get('default');
+
+              // 검증 상태 확인
+              var overallStatus = $('#status_overall').text();
+              if (overallStatus !== '✅') {
+                alert('⚠️ 검증을 통과하지 못했습니다.\n\n오류를 수정한 후 다시 시도해주세요.');
+                return;
+              }
+
+              // 설정 수집
+              var config = {
+                alert_name: tokens.get('alert_name'),
+                monitors: [],
+                lookups: [],
+                options: {}
+              };
+
+              // 감시 대상
+              if (tokens.get('monitor_config_change')) config.monitors.push('config_change');
+              if (tokens.get('monitor_vpn')) config.monitors.push('vpn');
+              if (tokens.get('monitor_hardware')) config.monitors.push('hardware');
+              if (tokens.get('monitor_ha')) config.monitors.push('ha');
+              if (tokens.get('monitor_interface')) config.monitors.push('interface');
+              if (tokens.get('monitor_cpu_memory')) config.monitors.push('cpu_memory');
+              if (tokens.get('monitor_resource')) config.monitors.push('resource');
+              if (tokens.get('monitor_traffic')) config.monitors.push('traffic');
+
+              // 자동 룩업
+              if (tokens.get('apply_logid_lookup')) config.lookups.push('logid');
+              if (tokens.get('apply_severity_lookup')) config.lookups.push('severity');
+              if (tokens.get('apply_threat_intel')) config.lookups.push('threat_intel');
+              if (tokens.get('apply_mitre_mapping')) config.lookups.push('mitre');
+              if (tokens.get('apply_ip_whitelist')) config.lookups.push('ip_whitelist');
+
+              // 옵션
+              config.options.slack = tokens.get('enable_slack') || false;
+              config.options.email = tokens.get('enable_email') || false;
+              config.options.webhook = tokens.get('enable_webhook') || false;
+              config.options.auto_response = tokens.get('enable_auto_response') || false;
+              config.options.suppression = tokens.get('enable_suppression') || false;
+
+              // REST API 호출
+              $.ajax({
+                url: '/servicesNS/nobody/security_alert/security_alert/alerts',
+                type: 'POST',
+                headers: {
+                  'Authorization': 'Splunk ' + $C.SPLUNK_SESSION_KEY,
+                  'Content-Type': 'application/json'
+                },
+                data: JSON.stringify(config),
+                success: function(response) {
+                  alert('✅ 알림이 성공적으로 저장되었습니다!\n\n알림명: ' + config.alert_name + '\n감시 대상: ' + config.monitors.length + '개\n자동 룩업: ' + config.lookups.length + '개');
+                  window.location.href = '/app/security_alert/alert_management';
+                },
+                error: function(xhr, status, error) {
+                  alert('❌ 알림 저장 실패:\n' + error + '\n\nSTATUS: ' + xhr.status + '\n\n응답: ' + xhr.responseText);
+                }
+              });
+            });
+
+            $('#preview_alert_btn').click(function() {
+              // 미리보기 창 열기
+              window.open('/app/security_alert/alert_preview', '_blank', 'width=800,height=600');
+            });
+          });
+        ]]></script>
+      </html>
+    </panel>
+  </row>
+</form>

@@ -1,0 +1,68 @@
+<setup>
+  <block title="Slack Configuration" endpoint="admin/alert_actions" entity="slack">
+    <text>
+      <![CDATA[
+      <p><strong>Configure Slack integration for security alerts.</strong></p>
+      <p>Choose one of the following authentication methods:</p>
+      <ul>
+        <li><strong>Method 1 (Recommended):</strong> Bot Token - Secure OAuth authentication</li>
+        <li><strong>Method 2 (Alternative):</strong> Webhook URL - Simple incoming webhook</li>
+      </ul>
+      <p><em>Note: Only one method is required. Bot Token is preferred for production.</em></p>
+      ]]>
+    </text>
+
+    <input field="param.slack_app_oauth_token">
+      <label>Slack App OAuth Token (Method 1 - Recommended)</label>
+      <type>password</type>
+    </input>
+
+    <input field="param.webhook_url">
+      <label>Slack Webhook URL (Method 2 - Alternative)</label>
+      <type>password</type>
+    </input>
+
+    <!-- Channel is hardcoded in Python script (#security-firewall-alert) -->
+    <!-- Username and icon_emoji are hardcoded in Python script -->
+    <!-- These fields removed to match Splunk official parameter schema -->
+  </block>
+
+  <block title="Setup Instructions">
+    <text>
+      <![CDATA[
+      <h3>Method 1: Bot Token Setup (Recommended)</h3>
+      <ol>
+        <li>Go to <a href="https://api.slack.com/apps" target="_blank">https://api.slack.com/apps</a></li>
+        <li>Create New App → From scratch</li>
+        <li>Add OAuth Scopes:
+          <ul>
+            <li><code>chat:write</code> - Send messages</li>
+            <li><code>chat:write.public</code> - Send to public channels without invitation</li>
+            <li><code>channels:read</code> - Read channel list</li>
+          </ul>
+        </li>
+        <li>Install App to Workspace</li>
+        <li>Copy <strong>Bot User OAuth Token</strong> (starts with <code>xoxb-</code>)</li>
+        <li>Paste token in "Slack Bot Token" field above</li>
+        <li>Invite bot to channel: <code>/invite @YourBotName</code> (optional if using chat:write.public)</li>
+      </ol>
+
+      <h3>Method 2: Webhook URL Setup (Alternative)</h3>
+      <ol>
+        <li>Go to <a href="https://api.slack.com/apps" target="_blank">https://api.slack.com/apps</a></li>
+        <li>Select existing app or create new</li>
+        <li>Incoming Webhooks → Activate</li>
+        <li>Add New Webhook to Workspace</li>
+        <li>Select target channel</li>
+        <li>Copy webhook URL (starts with <code>https://hooks.slack.com/services/</code>)</li>
+        <li>Paste URL in "Slack Webhook URL" field above</li>
+      </ol>
+
+      <h3>Test Your Setup</h3>
+      <p>After saving configuration, test with:</p>
+      <pre>index=fw earliest=-1h | savedsearch 001_Config_Change_Alert</pre>
+      <p>Check logs: <code>index=_internal source=*alert_actions.log "slack_blockkit"</code></p>
+      ]]>
+    </text>
+  </block>
+</setup>

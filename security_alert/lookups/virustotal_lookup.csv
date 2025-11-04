@@ -1,0 +1,21 @@
+hash,detection_rate,malware_type,malware_family,first_seen,last_seen,vendor_detections,file_type,file_size,threat_category
+# VirusTotal File Hash Lookup Table
+#
+# This file is populated by scripts/fetch_virustotal_intel.py
+# Triggered on-demand when new file hashes are detected
+#
+# Fields:
+# - hash: File hash (SHA256)
+# - detection_rate: Detection rate (e.g., "45/70" means 45 out of 70 vendors detected)
+# - malware_type: Type of malware (Trojan, Ransomware, Worm, etc.)
+# - malware_family: Malware family name
+# - first_seen: First submission timestamp (ISO8601)
+# - last_seen: Last analysis timestamp (ISO8601)
+# - vendor_detections: Comma-separated list of detecting vendors
+# - file_type: File type/extension
+# - file_size: File size in bytes
+# - threat_category: Threat category (malicious, suspicious, clean)
+#
+# Example data (will be replaced by API fetch):
+# a1b2c3d4e5f6...hash...,45/70,Trojan,Emotet,2025-10-01T10:00:00Z,2025-10-21T12:00:00Z,"Microsoft,Kaspersky,Symantec",PE32,524288,malicious
+# f6e5d4c3b2a1...hash...,0/70,Clean,,2025-10-15T08:00:00Z,2025-10-21T11:00:00Z,,PDF,102400,clean

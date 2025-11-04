@@ -1,636 +1,1045 @@
-# CLAUDE.md
+# CLAUDE.md - Splunk Security Alert System
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with the Splunk security alert application codebase.
+
+## ⚡ Quick Start for Development
+
+**Common Commands**:
+```bash
+# Navigate to project
+cd /home/jclee/app/splunk
+
+# Create deployment package
+tar -czf security_alert.tar.gz security_alert/
+
+# Validate configuration files
+python3 -m py_compile security_alert/bin/*.py
+grep -n "enableSched" security_alert/default/savedsearches.conf
+
+# Commit changes
+git add security_alert/
+git commit -m "feat: Your change description"
+git push origin master
+```
+
+**Testing Alerts** (on Splunk server):
+```bash
+# Run validators
+/opt/splunk/etc/apps/security_alert/bin/auto_validator.py
+/opt/splunk/etc/apps/security_alert/bin/deployment_health_check.py
+
+# Check alert status
+/opt/splunk/bin/splunk btool savedsearches list | grep -E "^\[0[0-9]{2}_"
+
+# View logs
+tail -f /opt/splunk/var/log/splunk/splunkd.log | grep security_alert
+```
+
+**Important Directories**:
+- **Active development**: `security_alert/` (modify this)
+- **Deployment package**: `security_alert.tar.gz` (generated from above)
+- **Reference only**: `configs/`, `lookups/`, `docs/` (examples)
+- **Legacy (ignore)**: `nextrade/`, `archive-dev/`, `xwiki/`
 
 ## 🎯 Project Overview
 
-**FortiAnalyzer → Splunk Integration with Advanced Correlation Engine**
+**Splunk Security Alert System for FortiGate Monitoring** (v2.0.4)
 
-Security event processing system with three deployment modes and zero runtime dependencies (backend only).
+A production-ready Splunk app that provides dynamic, state-aware alert management for FortiGate security events with Slack integration using Block Kit formatting.
 
-**Key Facts**:
-- **Version**: 2.0.0 (React Dashboard + Legacy Backend + Cloudflare Workers)
-- **Runtime Dependencies**: 0 (backend uses Node.js built-ins only)
-- **Frontend**: React 18, Vite, Zustand, Recharts (~318 packages, dev only)
-- **Architecture**: Triple-entry (React Dashboard, Legacy, Workers)
-- **Data Flow**: FortiAnalyzer Syslog → Splunk (index=fw) → Correlation Engine → Auto-Block/Slack
-- **Repository**: https://github.com/qws941/splunk.git
-
-**Key Indexes**:
-- `index=fw` - Primary Syslog data (104+ references)
-- `index=summary_fw` - Correlation results (18 references)
+**Key Characteristics**:
+- **Architecture**: 3-layer system (Dashboards → Python Backend → Splunk Configuration)
+- **Alert Strategy**: 15 pre-configured alerts (12 active, 3 state-tracking-only)
+- **State Management**: EMS-style state tracking using CSV lookups (prevents duplicate alerts)
+- **Slack Integration**: Dual authentication (Bot Token OAuth or Webhook URL)
+- **Deployment**: Single tarball package (`security_alert.tar.gz`, ~26KB, 38 files)
+- **Data Source**: FortiGate syslog to `index=fw`
 
 ---
 
-## 🚀 Essential Commands
+## 🏗️ High-Level Architecture
+
+### Three-Layer System
+
+```
+LAYER 1: PRESENTATION (Splunk Dashboards)
+  └─ Data Explorer → Browse FortiGate events
+  └─ Alert Management → View/Edit/Delete/Enable alerts
+  └─ Custom Dashboards → Real-time metrics
+
+LAYER 2: BUSINESS LOGIC (Python Backend)
+  └─ slack_blockkit_alert.py     → Format & send Slack messages
+  └─ auto_validator.py           → Validate configuration integrity
+  └─ deployment_health_check.py  → Verify deployment status
+  └─ splunk_feature_checker.py   → Check Splunk features availability
+  └─ fortigate_auto_response.py  → Auto-response actions (optional)
+
+LAYER 3: CONFIGURATION (Splunk Config Files)
+  └─ savedsearches.conf    → Alert definitions (15 alerts)
+  └─ macros.conf           → Centralized query parameters
+  └─ transforms.conf       → Lookup table definitions (10 CSV files)
+  └─ alert_actions.conf    → Slack action configuration
+  └─ app.conf              → App metadata & Slack credentials
+  └─ props.conf            → Auto-field extraction rules
+```
+
+### Data Flow
+
+```
+FortiGate Syslog
+      ↓
+Splunk HEC/UDP Input
+      ↓
+index=fw (raw events)
+      ↓
+├─ Real-time Saved Searches (15 alerts)
+│   ├─ Macro expansion (`fortigate_index`, `logids_*`)
+│   ├─ Lookup enrichment (`enrich_with_logid_lookup`)
+│   ├─ State tracking (join with *_state_tracker CSV)
+│   ├─ Condition evaluation (state changed = 1?)
+│   └─ Alert trigger (if true)
+│
+└─ Alert Triggered
+    ├─ Slack action invoked
+    ├─ slack_blockkit_alert.py executed
+    ├─ Results gzipped & passed to script
+    ├─ Block Kit message formatted
+    └─ POST to Slack API (Bot Token or Webhook)
+          ↓
+    Slack Channel (#security-firewall-alert)
+```
+
+---
+
+## 🚨 Alert Categories (15 Total)
+
+### Active Alerts (12) - Generate Slack Notifications
+
+**Binary State Changes** (4 alerts - uses EMS state tracking):
+- `002_VPN_Tunnel` - VPN tunnel DOWN/UP transitions
+- `007_Hardware` - Hardware component FAIL/OK transitions
+- `008_HA_State` - HA role change (primary ↔ backup)
+- `012_Interface` - Network interface DOWN/UP transitions
+
+**Threshold-Based** (3 alerts - baseline anomaly detection):
+- `006_CPU_Memory` - CPU/Memory 20%+ above 8-day baseline
+- `010_Resource` - Resource usage >75%
+- `015_Traffic_Spike` - Traffic spike 3x above baseline
+
+**Event-Driven** (5 alerts - single-event triggers):
+- `001_Config_Change` - Configuration modifications detected
+- `011_Admin_Login` - Failed admin authentication attempts
+- `013_VPN_Brute_Force` - SSL VPN brute force attacks
+- `016_System_Reboot` - System reboot detected
+- `017_License` - License expiry warning
+
+### Inactive Alerts (3) - State Tracking Only
+
+These alerts update CSV state files but don't send Slack notifications (`enableSched = 0`):
+- `011_Admin_Login` - State tracking only
+- `013_VPN_Brute_Force` - State tracking only
+- `017_License` - State tracking only
+
+---
+
+## 🔑 Critical Technical Concepts
+
+### 1. EMS State Tracking Pattern
+
+**Problem**: Duplicate alerts (e.g., VPN DOWN → UP → DOWN sends 3 alerts)
+
+**Solution**: CSV-based state tracking (join pattern)
+
+```spl
+# Example: Alert 002_VPN_Tunnel
+| eval current_state = if(vpn_status="down", "DOWN", "UP")
+| join device vpn_name [
+    | inputlookup vpn_state_tracker
+    | rename state as prev_state ]
+| eval changed = if(prev_state != current_state, 1, 0)
+| where changed=1
+| outputlookup append=t vpn_state_tracker
+```
+
+**CSV File Structure** (`*_state_tracker.csv`):
+```csv
+device,prev_state,current_state,last_change,_key
+firewall-01,DOWN,UP,2025-11-04 10:30:45,firewall-01_vpn-site1
+firewall-01,UP,UP,2025-11-04 10:35:12,firewall-01_vpn-site2
+```
+
+**Benefits**:
+- ✅ No alert suppression needed
+- ✅ Captures state transitions (DOWN→UP recovery alerts)
+- ✅ Persistent state tracking across searches
+- ✅ CSV updates with `outputlookup append=t`
+
+### 2. Slack Dual Authentication
+
+**Method 1: Bot Token (OAuth)** - Preferred, more features
+
+```python
+# slack_blockkit_alert.py (lines 180-199)
+if bot_token.startswith('xoxb-'):
+    response = requests.post(
+        'https://slack.com/api/chat.postMessage',
+        headers={'Authorization': f'Bearer {bot_token}'},
+        json=payload
+    )
+```
+
+**Required Scopes**:
+- `chat:write` - Send messages
+- `chat:write.public` - Send to public channels
+- `channels:read` - List channels
+
+**Method 2: Webhook URL** - Fallback, simpler
+
+```python
+# slack_blockkit_alert.py (lines 202-216)
+if webhook_url.startswith('https://hooks.slack.com'):
+    response = requests.post(webhook_url, json=payload)
+```
+
+**Configuration** (both stored in `local/alert_actions.conf`):
+```ini
+[slack]
+param.bot_token = SLACK_BOT_TOKEN_PLACEHOLDER
+param.webhook_url = https://hooks.slack.com/services/YOUR/WEBHOOK
+param.channel = #security-firewall-alert
+```
+
+### 3. Block Kit Message Formatting
+
+**Structure** (`slack_blockkit_alert.py`, lines 62-167):
+
+```python
+blocks = [
+    {
+        "type": "header",                    # Title with emoji
+        "text": { "type": "plain_text", ... }
+    },
+    {
+        "type": "section",                   # Metadata (Alert, Count, Time, Source)
+        "fields": [ ... ]
+    },
+    {
+        "type": "divider"                    # Visual separator
+    },
+    # Event details (up to 5 events shown)
+    {
+        "type": "section",
+        "fields": [                          # Emoji-enhanced fields
+            {"text": "🖥️ *Device:* firewall-01"}
+            {"text": "🌐 *Source IP:* 192.168.1.100"}
+            ...
+        ]
+    },
+    {
+        "type": "context",                   # Footer ("Showing 5 of N events")
+        "elements": [ ... ]
+    },
+    {
+        "type": "actions",                   # "View in Splunk" button
+        "elements": [ { "type": "button", "url": view_link } ]
+    }
+]
+```
+
+**Key Features**:
+- Emoji mapping (🖥️ device, 🌐 IP, 🔐 VPN, etc.)
+- Field truncation (100 chars per field, 10 fields per event)
+- Event limiting (max 5 events shown, "Showing 5 of N" footer)
+- Dynamic severity emoji (🔴 critical, 🟠 high, 🟡 medium, 🔵 low)
+
+### 4. Lookup Table System
+
+**10 State Tracking CSVs** (auto-created if missing):
+```
+vpn_state_tracker.csv
+hardware_state_tracker.csv
+ha_state_tracker.csv
+interface_state_tracker.csv
+cpu_memory_state_tracker.csv
+resource_state_tracker.csv
+admin_login_state_tracker.csv
+vpn_brute_force_state_tracker.csv
+traffic_spike_state_tracker.csv
+license_state_tracker.csv
+```
+
+**3 Reference Lookups** (manually maintained):
+```
+fortigate_logid_notification_map.csv (6KB, 50+ LogIDs)
+auto_response_actions.csv (auto-response rules)
+severity_priority.csv (severity mapping)
+```
+
+**Additional Threat Intelligence**:
+```
+abuseipdb_lookup.csv (IP reputation)
+virustotal_lookup.csv (malware detection)
+ip_whitelist.csv (trusted IPs)
+fortinet_mitre_mapping.csv (MITRE ATT&CK mapping)
+```
+
+**Lookup Definitions** (`transforms.conf`, lines 1-72):
+- `fortigate_logid_lookup` - Maps LogID to description, category, severity
+- `auto_response_lookup` - Maps threat pattern to auto-response action
+- `*_state_tracker` - No external file mapping, uses `inputlookup` directly
+
+### 5. Macro System (Centralized Configuration)
+
+**Index & Time Range** (`macros.conf`):
+```spl
+[fortigate_index]
+definition = index=fw
+
+[baseline_time_range]
+definition = earliest=-8d latest=-1d    # 8-day baseline window
+
+[realtime_time_range]
+definition = earliest=-10m latest=now   # Real-time window
+```
+
+**Threshold Macros** (`macros.conf`):
+```spl
+[cpu_high_threshold]
+definition = 80
+
+[memory_high_threshold]
+definition = 85
+
+[baseline_anomaly_multiplier]
+definition = 2          # 2x above baseline = ABNORMAL
+```
+
+**LogID Groups** (`macros.conf`, lines 37-94):
+```spl
+[logids_config_change]
+definition = (logid=0100044546 OR logid=0100044547)
+
+[logids_vpn_tunnel]
+definition = (logid=0101037124 OR logid=0101037131 OR logid=0101037134)
+# ... 12 more LogID macros for each alert
+```
+
+**Enrichment Macro** (`macros.conf`, line 100):
+```spl
+[enrich_with_logid_lookup]
+definition = lookup fortigate_logid_lookup logid \
+  OUTPUT category,severity,notify_slack,description,available_fields
+```
+
+**Usage in Alerts**:
+```spl
+# Alert 001_Config_Change (savedsearches.conf, line 15)
+`fortigate_index` `logids_config_change` \
+| `enrich_with_logid_lookup` \
+```
+
+---
+
+## 📂 Directory Structure (Source vs. Deployed)
+
+### Repository Root (`/home/jclee/app/splunk/`)
+
+```
+/home/jclee/app/splunk/
+├── security_alert/              # ✅ PRIMARY - Active development
+│   ├── bin/                     # Python backend scripts
+│   ├── default/                 # Configuration files
+│   ├── lookups/                 # CSV reference data
+│   ├── local/                   # User overrides (gitignored)
+│   └── metadata/                # Permission settings
+│
+├── security_alert.tar.gz        # ✅ Deployment package (26KB)
+│
+├── CLAUDE.md                    # ✅ This file - Development guide
+├── README.md                    # ✅ User-facing documentation
+├── INSTALLATION_GUIDE.md        # ✅ Installation instructions
+│
+├── lookups/                     # 📚 Reference - Common CSV templates
+├── configs/                     # 📚 Reference - Config examples
+├── docs/                        # 📚 Reference - Additional documentation
+│
+├── nextrade/                    # ❌ LEGACY (v2.0.3) - Ignore
+├── archive-dev/                 # ❌ LEGACY - Development archive - Ignore
+└── xwiki/                       # ❌ LEGACY - Old documentation - Ignore
+```
+
+**Key Points**:
+- **Active development**: Only modify `security_alert/` directory
+- **Deployment**: Use `security_alert.tar.gz` for production deployment
+- **Reference only**: `lookups/`, `configs/`, `docs/` are examples/references
+- **Ignore**: `nextrade/`, `archive-dev/`, `xwiki/` are legacy/deprecated
+
+### Source Directory (`/home/jclee/app/splunk/security_alert/`)
+
+```
+security_alert/
+├── bin/                              # Python backend (5 scripts)
+│   ├── slack_blockkit_alert.py      # Format & send Slack messages (283 lines)
+│   ├── auto_validator.py            # Validate app integrity (390 lines)
+│   ├── deployment_health_check.py   # 10-point health check (533 lines)
+│   ├── splunk_feature_checker.py    # Check Splunk version/features
+│   └── fortigate_auto_response.py   # Auto-response actions (optional)
+│
+├── default/                         # Read-only default configuration
+│   ├── app.conf                     # App metadata (v2.0.4)
+│   ├── alert_actions.conf           # Slack action specs (Python3)
+│   ├── savedsearches.conf           # 15 alert definitions
+│   ├── macros.conf                  # Centralized query parameters
+│   ├── transforms.conf              # Lookup table definitions
+│   ├── props.conf                   # Field extraction rules
+│   ├── setup.xml                    # Setup UI definition
+│   └── data/
+│       └── ui/
+│           ├── nav/default.xml      # App navigation menu
+│           └── views/               # Dashboard XML (if any)
+│
+├── lookups/                         # CSV reference data (18 files)
+│   ├── *_state_tracker.csv (10)    # EMS state tracking
+│   ├── fortigate_logid_notification_map.csv
+│   ├── severity_priority.csv
+│   ├── auto_response_actions.csv
+│   └── [threat intel lookups]
+│
+├── local/                           # User-modified configuration
+│   └── [User overrides of default/ files]
+│
+└── metadata/
+    └── default.meta                 # Permission settings
+```
+
+### Deployed Directory (`/opt/splunk/etc/apps/security_alert/`)
+
+**Same structure as source**. Key points:
+- `default/` = Read-only app defaults
+- `local/` = User modifications (created during setup)
+- `lookups/` = CSV files (modified by alert runs via `outputlookup`)
+- `bin/` = Python scripts must have execute permissions
+
+---
+
+## 🔧 Configuration File Hierarchy
+
+**Priority** (highest to lowest):
+1. `local/` - User modifications (created by Setup UI or manual edits)
+2. `default/` - App defaults
+3. `/opt/splunk/etc/system/` - Splunk system defaults
+
+**Example**: When both `default/alert_actions.conf` and `local/alert_actions.conf` exist:
+- Settings in `local/` override `default/`
+- Slack token goes to `local/alert_actions.conf` (via Setup UI)
+
+---
+
+## 🚀 Deployment Commands
 
 ### Development Workflow
 
+**1. Make Changes**:
 ```bash
-# React Dashboard (v2.0 - Recommended)
-npm install                              # Install backend deps
-cd frontend && npm install               # Install frontend deps
+cd /home/jclee/app/splunk
 
-# Development (requires 2 terminals)
-npm start                                # Terminal 1: Backend API (port 3001)
-cd frontend && npm run dev               # Terminal 2: React frontend (port 3000)
-
-# Production build
-cd frontend && npm run build             # Build frontend → frontend/dist/
-npm start                                # Serve backend API only
-
-# Health checks
-curl http://localhost:3001/health        # Backend API health
-curl http://localhost:3001/metrics       # Prometheus metrics
+# Edit files in security_alert/ directory
+vim security_alert/default/savedsearches.conf
+vim security_alert/bin/slack_blockkit_alert.py
 ```
 
-### Legacy Backend (v1.x)
-
+**2. Test Locally** (if possible):
 ```bash
-npm run start:legacy                     # Port 3000, no frontend
-curl http://localhost:3000/health        # Health check
+# Validate Python syntax
+python3 -m py_compile security_alert/bin/*.py
+
+# Check for common config errors
+grep -n "enableSched" security_alert/default/savedsearches.conf
 ```
 
-### Cloudflare Workers (Serverless)
-
+**3. Commit Changes**:
 ```bash
-# Setup secrets (one-time)
-npm run secret:faz-host                  # FortiAnalyzer hostname
-npm run secret:faz-username              # Admin username
-npm run secret:faz-password              # Admin password
-npm run secret:splunk-host               # Splunk HEC hostname
-npm run secret:splunk-token              # HEC token
-npm run secret:slack-token               # Slack bot token (xoxb-<example>)
-npm run secret:slack-channel             # Slack channel (#splunk-alerts)
+# Stage changes
+git add security_alert/
 
-# Development & deployment
-npm run dev:worker                       # Local dev with hot reload
-npm run deploy:worker                    # Deploy to production
-npm run tail:worker                      # Real-time logs
+# Commit with descriptive message
+git commit -m "feat: Add new alert for XYZ"
+# or
+git commit -m "fix: Correct LogID mapping for alert 002"
 
-# Debug deployment issues
-wrangler secret list                     # Verify secrets configured
-grep "account_id" wrangler.toml          # Verify account ID
+# Push to repository
+git push origin master
 ```
 
-### Splunk Dashboard Operations
+### Package Creation
 
 ```bash
-# Validate dashboard XML before deployment
-python3 -c "import xml.etree.ElementTree as ET; ET.parse('configs/dashboards/correlation-analysis.xml'); print('✅ Valid XML')"
+# Update source after modifications
+cd /home/jclee/app/splunk
 
-# Deploy dashboards via REST API
-node scripts/deploy-dashboards.js
+# Create tarball for deployment
+tar -czf security_alert.tar.gz security_alert/
 
-# Test correlation rules manually
-splunk search "| savedsearch Correlation_Multi_Factor_Threat_Score"
+# Verify tarball contents
+tar -tzf security_alert.tar.gz | head -20
 
-# Check correlation detections
-index=summary_fw marker="correlation_detection=*" | stats count by correlation_type
+# Check file count
+tar -tzf security_alert.tar.gz | wc -l  # Should be ~38 files
 
-# Monitor auto-block actions
-index=_internal source=*fortigate_auto_block.log
+# View final size
+ls -lh security_alert.tar.gz            # Should be ~26KB
 ```
 
-### Testing & Debugging
+### Web UI Deployment (Recommended)
+
+```
+1. Splunk Web → Apps → Manage Apps → Install app from file
+2. Upload security_alert.tar.gz
+3. Click "Upload"
+4. Splunk prompts restart → Click "Restart Splunk"
+5. After restart, go to Apps → Security Alert System → Setup
+6. Enter Slack credentials → Save
+```
+
+### CLI Deployment
 
 ```bash
-# Generate mock data
-node scripts/generate-mock-data.js --count=100 --send
+# Copy to Splunk server
+scp security_alert.tar.gz splunk-server:/tmp/
 
-# Test Slack notifications
-node scripts/slack-alert-cli.js --test
-node scripts/slack-alert-cli.js --channel="splunk-alerts" --message="Test from CLI"
+# SSH to Splunk server
+ssh splunk-server
+cd /opt/splunk/etc/apps/
 
-# Verify data model acceleration
-index=_internal source=*summarization.log | stats count by savedsearch_name
+# Extract
+sudo tar -xzf /tmp/security_alert.tar.gz
 
-# Check summary index data
-index=summary_fw marker="correlation_detection=*" earliest=-24h | stats count by marker
+# Fix permissions
+sudo chown -R splunk:splunk security_alert
+
+# Restart Splunk
+sudo /opt/splunk/bin/splunk restart
+```
+
+### Post-Deployment Validation
+
+```bash
+# Check file structure
+ls -la /opt/splunk/etc/apps/security_alert/
+
+# Verify Python script permissions
+ls -la /opt/splunk/etc/apps/security_alert/bin/*.py
+# Should show: -rwxr-xr-x (755)
+
+# Check if app is enabled
+/opt/splunk/bin/splunk display app security_alert
+
+# Tail logs for errors
+tail -f /opt/splunk/var/log/splunk/splunkd.log | grep security_alert
 ```
 
 ---
 
-## 🏗️ Architecture Deep Dive
+## ✅ Testing & Validation
 
-### Triple Entry Point Pattern (Critical!)
+### Automated Validation Scripts
 
-This codebase has **three completely different entry points** that share domain logic differently:
-
-| Aspect | React v2.0 | Legacy v1.x | Cloudflare Workers |
-|--------|------------|-------------|--------------------|
-| Entry | `backend/server.js` | `index.js` | `src/worker.js` |
-| Ports | Backend: 3001, Frontend: 3000 | 3000 | N/A (serverless) |
-| Domain Imports | `import X from '../domains/...'` | `import X from './domains/...'` | **Inline classes (no imports!)** |
-| Frontend | React 18 + WebSocket | None | None |
-| Environment | `process.env.VAR` | `process.env.VAR` | `env.VAR` (function param) |
-
-**When modifying domain classes**:
-1. Edit `domains/integration/*.js` or `domains/security/*.js`
-2. Changes automatically reflected in `backend/server.js` and `index.js`
-3. **For `src/worker.js`**: Manually copy class code (it cannot use imports due to Workers limitations)
-
-**Why this matters**: If you add a new method to `SecurityEventProcessor`, you must:
-- ✅ Edit `domains/security/security-event-processor.js` (React + Legacy auto-update)
-- ⚠️ Manually copy the class to `src/worker.js` inline code
-
-### React Dashboard Real-time Architecture
-
-**State Synchronization Pattern**:
-
-```
-┌─────────────────────────────────────────────────┐
-│         Zustand Store (Single Source)            │
-│  - stats, events, alerts, correlation, threats   │
-└────────────┬────────────────────────┬────────────┘
-             │                        │
-        REST Polling          WebSocket Real-time
-        (Initial Load)        (Live Updates)
-             │                        │
-    ┌────────┴────────┐      ┌────────┴────────┐
-    │ fetchStats()    │      │ addRealtimeEvent │
-    │ fetchEvents()   │      │ updateRealtimeStats│
-    └─────────────────┘      └──────────────────┘
-             │                        │
-    ┌────────┴────────────────────────┴────────┐
-    │         Backend API Server               │
-    │  ┌──────────┐      ┌──────────────┐     │
-    │  │APIRouter │      │WebSocketServer│     │
-    │  │(REST)    │      │(RFC 6455)     │     │
-    │  └──────────┘      └──────────────┘     │
-    └──────────────────────────────────────────┘
+**Run all validators**:
+```bash
+# From Splunk server
+/opt/splunk/etc/apps/security_alert/bin/auto_validator.py
+/opt/splunk/etc/apps/security_alert/bin/deployment_health_check.py
+/opt/splunk/etc/apps/security_alert/bin/splunk_feature_checker.py
 ```
 
-**Key Pattern**:
-- **Initial page load**: REST API (`fetchStats()`, `fetchEvents()`) populates Zustand store
-- **After load**: WebSocket updates (`addRealtimeEvent()`) merge into same store
-- **No race conditions**: Store mutations are synchronous, updates append to existing arrays
-- **Memory management**: `events` array sliced to last 100 entries automatically
+**Auto Validator** (`auto_validator.py`, 390 lines):
+- Validates 13 CSV lookup files (checks headers, row counts)
+- Checks `transforms.conf` stanzas
+- Checks `props.conf` auto-lookup definitions
+- Validates SPL syntax in savedsearches.conf
+- Verifies cron_schedule format (5-field requirement)
+- Checks `alert_actions.conf` for Slack parameters
 
-### Zero-Dependency HTTP Client Pattern
+**Deployment Health Check** (`deployment_health_check.py`, 533 lines):
+- 10-point system health check:
+  1. File structure (required dirs/files)
+  2. Splunk service status
+  3. App enabled/disabled status
+  4. Data availability (`index=fw`)
+  5. Alert scheduler status (count of active alerts)
+  6. Slack integration config
+  7. Lookup file health (detect empty files)
+  8. REST API endpoint definitions
+  9. Dashboard accessibility
+  10. Python script permissions
+- Output: Human-readable or JSON (`--json` flag)
 
-**Critical for adding new connectors**: All HTTP requests use Node.js `https` module only.
+### Manual Testing
 
-```javascript
-import https from 'https';
-
-function makeRequest(options, data = null) {
-  return new Promise((resolve, reject) => {
-    const req = https.request(options, (res) => {
-      let body = '';
-      res.on('data', chunk => body += chunk);
-      res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          resolve(JSON.parse(body));
-        } else {
-          reject(new Error(`HTTP ${res.statusCode}: ${body}`));
-        }
-      });
-    });
-    req.on('error', reject);
-    if (data) req.write(JSON.stringify(data));
-    req.end();
-  });
-}
+**Verify data in index**:
+```spl
+index=fw earliest=-1h | stats count
+# Should return count > 0
 ```
 
-**DO NOT introduce**: `axios`, `node-fetch`, `got`, or any HTTP library. This pattern must be followed for all new API integrations.
-
-### Event Processing Queue Pattern
-
-**How events flow from FAZ to Splunk/Slack**:
-
-```
-FortiAnalyzer API
-        ↓
-SecurityEventProcessor.addEvents(events)    // Add to queue
-        ↓
-eventQueue: [evt1, evt2, evt3, ...]         // In-memory queue
-        ↓
-processEventBatch() (every 5 seconds)       // Background processing
-        ↓
-For each event:
-  ├─ enrichEvent()           // Add risk_score, severity
-  ├─ correlateEvent()        // Check correlation rules
-  ├─ shouldAlert()           // Check alert thresholds
-  │   ├─ true → triggerAlert() → Slack notification
-  │   └─ false → continue
-  └─ sendToSplunk()          // HEC submission
-        ↓
-Splunk HEC (index=fw)
-        ↓
-Correlation Engine (6 rules, configs/correlation-rules.conf)
-        ↓
-summary_fw index (marker="correlation_detection=*")
-        ↓
-Automated Response:
-  ├─ score ≥ 90 → FortiGate auto-block (fortigate_auto_block.py)
-  └─ score 80-89 → Slack review request
+**Check alert execution**:
+```spl
+index=_internal source=*scheduler.log savedsearch_name="*Alert*"
+| stats count by savedsearch_name, status
 ```
 
-**Critical timing**:
-- FAZ polling: Every 60 seconds
-- Event processing: Every 5 seconds (batch of up to 100 events)
-- Correlation rules: Every 5-15 minutes (scheduled searches)
-- WebSocket broadcast: Immediately after batch processing
+**Monitor Slack notifications**:
+```spl
+index=_internal source=*alert_actions.log "slack"
+| table _time, action_mode, sid, search_name, result
+```
+
+**Test specific alert manually**:
+```spl
+# Alert 001: Config Change
+index=fw earliest=rt-10m latest=rt logid=0100044546 OR logid=0100044547
+| table _time, devname, user, cfgpath, msg
+
+# Alert 002: VPN Tunnel
+index=fw earliest=rt-10m latest=rt logid=0101037124 OR logid=0101037131 OR logid=0101037134
+| table _time, devname, vpn_name, vpn_status, msg
+
+# Alert 006: CPU/Memory Anomaly
+index=fw earliest=rt-10m latest=rt logid=0104043001 OR logid=0104043002
+| table _time, devname, cpu, memory, session_count
+
+# Alert 007: Hardware Failure
+index=fw earliest=rt-10m latest=rt logid=0103040001 OR logid=0103040002 OR logid=0103040003
+| table _time, devname, component, status, msg
+
+# Alert 008: HA State Change
+index=fw earliest=rt-10m latest=rt logid=0100020010 OR logid=0104043544 OR logid=0104043545
+| table _time, devname, ha_role, ha_state, msg
+```
+
+**View state tracking**:
+```spl
+| inputlookup vpn_state_tracker
+| inputlookup hardware_state_tracker
+| inputlookup ha_state_tracker
+| inputlookup cpu_memory_state_tracker
+| inputlookup interface_state_tracker
+```
 
 ---
 
-## 🔧 Critical Implementation Constraints
+## 🔍 Understanding File Modifications
 
-### 1. ES Modules `.js` Extension Requirement
+### When to Modify `default/` vs. `local/`
 
-**All imports MUST include `.js` extension** or they will fail at runtime:
+**Never modify `default/`** (except during development):
+- `default/` files are the app source
+- User changes go to `local/` automatically
+- Splunk merges `local/` over `default/`
 
-```javascript
-// ✅ CORRECT (backend/server.js)
-import FortiAnalyzerDirectConnector from '../domains/integration/fortianalyzer-direct-connector.js';
-import SecurityEventProcessor from '../domains/security/security-event-processor.js';
+**Modify `default/` only when**:
+- Updating base alert definitions (savedsearches.conf)
+- Adding new macros (macros.conf)
+- Updating LogID mappings (transforms.conf, fortigate_logid_notification_map.csv)
+- Changing app metadata (app.conf)
 
-// ❌ WRONG - will crash at runtime
-import FortiAnalyzerDirectConnector from '../domains/integration/fortianalyzer-direct-connector';
+**Modify `local/` when**:
+- Configuring Slack credentials (Setup UI writes here)
+- Disabling/enabling specific alerts
+- Creating custom dashboards
 
-// ✅ CORRECT (React components - Vite resolves)
-import { useStore } from '../store/store';  // No extension needed in React
-import Layout from '../components/Layout/Layout.jsx';  // .jsx optional but recommended
-```
+### Key Configuration Files Explained
 
-**Why this matters**: `package.json` has `"type": "module"`, which enforces ES modules. Node.js requires explicit `.js` extensions for relative imports. Forgetting this is the #1 cause of "Cannot find module" errors.
+**`savedsearches.conf` (15 alerts)**:
+- Each alert is a stanza: `[001_Config_Change]`, `[002_VPN_Tunnel]`, etc.
+- Fields:
+  - `search =` - SPL query (expands macros, joins lookups)
+  - `cron_schedule =` - Cron format: `minute hour day month weekday`
+  - `enableSched =` - 1 (active) or 0 (disabled/state-tracking-only)
+  - `realtime_schedule =` - 1 (real-time) or 0 (scheduled)
+  - `dispatch.earliest_time =` - Time range: `rt-10m` (real-time 10min window)
+  - `alert.suppress =` - 1 (suppress duplicates)
+  - `alert.suppress.fields =` - Grouping key for suppression
+  - `alert.suppress.period =` - Duration: `5m`, `10m`, `15m`, or `30m`
+  - `action.slack =` - 1 (send to Slack)
+  - `action.slack.param.channel =` - Target channel: `#security-firewall-alert`
 
-### 2. Port Conflicts Between Modes
+**`macros.conf` (centralized parameters)**:
+- Index definition: `[fortigate_index]`
+- Time ranges: `[baseline_time_range]`, `[realtime_time_range]`
+- Thresholds: `[cpu_high_threshold]`, `[memory_high_threshold]`
+- LogID groups: `[logids_config_change]`, `[logids_vpn_tunnel]`, etc. (12 total)
+- Enrichment macro: `[enrich_with_logid_lookup]`
+- Used in alerts: `` `fortigate_index` `logids_vpn_tunnel` ``
 
-**Port assignments**:
-- React Backend API: 3001 (configurable via `API_PORT` env var)
-- React Frontend: 3000 (Vite default, configured in `frontend/vite.config.js`)
-- Legacy Backend: 3000 (configurable via `PORT` env var)
+**`transforms.conf` (lookup definitions)**:
+- Maps CSV filename to lookup name
+- Example: `[fortigate_logid_lookup]` points to `fortigate_logid_notification_map.csv`
+- No mappings needed for `*_state_tracker.csv` (used via `inputlookup` directly)
 
-**If running React + Legacy simultaneously**:
-```bash
-# Change legacy to different port
-PORT=3002 npm run start:legacy
+**`alert_actions.conf` (Slack configuration)**:
+- Defines alert action: `[slack]`
+- Parameters:
+  - `param.bot_token =` - OAuth bot token (xoxb-<example>)
+  - `param.webhook_url =` - Incoming webhook URL (https://hooks.slack.com/...)
+  - `param.channel =` - Default channel (#security-firewall-alert)
+  - `python.version = python3` - Required for Python 3 scripts
 
-# OR change React frontend port
-# Edit frontend/vite.config.js:
-server: { port: 3005 }
-```
+**`app.conf` (metadata)**:
+- App visibility, version, description
+- Slack credentials stored here (via Setup UI)
 
-**Vite proxy configuration**: Frontend proxies `/api` and `/ws` to backend port 3001. If you change backend port, update `frontend/vite.config.js`:
-```javascript
-server: {
-  proxy: {
-    '/api': 'http://localhost:3001',  // Update if backend port changes
-    '/ws': { target: 'ws://localhost:3001', ws: true }
-  }
-}
-```
+---
 
-### 3. Dashboard XML Entity Encoding (Frequent Error)
+## 🛠️ Common Modification Scenarios
 
-**Splunk dashboard XML requires HTML entity encoding**:
+### Adding a New Alert
 
-| Character | Encoded | Context |
-|-----------|---------|---------|
-| `&` | `&amp;` | Always (most common error) |
-| `<` | `&lt;` | In text/values/SPL queries |
-| `>` | `&gt;` | In text/values |
-| `"` | `&quot;` | In attribute values |
-
-**Common mistake**:
-```xml
-<!-- ❌ WRONG - XML parsing error: "not well-formed (invalid token)" -->
-<choice value="REVIEW_AND_BLOCK">Review & Block</choice>
-| where abuse_score >= 50 AND abuse_score < 70
-"Low (<50)":"#32CD32"
-
-<!-- ✅ CORRECT -->
-<choice value="REVIEW_AND_BLOCK">Review &amp; Block</choice>
-| where abuse_score >= 50 AND abuse_score &lt; 70
-"Low (&lt;50)":"#32CD32"
-```
-
-**Validation before deployment**:
-```bash
-python3 -c "import xml.etree.ElementTree as ET; ET.parse('configs/dashboards/correlation-analysis.xml'); print('✅ Valid')"
-```
-
-### 4. Correlation Rules Threshold Tuning
-
-**Location**: `configs/correlation-rules.conf`
-
-**Score calculation formula** (Rule 1: Multi-Factor Threat Score):
+**Step 1**: Add LogID macro to `macros.conf`
 ```ini
-# Components
-abuse_component = abuse_score * 0.4        # 40% weight
-geo_component = geo_risk * 0.2             # 20% weight
-login_failures = 30 (if pattern match)     # Fixed 30 points
-frequency_component = case(                 # Max 30 points
-  event_count > 100, 30,
-  event_count > 50, 20,
-  event_count > 10, 10,
-  1=1, 0)
-correlation_score = sum(components)        # Total: 0-100
-
-# Action thresholds
-correlation_score >= 90  → AUTO_BLOCK           # FortiGate blocking
-correlation_score >= 80  → REVIEW_AND_BLOCK     # Slack review request
-correlation_score >= 75  → MONITOR              # Log only
+[logids_new_threat]
+definition = (logid=0100012345 OR logid=0100012346)
+iseval = 0
 ```
 
-**Tuning workflow**:
-1. Start conservative (higher thresholds): `>= 90` for AUTO_BLOCK
-2. Monitor false positives for 2 weeks: `index=summary_fw marker="correlation_detection=*"`
-3. Adjust component weights if needed (e.g., increase geo_component from 0.2 to 0.3)
-4. Gradually lower thresholds as confidence increases
-5. Use whitelist (`fortigate_whitelist.csv`) for known false positives
-
-### 5. Cloudflare Workers Inline Classes
-
-**`src/worker.js` cannot use ES module imports** due to Workers bundler limitations. When modifying domain classes:
-
-```javascript
-// ❌ DOES NOT WORK in src/worker.js
-import SecurityEventProcessor from './domains/security/security-event-processor.js';
-
-// ✅ REQUIRED PATTERN - inline class definition
-class SecurityEventProcessor {
-  constructor() { /* ... */ }
-  async processEvent(event) { /* ... */ }
-}
-
-// Use directly in worker
-export default {
-  async scheduled(event, env, ctx) {
-    const processor = new SecurityEventProcessor();
-    // ...
-  }
-}
+**Step 2**: Create state tracker CSV in `lookups/` (if binary state alert)
+```csv
+device,prev_state,current_state,last_change,_key
 ```
 
-**Maintenance burden**: When you add a method to `domains/security/security-event-processor.js`, you must manually copy it to the inline class in `src/worker.js`. This is the trade-off for serverless deployment.
+**Step 3**: Add stanza to `savedsearches.conf`
+```ini
+[018_New_Alert_Name]
+description = Description of what this detects
+search = `fortigate_index` `logids_new_threat` \
+| eval device = coalesce(devname, "unknown") \
+| eval current_state = "ABNORMAL" \
+| join device [ \
+  | inputlookup new_threat_state_tracker ] \
+| eval changed = if(prev_state != current_state, 1, 0) \
+| where changed=1 \
+| outputlookup append=t new_threat_state_tracker \
+| table _time, device, logdesc, msg
 
----
-
-## 🎨 Common Development Tasks
-
-### Adding New API Endpoint (React Dashboard)
-
-```bash
-# 1. Add route in backend/api/router.js
-const routes = {
-  'GET /api/myendpoint': () => this.getMyData(req, res, url),
-  // ...
-};
-
-# 2. Implement handler method
-async getMyData(req, res, url) {
-  const params = url.searchParams;
-  const data = await this.services.faz.getSomething();
-
-  res.writeHead(200, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ success: true, data }));
-}
-
-# 3. Add API client method (frontend/src/services/api.js)
-export const api = {
-  getMyData: (params) =>
-    fetch(`/api/myendpoint?${new URLSearchParams(params)}`)
-      .then(r => r.json()),
-  // ...
-};
-
-# 4. Add Zustand action (frontend/src/store/store.js)
-fetchMyData: async (params) => {
-  const data = await api.getMyData(params);
-  set({ myData: data });
-},
-
-# 5. Use in component
-import { useStore } from '../store/store';
-
-function MyComponent() {
-  const { myData, fetchMyData } = useStore();
-
-  useEffect(() => {
-    fetchMyData({ param: 'value' });
-  }, [fetchMyData]);
-
-  return <div>{myData?.value}</div>;
-}
-```
-
-### Adding New Correlation Rule
-
-```bash
-# 1. Edit correlation-rules.conf
-vim configs/correlation-rules.conf
-
-# 2. Add new [Correlation_YOUR_RULE_NAME] section
-[Correlation_Custom_Attack_Pattern]
-description = Detect custom attack pattern based on <your criteria>
-search = | tstats count WHERE datamodel=Fortinet_Security.Security_Events \
-    <your SPL query> \
-| eval correlation_score = <scoring logic> \
-| where correlation_score >= 75 \
-| collect index=summary_fw marker="correlation_detection=custom_pattern"
-
-cron_schedule = */10 * * * *
+cron_schedule = * * * * *
 enableSched = 1
-dispatch.earliest_time = -15m
-dispatch.latest_time = now
-
+realtime_schedule = 1
+dispatch.earliest_time = rt-10m
+dispatch.latest_time = rt
 alert.track = 1
-alert.condition = search correlation_score >= 90
-action.script = 1
-action.script.filename = fortigate_auto_block.py
-
-# 3. Test manually before enabling schedule
-splunk search "| savedsearch Correlation_Custom_Attack_Pattern"
-
-# 4. Verify results in summary index
-index=summary_fw marker="correlation_detection=custom_pattern" | stats count
-
-# 5. Monitor execution
-index=_internal source=*scheduler.log savedsearch_name="Correlation_Custom_Attack_Pattern" \
-| stats avg(run_time) as avg_runtime_sec
+alert.severity = 4
+alert.suppress = 1
+alert.suppress.fields = device
+alert.suppress.period = 10m
+alert.expires = 24h
+action.slack = 1
+action.slack.param.channel = #security-firewall-alert
 ```
 
-### Debugging Correlation Rules Not Running
-
+**Step 4**: Redeploy
 ```bash
-# 1. Check saved search exists
-splunk btool savedsearches list --debug | grep "Correlation_"
-
-# 2. Verify cron schedule syntax
-grep -A 5 "Correlation_Multi_Factor_Threat_Score" configs/correlation-rules.conf | grep cron_schedule
-
-# 3. Check data model acceleration status
-index=_internal source=*summarization.log savedsearch_name="Fortinet_*" \
-| stats count, latest(_time) as last_run by savedsearch_name
-
-# 4. Verify source data exists
-| tstats count WHERE datamodel=Fortinet_Security.Security_Events earliest=-1h
-
-# 5. Check for search errors
-index=_internal source=*scheduler.log savedsearch_name="Correlation_*" status=failure \
-| table _time savedsearch_name status message
-
-# 6. Run correlation manually to see errors
-splunk search "| savedsearch Correlation_Multi_Factor_Threat_Score" -maxout 0
-
-# 7. Check summary index for results
-index=summary_fw marker="correlation_detection=*" earliest=-24h \
-| stats count by marker, correlation_rule
+cd /home/jclee/app/splunk
+tar -czf security_alert.tar.gz security_alert/
+# Deploy via Web UI or CLI
 ```
 
-### Troubleshooting WebSocket Connection Issues
+### Changing Alert Thresholds
 
-```bash
-# 1. Check backend WebSocket server running
-curl http://localhost:3001/health | jq '.components.websocket'
+**CPU Memory Threshold** (Alert 006):
+1. Edit `macros.conf`: Change `[cpu_high_threshold]` or `[memory_high_threshold]`
+2. Edit `savedsearches.conf`: Alert 006 uses these macros in baseline calculation
+3. Redeploy
 
-# 2. Test WebSocket handshake
-curl -i -N -H "Connection: Upgrade" -H "Upgrade: websocket" \
-  -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
-  -H "Sec-WebSocket-Version: 13" \
-  http://localhost:3001/
+**Resource Limit Threshold** (Alert 010):
+1. Edit `savedsearches.conf` (line 143): `where resource_usage > 75` → change 75 to desired %
+2. Redeploy
 
-# Expected response:
-# HTTP/1.1 101 Switching Protocols
-# Upgrade: websocket
-# Connection: Upgrade
-# Sec-WebSocket-Accept: <hash>
+### Modifying Slack Message Format
 
-# 3. Check frontend WebSocket connection status
-# Open browser console on http://localhost:3000
-# Should see: "WebSocket connected" or "WebSocket disconnected"
+**Block Kit Structure** (`slack_blockkit_alert.py`, lines 62-167):
+1. Edit field ordering (lines 111-121)
+2. Add/remove emoji mappings (lines 46-57)
+3. Adjust event limit (line 105: `results[:5]` → `results[:10]`)
+4. Redeploy
 
-# 4. Verify Vite proxy configuration
-cat frontend/vite.config.js | grep -A 5 proxy
-# Should have: '/ws': { target: 'ws://localhost:3001', ws: true }
-```
+**Alert-Specific Message** (`savedsearches.conf`):
+- Field: `action.slack.param.message = [Custom title]`
+- Used in Slack action as subtitle
+- Supports field references: `$result.device$`
 
 ---
 
-## 🚨 Critical Gotchas
+## 🔐 Security Considerations
 
-### 1. Forgetting to Update `src/worker.js` After Domain Changes
+### Slack Token Management
 
-**Symptom**: Changes to `SecurityEventProcessor` work in React/Legacy modes but not in Cloudflare Workers.
+**Storage**:
+- Tokens stored in `local/alert_actions.conf` with restricted permissions
+- Setup UI writes tokens securely (via Splunk encryption if available)
 
-**Cause**: Workers cannot import from `domains/`, requires inline class definitions.
+**Best Practices**:
+- Use Bot Token (OAuth) over Webhook URLs for better audit trail
+- Rotate tokens regularly (monthly recommended)
+- Don't commit `local/alert_actions.conf` to Git
+- Separate tokens for dev/staging/prod environments
 
-**Solution**: After editing `domains/security/security-event-processor.js`, manually copy changes to `src/worker.js` inline class (starts around line 100).
+### Data Exposure in Alerts
 
-### 2. Slack Notifications Not Received Despite No Errors
+**Sensitive Fields Included**:
+- Device names (may reveal internal infrastructure)
+- Source/destination IPs (network topology)
+- Usernames (login failures)
+- Configuration changes (security policy details)
 
-**Common causes**:
-1. Bot not invited to channel: `/invite @your-bot` in Slack
-2. Missing OAuth scopes: `chat:write`, `channels:read`, `chat:write.public`
-3. Wrong channel name: Must be `#channel-name` format in config
-4. Splunk plugin not configured: Check `/opt/splunk/etc/apps/slack_alerts/local/alert_actions.conf`
+**Mitigations**:
+- Restrict Slack channel access to security team only
+- Use private channels (#security-firewall-alert vs. public)
+- Consider sanitizing data in `slack_blockkit_alert.py`:
+  ```python
+  def sanitize_ip(ip):
+      parts = ip.split('.')
+      return f"{parts[0]}.{parts[1]}.{parts[2]}.xxx"
+  ```
 
-**Verify bot token**:
+### Alert Definition Integrity
+
+**Protection Mechanisms**:
+- `auto_validator.py` catches SPL syntax errors
+- `deployment_health_check.py` verifies configurations
+- CSV lookups prevent alert tampering (read-only after creation)
+- Splunk native RBAC (permissions in `metadata/default.meta`)
+
+---
+
+## 📊 Key CSV Lookup Files
+
+### State Tracking CSVs (EMS Pattern)
+
+**Standard Format** (all 10 files follow this):
+```csv
+device,prev_state,current_state,last_change,_key
+firewall-01,DOWN,UP,2025-11-04 10:35:12,key_value
+```
+
+**Auto-created by** `auto_validator.py` if missing
+
+**Updated by** alerts using `outputlookup append=t`
+
+### Reference Lookups
+
+**fortigate_logid_notification_map.csv** (6KB, 50+ LogIDs):
+- Columns: `logid`, `category`, `severity`, `notify_slack`, `notify_email`, `description`, `available_fields`, `field_coverage`
+- Used by `enrich_with_logid_lookup` macro
+- Maps every LogID to alert metadata
+
+**auto_response_actions.csv**:
+- Columns: `threat_pattern`, `action`, `severity`, `enabled`
+- For auto-response automation (Alert 004 if enabled)
+
+**severity_priority.csv**:
+- Maps severity levels to priority for triage
+
+### Threat Intelligence Lookups
+
+**abuseipdb_lookup.csv**:
+- IP reputation data (AbuseIPDB API)
+- Columns: `ip_address`, `abuse_score`, `total_reports`
+
+**virustotal_lookup.csv**:
+- Malware detection results (VirusTotal API)
+- Columns: `hash`, `detection_ratio`, `last_analysis_date`
+
+**ip_whitelist.csv**:
+- Trusted internal IPs (prevent false positives)
+- Columns: `ip_address`, `subnet`, `description`, `exempt_alerts`
+
+---
+
+## 🐛 Troubleshooting
+
+### Alerts Not Triggering
+
+**Diagnosis**:
 ```bash
+# 1. Check data exists
+index=fw earliest=-1h | stats count  # Should be > 0
+
+# 2. Check alert is enabled
+/opt/splunk/bin/splunk btool savedsearches list 002_VPN_Tunnel | grep enableSched
+
+# 3. Check scheduler status
+index=_internal source=*scheduler.log savedsearch_name="*Alert*"
+
+# 4. Run alert manually
+index=fw earliest=rt-10m latest=rt logid=0101037124
+```
+
+**Common Issues**:
+- `enableSched = 0` (alert disabled)
+- `index=fw` has no data in past 10 minutes
+- Cron schedule syntax error
+- LogID not matching actual logs
+
+### Slack Messages Not Received
+
+**Diagnosis**:
+```bash
+# 1. Test credentials
 curl -X POST https://slack.com/api/auth.test \
   -H "Authorization: Bearer SLACK_BOT_TOKEN_PLACEHOLDER"
-# Expected: {"ok":true,"user":"bot-name",...}
+# Expected: {"ok":true,"user":"bot-name"}
+
+# 2. Check alert action logs
+index=_internal source=*alert_actions.log action_name="slack"
+
+# 3. Verify channel exists and bot is invited
+# In Slack: /invite @BotName to #security-firewall-alert
 ```
 
-### 3. React Frontend Shows Stale Data Despite Backend Updates
+**Common Issues**:
+- Bot token not configured (Setup UI not completed)
+- Bot not invited to channel
+- OAuth scopes missing: `chat:write`, `chat:write.public`, `channels:read`
+- Network/firewall blocking Slack API
 
-**Cause**: Frontend caching + WebSocket not broadcasting updates.
+### Auto Validator Failures
 
-**Debug checklist**:
+**Check output**:
 ```bash
-# 1. Verify WebSocket broadcasting in backend
-# backend/server.js lines 180-190 should call:
-this.wsServer.broadcast({ type: 'events', data: events });
+/opt/splunk/etc/apps/security_alert/bin/auto_validator.py
 
-# 2. Check frontend WebSocket hook listening
-# frontend/src/hooks/useWebSocket.js should handle:
-case 'events': message.data.forEach(evt => addRealtimeEvent(evt));
-
-# 3. Verify Zustand action updates state
-# frontend/src/store/store.js:
-addRealtimeEvent: (event) => set((state) => ({
-  events: [event, ...state.events].slice(0, 100)
-}));
-
-# 4. Hard refresh browser (Ctrl+Shift+R) to clear cache
+# Output includes:
+# ❌ 오류 (errors) - Fix immediately
+# ⚠️ 경고 (warnings) - Address before production
+# ✅ 정상 (OK) - No action needed
 ```
 
-### 4. Correlation Rules Timeout or Run Slowly
+**Common Errors**:
+- Missing CSV files (auto-creation fails due to permissions)
+- transforms.conf stanzas missing
+- savedsearches.conf SPL syntax errors
+- alert_actions.conf missing `[slack]` stanza
+- Python 3 version not specified
 
-**Symptom**: `index=_internal source=*scheduler.log` shows `run_time > 60 seconds`.
+### Deployment Health Check Warnings
 
-**Solutions**:
-```spl
-# 1. Use tstats instead of raw search (10x faster)
-# ❌ SLOW
-index=fw earliest=-1h | stats count by src_ip
-
-# ✅ FAST
-| tstats count WHERE datamodel=Fortinet_Security.Security_Events earliest=-1h BY Security_Events.src_ip
-
-# 2. Verify data model acceleration enabled
-| rest /services/admin/summarization by_tstats=true
-| search summary.id=*Fortinet_Security*
-| table summary.id, summary.complete
-
-# 3. Reduce search time window
-# Change: earliest=-24h → earliest=-1h
-
-# 4. Add more specific filters early in search
-| tstats WHERE datamodel=... Security_Events.severity IN ("critical","high")  # Filter early
-```
-
-### 5. FortiGate Auto-Block Script Not Executing
-
-**Check execution logs**:
+**Check output**:
 ```bash
-# 1. Verify script permissions
-ls -la scripts/fortigate_auto_block.py
-# Should be: -rwxr-xr-x
+/opt/splunk/etc/apps/security_alert/bin/deployment_health_check.py
 
-# 2. Check Splunk alert action logs
-tail -f /opt/splunk/var/log/splunk/splunkd.log | grep fortigate_auto_block
+# 10 checks performed:
+# 1. File structure
+# 2. Splunk service
+# 3. App status
+# 4. Data availability
+# 5. Scheduler status
+# 6. Slack integration
+# 7. Lookup health
+# 8. REST API
+# 9. Dashboards
+# 10. Script permissions
+```
 
-# 3. Test script manually with mock data
-echo '{"src_ip":"192.168.1.100","correlation_score":95}' | \
-  python3 scripts/fortigate_auto_block.py
+**Common Warnings**:
+- No data in `index=fw` (expected until FortiGate logs arrive)
+- Slack credentials not configured (Setup UI incomplete)
+- Scripts missing execute permission (`chmod +x *.py`)
+- Empty CSV lookup files (expected for state trackers before first run)
 
-# 4. Verify whitelist not blocking execution
-cat /opt/splunk/etc/apps/fortigate/lookups/fortigate_whitelist.csv
+---
 
-# 5. Check FortiGate API credentials
-grep "FORTIGATE_" .env
+## 📚 Key Files Reference
+
+**Most Important** (modify these when updating app):
+- `security_alert/default/savedsearches.conf` - Alert definitions (15 alerts)
+- `security_alert/default/macros.conf` - Centralized configuration
+- `security_alert/bin/slack_blockkit_alert.py` - Slack message formatting
+- `security_alert/lookups/fortigate_logid_notification_map.csv` - LogID reference (6KB)
+
+**Support Scripts** (auto-validation):
+- `security_alert/bin/auto_validator.py` - Verify configuration integrity
+- `security_alert/bin/deployment_health_check.py` - 10-point system health check
+- `security_alert/bin/splunk_feature_checker.py` - Splunk version/feature check
+
+**Validation Tools** (run after deployment):
+- `deployment_health_check.py --json` - JSON output for scripting
+- `auto_validator.py` - Comprehensive configuration validation
+- Splunk btool: `/opt/splunk/bin/splunk btool savedsearches list`
+
+---
+
+## 🔄 Update Workflow
+
+**When Updating Source Files**:
+
+1. Edit in `/home/jclee/app/splunk/security_alert/`
+2. Run validators locally (if possible)
+3. Create tarball: `tar -czf security_alert.tar.gz security_alert/`
+4. Deploy to test Splunk first
+5. Run health check: `deployment_health_check.py`
+6. Test alerts manually
+7. Deploy to production
+
+**Post-Deployment**:
+```bash
+# Verify deployment
+ls -la /opt/splunk/etc/apps/security_alert/
+
+# Run validators
+/opt/splunk/etc/apps/security_alert/bin/auto_validator.py
+/opt/splunk/etc/apps/security_alert/bin/deployment_health_check.py
+
+# Check logs
+tail -100 /opt/splunk/var/log/splunk/splunkd.log | grep security_alert
 ```
 
 ---
 
-## 📚 Key Documentation
+## 📝 Version & Maintenance
 
-**Essential Guides**:
-- `docs/REACT_DASHBOARD_GUIDE.md` - React 18 + WebSocket implementation
-- `docs/SIMPLE_SETUP_GUIDE.md` - 2-minute Syslog setup
-- `docs/CLOUDFLARE_DEPLOYMENT.md` - Serverless deployment
-- `docs/HEC_INTEGRATION_GUIDE.md` - HTTP Event Collector reference
-- `configs/dashboards/README-slack-control.md` - Slack alert ON/OFF control
+**Current Version**: v2.0.4 (2025-11-04)
 
-**Production Dashboards**:
-- `correlation-analysis.xml` - 6 correlation rules + auto-response
-- `fortigate-operations.xml` - Firewall operations monitoring
-- `slack-control.xml` - Slack alert ON/OFF control via REST API
+**Changelog**:
+- v2.0.4: EMS state tracking, Slack Block Kit, 15 alerts (12 active + 3 state-tracking)
+- v2.0.3: Dynamic alert generation (not used, pre-configured alerts preferred)
+- v2.0.0: Initial release with 8 core alerts
 
-**Key Configuration**:
-- `configs/correlation-rules.conf` - 6 correlation rules (440 lines)
-- `configs/savedsearches-fortigate-production-alerts.conf` - Real-time alerts (5 alerts)
-- `configs/fortigate-syslog.conf` - Current active config (index=fw)
-
----
-
-**Version**: 2.0.1
-**Last Updated**: 2025-10-24
-**Architecture**: Triple-mode (React + Legacy + Workers)
-**Dependencies**: Backend: 0 (Node.js built-ins only) | Frontend: 318 packages (dev only)
 **Repository**: https://github.com/qws941/splunk.git
+
+**Last Updated**: 2025-11-04
+**Maintainer**: NextTrade Security Team
+**Support**: Use validators and health check scripts for troubleshooting
+
+---
+
+## 🎯 Quick Decision Tree
+
+**When working with this app, ask yourself**:
+
+1. **Need to modify alerts?**
+   - Edit `savedsearches.conf` in source
+   - Add LogID to `macros.conf`
+   - Update `fortigate_logid_notification_map.csv`
+   - Redeploy tarball
+
+2. **Slack not working?**
+   - Run `deployment_health_check.py` → Check Slack section
+   - Verify bot is invited to channel
+   - Test token: `curl https://slack.com/api/auth.test`
+
+3. **Alerts not triggering?**
+   - Check `index=fw` has data
+   - Verify `enableSched = 1`
+   - Run alert manually in Splunk
+
+4. **Need to understand alert logic?**
+   - Read `savedsearches.conf` stanza
+   - Expand macros from `macros.conf`
+   - Trace join with `*_state_tracker.csv`
+   - Understand state change detection
+
+5. **Deployment failed?**
+   - Run `auto_validator.py` → Fix errors
+   - Run `deployment_health_check.py` → Fix warnings
+   - Check file permissions (scripts need 755)
+   - Check `splunkd.log` for startup errors

@@ -1,0 +1,6 @@
+severity,priority,numeric_value,color
+critical,1,5,red
+high,2,4,orange
+medium,3,3,yellow
+low,4,2,blue
+informational,5,1,green
