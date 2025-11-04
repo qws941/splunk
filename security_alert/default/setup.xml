@@ -28,33 +28,34 @@
     <text>
       <![CDATA[
       <hr/>
-      <h3>Proxy (Optional - Skip if not using proxy)</h3>
+      <h3>프록시 설정 (Proxy Configuration)</h3>
+      <p><strong>※ 프록시 서버/포트만 입력하고, ID/Password 없으면 비워두세요</strong></p>
       ]]>
     </text>
 
     <input field="param.proxy_enabled">
-      <label>Enable Proxy (Check only if using proxy)</label>
+      <label>✅ Enable Proxy (프록시 사용)</label>
       <type>checkbox</type>
     </input>
 
     <input field="param.proxy_url">
-      <label>Proxy Server (e.g., proxy.company.com)</label>
+      <label>Proxy Server (필수 - 예: proxy.company.com)</label>
       <type>text</type>
     </input>
 
     <input field="param.proxy_port">
-      <label>Proxy Port (e.g., 8080)</label>
+      <label>Proxy Port (필수 - 예: 8080)</label>
       <type>text</type>
     </input>
 
     <input field="param.proxy_username">
-      <label>Proxy Username (Optional)</label>
+      <label>Proxy Username (없으면 비워두기)</label>
       <type>text</type>
     </input>
 
     <input field="param.proxy_password">
-      <label>Proxy Password (Optional)</label>
-      <type>password</type>
+      <label>Proxy Password (없으면 비워두기)</label>
+      <type>text</type>
     </input>
   </block>
 
