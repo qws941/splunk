@@ -1,46 +1,33 @@
 # alert_actions.conf.spec
-# Specification file for Slack Block Kit custom alert action
 
 [slack]
-# Slack Authentication Methods
+* Send formatted alert to Slack using Block Kit
 
 param.slack_app_oauth_token = <string>
-* Slack Bot User OAuth Token (starts with xoxb-)
-* Required for Method 1: Bot Token authentication
-* Optional if using webhook_url
-* Default: empty
+* Slack Bot OAuth Token (xoxb-...)
+* Required if using Bot Token authentication
 
 param.webhook_url = <string>
-* Slack Incoming Webhook URL (starts with https://hooks.slack.com/services/)
-* Required for Method 2: Webhook authentication
-* Optional if using slack_app_oauth_token
-* Default: empty
+* Slack Incoming Webhook URL
+* Required if using Webhook authentication
+* Format: https://hooks.slack.com/services/...
 
-# Proxy Configuration (Optional)
-
-param.proxy_enabled = <boolean>
-* Enable HTTP/HTTPS proxy for Slack API calls
-* Set to 1 or true to enable, 0 or false to disable
+param.proxy_enabled = <0|1>
+* Enable proxy for Slack connection
 * Default: 0
 
 param.proxy_url = <string>
-* Proxy server hostname or IP address
-* Required if proxy_enabled is true
-* Example: proxy.company.com
-* Default: empty
+* Proxy server URL
+* Required if proxy_enabled = 1
 
-param.proxy_port = <string>
-* Proxy server port number
-* Required if proxy_enabled is true
-* Example: 8080, 3128
-* Default: empty
+param.proxy_port = <integer>
+* Proxy server port
+* Required if proxy_enabled = 1
 
 param.proxy_username = <string>
 * Proxy authentication username
-* Optional, only needed if proxy requires authentication
-* Default: empty
+* Optional
 
 param.proxy_password = <string>
 * Proxy authentication password
-* Optional, only needed if proxy requires authentication
-* Default: empty
+* Optional
