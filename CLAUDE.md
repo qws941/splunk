@@ -4,40 +4,72 @@ This file provides guidance to Claude Code when working with the Splunk security
 
 ## ⚡ Quick Start for Development
 
-**Common Commands**:
+### Common Development Workflow
+
 ```bash
-# Navigate to project
+# 1. Navigate to project
 cd /home/jclee/app/splunk
 
-# Create deployment package
+# 2. Make changes to source files
+vim security_alert/default/savedsearches.conf
+vim security_alert/bin/slack.py
+
+# 3. Validate locally (no Splunk required)
+./scripts/check-stanza.py
+
+# 4. Create deployment package
 tar -czf security_alert.tar.gz security_alert/
 
-# Validate configuration files
-python3 -m py_compile security_alert/bin/*.py
-grep -n "enableSched" security_alert/default/savedsearches.conf
-
-# Commit changes
+# 5. Commit to Git
 git add security_alert/
 git commit -m "feat: Your change description"
 git push origin master
+
+# 6. Optional: Update release package
+cp security_alert.tar.gz release/
+git add -f release/security_alert.tar.gz
+git commit -m "release: Update release package"
+git push origin master
 ```
 
-**Testing Alerts** (on Splunk server):
+### Quick Validation Commands
+
 ```bash
-# Run validators
+# Validate all stanzas (local, no Splunk needed)
+./scripts/check-stanza.py
+
+# Validate Python syntax
+python3 -m py_compile security_alert/bin/*.py
+
+# Check alert enable status
+grep -n "enableSched" security_alert/default/savedsearches.conf
+
+# Count alerts by status
+grep "enableSched = 1" security_alert/default/savedsearches.conf | wc -l  # Active
+grep "enableSched = 0" security_alert/default/savedsearches.conf | wc -l  # Inactive
+```
+
+### Testing on Splunk Server
+
+```bash
+# Run automated validators
 /opt/splunk/etc/apps/security_alert/bin/auto_validator.py
 /opt/splunk/etc/apps/security_alert/bin/deployment_health_check.py
 
-# Check alert status
+# Check alert configurations with btool
 /opt/splunk/bin/splunk btool savedsearches list | grep -E "^\[0[0-9]{2}_"
+/opt/splunk/bin/splunk btool alert_actions list slack --debug
 
-# View logs
+# Monitor logs
 tail -f /opt/splunk/var/log/splunk/splunkd.log | grep security_alert
 ```
 
-**Important Directories**:
+### Important Directories
+
 - **Active development**: `security_alert/` (modify this)
 - **Deployment package**: `security_alert.tar.gz` (generated from above)
+- **Release directory**: `release/` (distribution packages)
+- **Validation scripts**: `scripts/` (check-stanza.py, etc.)
 - **Reference only**: `configs/`, `lookups/`, `docs/` (examples)
 - **Legacy (ignore)**: `nextrade/`, `archive-dev/`, `xwiki/`
 
@@ -542,7 +574,37 @@ tail -f /opt/splunk/var/log/splunk/splunkd.log | grep security_alert
 
 ## ✅ Testing & Validation
 
-### Automated Validation Scripts
+### Local Validation (No Splunk Required)
+
+**Stanza Error Checker** - `scripts/check-stanza.py`:
+```bash
+# Check all configuration files
+./scripts/check-stanza.py
+
+# Check specific config file
+./scripts/check-stanza.py alert_actions.conf
+./scripts/check-stanza.py savedsearches.conf
+./scripts/check-stanza.py transforms.conf
+```
+
+**Features**:
+- ✅ Validates without Splunk installation
+- ✅ Uses `configparser` with `interpolation=None` (handles % in SPL)
+- ✅ Visual indicators: 🟢 (active), ⚪ (inactive), 📱 (Slack enabled), ❌ (error)
+- ✅ Checks:
+  - `alert_actions.conf`: [slack] stanza + 7 parameters
+  - `savedsearches.conf`: 15 alerts, cron format (5 fields), required fields
+  - `transforms.conf`: 13 lookups + CSV file existence
+
+**Output Example**:
+```
+🟢 📱 [001_Config_Change] OK
+🟢 📱 [002_VPN_Tunnel_Down] OK
+⚪ 📱 [011_Admin_Login_Failed] OK (inactive)
+✅ All stanzas validated successfully
+```
+
+### Automated Validation Scripts (Requires Splunk)
 
 **Run all validators**:
 ```bash
