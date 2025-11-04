@@ -1,11 +1,11 @@
 []
-# 보안팀만 접근 가능하도록 제한
-# role 이름을 실제 Splunk role로 변경하세요 (예: security_team, admin 등)
-access = read : [ admin, power ], write : [ admin ]
+# secmon 사용자 전용 role로 접근 제한
+# Splunk에서 secmon_role 생성 후 secmon 사용자를 이 role에 할당
+access = read : [ secmon_role, admin ], write : [ admin ]
 export = system
 
-# 또는 특정 role만 접근:
-# access = read : [ security_team, admin ], write : [ admin ]
+# 다른 role 추가 예시:
+# access = read : [ secmon_role, security_team, admin ], write : [ admin ]
 
 [transforms]
 export = system
