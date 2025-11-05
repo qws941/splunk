@@ -1,88 +1,71 @@
 <setup>
-  <block title="Slack Configuration" endpoint="admin/alert_actions" entity="slack">
+  <block title="Slack Configuration" endpoint="configs/conf-alert_actions" entity="slack">
     <text>
-      <![CDATA[
-      <p><strong>⚠️ 필수: 아래 두 가지 중 하나만 입력하세요</strong></p>
-      <ul>
-        <li><strong>추천:</strong> Bot Token (xoxb-로 시작)</li>
-        <li><strong>대안:</strong> Webhook URL (https://hooks.slack.com/으로 시작)</li>
-      </ul>
-      <p style="color: red;"><strong>※ 둘 중 하나만 입력하면 됩니다. 나머지는 비워두세요!</strong></p>
-      ]]>
+      Choose ONE of the following authentication methods:
+      - Recommended: Bot Token (starts with xoxb-)
+      - Alternative: Webhook URL (starts with https://hooks.slack.com/)
     </text>
 
     <input field="param.slack_app_oauth_token">
-      <label>✅ Bot Token (권장) - xoxb-로 시작하는 토큰</label>
+      <label>Bot Token (Recommended)</label>
       <type>text</type>
     </input>
 
     <input field="param.webhook_url">
-      <label>✅ Webhook URL (대안) - https://hooks.slack.com/services/로 시작하는 URL</label>
+      <label>Webhook URL (Alternative)</label>
       <type>text</type>
     </input>
 
-    <!-- Channel is hardcoded in Python script (#security-firewall-alert) -->
-    <!-- Username and icon_emoji are hardcoded in Python script -->
-    <!-- These fields removed to match Splunk official parameter schema -->
-
     <text>
-      <![CDATA[
-      <hr/>
-      <h3>프록시 설정 (Proxy Configuration)</h3>
-      <p><strong>※ 프록시 서버/포트만 입력하고, ID/Password 없으면 비워두세요</strong></p>
-      ]]>
+      Proxy Configuration (optional - leave blank if not needed)
     </text>
 
     <input field="param.proxy_enabled">
-      <label>✅ Enable Proxy (프록시 사용)</label>
+      <label>Enable Proxy</label>
       <type>checkbox</type>
     </input>
 
     <input field="param.proxy_url">
-      <label>Proxy Server (필수 - 예: proxy.company.com)</label>
+      <label>Proxy Server</label>
       <type>text</type>
     </input>
 
     <input field="param.proxy_port">
-      <label>Proxy Port (필수 - 예: 8080)</label>
+      <label>Proxy Port</label>
       <type>text</type>
     </input>
 
     <input field="param.proxy_username">
-      <label>Proxy Username (없으면 비워두기)</label>
+      <label>Proxy Username (optional)</label>
       <type>text</type>
     </input>
 
     <input field="param.proxy_password">
-      <label>Proxy Password (없으면 비워두기)</label>
-      <type>text</type>
+      <label>Proxy Password (optional)</label>
+      <type>password</type>
     </input>
   </block>
 
-  <block title="Quick Setup Guide">
+  <block title="Setup Guide">
     <text>
-      <![CDATA[
-      <h3>Bot Token (Recommended)</h3>
-      <ol>
-        <li>Go to <a href="https://api.slack.com/apps" target="_blank">https://api.slack.com/apps</a></li>
-        <li>Create New App or select existing</li>
-        <li>OAuth & Permissions: Add scopes (chat:write, chat:write.public)</li>
-        <li>Install to Workspace</li>
-        <li>Copy Bot Token (xoxb-...)</li>
-        <li>Paste above and Save</li>
-      </ol>
+      Bot Token Setup:
+      1. Visit https://api.slack.com/apps
+      2. Create New App or select existing app
+      3. Go to OAuth and Permissions
+      4. Add Bot Token Scopes: chat:write, chat:write.public
+      5. Install App to Workspace
+      6. Copy Bot User OAuth Token (starts with xoxb-)
+      7. Paste token above and click Save
 
-      <h3>Webhook URL (Alternative)</h3>
-      <ol>
-        <li>Go to <a href="https://api.slack.com/apps" target="_blank">https://api.slack.com/apps</a></li>
-        <li>Incoming Webhooks: Activate</li>
-        <li>Add to Workspace</li>
-        <li>Copy URL (https://hooks.slack.com/services/...)</li>
-        <li>Paste above and Save</li>
-      </ol>
+      Webhook URL Setup:
+      1. Visit https://api.slack.com/apps
+      2. Select your app
+      3. Activate Incoming Webhooks
+      4. Add New Webhook to Workspace
+      5. Copy Webhook URL
+      6. Paste URL above and click Save
 
-      <p><strong>Proxy:</strong> Only fill if your network requires proxy. Otherwise leave unchecked.</p>
-      ]]>
+      Note: Messages will be sent to #security-firewall-alert channel
     </text>
   </block>
 </setup>
