@@ -110,7 +110,7 @@ services:
   # Splunk Server (Development/Testing)
   splunk:
     image: splunk/splunk:latest
-    container_name: splunk-demo
+    container_name: splunk
     hostname: splunk
     environment:
       - SPLUNK_START_ARGS=--accept-license
@@ -126,7 +126,6 @@ services:
     volumes:
       - splunk-var:/opt/splunk/var
       - splunk-etc:/opt/splunk/etc
-      - ./dashboards:/tmp/dashboards:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/en-US/account/login"]
@@ -136,6 +135,33 @@ services:
       start_period: 60s
     networks:
       - faz-splunk-network
+      - traefik-public
+
+    labels:
+      # Traefik Configuration for Splunk Web UI
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+
+      # HTTP Router (Splunk Web UI)
+      - "traefik.http.routers.splunk.rule=Host(`splunk.jclee.me`)"
+      - "traefik.http.routers.splunk.entrypoints=websecure"
+      - "traefik.http.routers.splunk.tls=true"
+      - "traefik.http.routers.splunk.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.splunk.priority=100"
+      - "traefik.http.services.splunk.loadbalancer.server.port=8000"
+
+      # HEC Router (optional, if you want external HEC access)
+      - "traefik.http.routers.splunk-hec.rule=Host(`splunk.jclee.me`) && PathPrefix(`/services/collector`)"
+      - "traefik.http.routers.splunk-hec.entrypoints=websecure"
+      - "traefik.http.routers.splunk-hec.tls=true"
+      - "traefik.http.services.splunk-hec.loadbalancer.server.port=8088"
+
+      # Prometheus Scraping (optional)
+      - "prometheus.scrape=false"
+
+      # Loki Logging
+      - "logging=loki"
+      - "loki.job=splunk"
 
 networks:
   faz-splunk-network:
