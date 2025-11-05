@@ -3,6 +3,8 @@
 """
 Auto Validator for Security Alert System
 자동 검증 시스템: 룩업, SPL 문법, 설정 파일 검증
+
+Optimized version with type hints and reduced redundancy
 """
 
 import sys
@@ -11,44 +13,86 @@ import json
 import re
 import csv
 from pathlib import Path
+from typing import List, Dict, Tuple, Optional
+
+# Constants
+DEFAULT_APP_DIR = '/opt/splunk/etc/apps/security_alert'
+STATE_TRACKER_HEADERS = ['device', 'prev_state', 'current_state', 'last_change', '_key']
+
+# Required files
+REQUIRED_LOOKUPS = [
+    'fortigate_logid_notification_map.csv',
+    'severity_priority.csv',
+    'auto_response_actions.csv'
+]
+
+STATE_TRACKERS = [
+    'vpn_state_tracker.csv',
+    'hardware_state_tracker.csv',
+    'ha_state_tracker.csv',
+    'interface_state_tracker.csv',
+    'cpu_memory_state_tracker.csv',
+    'resource_state_tracker.csv',
+    'admin_login_state_tracker.csv',
+    'vpn_brute_force_state_tracker.csv',
+    'traffic_spike_state_tracker.csv',
+    'license_state_tracker.csv'
+]
+
+REQUIRED_TRANSFORMS_STANZAS = [
+    'fortigate_logid_lookup',
+    'severity_priority_lookup',
+    'auto_response_lookup',
+    'vpn_state_tracker',
+    'hardware_state_tracker'
+]
+
+VALID_SPL_COMMANDS = [
+    'stats', 'eval', 'where', 'table', 'sort', 'head', 'tail',
+    'dedup', 'rex', 'rename', 'join', 'inputlookup', 'outputlookup'
+]
 
 class AutoValidator:
-    """자동 검증 클래스"""
+    """자동 검증 클래스 (Optimized)"""
 
-    def __init__(self, app_dir=None):
+    def __init__(self, app_dir: Optional[str] = None):
         """
+        Initialize Auto Validator
+
         Args:
             app_dir: Splunk app 디렉토리 경로 (default: /opt/splunk/etc/apps/security_alert)
         """
         if app_dir is None:
-            app_dir = '/opt/splunk/etc/apps/security_alert'
+            app_dir = DEFAULT_APP_DIR
         self.app_dir = Path(app_dir)
         self.lookups_dir = self.app_dir / 'lookups'
-        self.errors = []
-        self.warnings = []
-        self.info = []
+        self.errors: List[str] = []
+        self.warnings: List[str] = []
+        self.info: List[str] = []
 
-    def validate_all(self):
-        """전체 검증 실행"""
+    def validate_all(self) -> bool:
+        """
+        전체 검증 실행
+
+        Returns:
+            True if validation passes, False otherwise
+        """
         print("=" * 60)
-        print("🔍 Security Alert System - Auto Validation")
+        print("🔍 Security Alert System - Auto Validation (Optimized)")
         print("=" * 60)
         print("")
 
-        # 1. 룩업 CSV 파일 검증
-        self.validate_lookups()
+        validation_steps = [
+            ("룩업 CSV 파일", self.validate_lookups),
+            ("transforms.conf", self.validate_transforms_conf),
+            ("props.conf", self.validate_props_conf),
+            ("savedsearches.conf", self.validate_savedsearches_conf),
+            ("alert_actions.conf", self.validate_alert_actions_conf)
+        ]
 
-        # 2. transforms.conf 검증 (룩업 정의)
-        self.validate_transforms_conf()
-
-        # 3. props.conf 검증 (자동 룩업)
-        self.validate_props_conf()
-
-        # 4. savedsearches.conf 검증 (알림 정의)
-        self.validate_savedsearches_conf()
-
-        # 5. alert_actions.conf 검증 (Slack 설정)
-        self.validate_alert_actions_conf()
+        for step_num, (step_name, validation_func) in enumerate(validation_steps, 1):
+            print(f"[{step_num}/{len(validation_steps)}] {step_name} 검증")
+            validation_func()
 
         # 결과 출력
         self.print_results()
@@ -56,38 +100,17 @@ class AutoValidator:
         # 검증 통과 여부 반환
         return len(self.errors) == 0
 
-    def validate_lookups(self):
+    def validate_lookups(self) -> None:
         """룩업 CSV 파일 검증"""
-        print("📚 [1/5] 룩업 CSV 파일 검증")
         print("-" * 60)
 
         if not self.lookups_dir.exists():
             self.errors.append(f"❌ 룩업 디렉토리 없음: {self.lookups_dir}")
+            print("")
             return
 
-        # 필수 룩업 파일 목록
-        required_lookups = [
-            'fortigate_logid_notification_map.csv',
-            'severity_priority.csv',
-            'auto_response_actions.csv'
-        ]
-
-        # State tracker CSV 파일
-        state_trackers = [
-            'vpn_state_tracker.csv',
-            'hardware_state_tracker.csv',
-            'ha_state_tracker.csv',
-            'interface_state_tracker.csv',
-            'cpu_memory_state_tracker.csv',
-            'resource_state_tracker.csv',
-            'admin_login_state_tracker.csv',
-            'vpn_brute_force_state_tracker.csv',
-            'traffic_spike_state_tracker.csv',
-            'license_state_tracker.csv'
-        ]
-
         # 필수 룩업 검증
-        for lookup_file in required_lookups:
+        for lookup_file in REQUIRED_LOOKUPS:
             lookup_path = self.lookups_dir / lookup_file
             if not lookup_path.exists():
                 self.errors.append(f"❌ 필수 룩업 파일 없음: {lookup_file}")
@@ -96,19 +119,27 @@ class AutoValidator:
                 self.info.append(f"✅ {lookup_file} - OK")
 
         # State tracker 검증 (없으면 생성)
-        for tracker_file in state_trackers:
+        for tracker_file in STATE_TRACKERS:
             tracker_path = self.lookups_dir / tracker_file
             if not tracker_path.exists():
                 # 자동 생성
-                self.create_state_tracker(tracker_path)
-                self.info.append(f"🆕 {tracker_file} - 자동 생성됨")
+                if self.create_state_tracker(tracker_path):
+                    self.info.append(f"🆕 {tracker_file} - 자동 생성됨")
             else:
                 self.info.append(f"✅ {tracker_file} - 존재")
 
         print("")
 
-    def validate_csv_file(self, csv_path):
-        """CSV 파일 구조 검증"""
+    def validate_csv_file(self, csv_path: Path) -> bool:
+        """
+        CSV 파일 구조 검증
+
+        Args:
+            csv_path: Path to CSV file
+
+        Returns:
+            True if valid, False otherwise
+        """
         try:
             with open(csv_path, 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
@@ -116,59 +147,72 @@ class AutoValidator:
 
                 if not headers:
                     self.errors.append(f"❌ {csv_path.name}: 헤더가 없습니다")
-                    return
+                    return False
 
                 # 행 수 확인
                 row_count = sum(1 for row in reader)
                 if row_count == 0:
                     self.warnings.append(f"⚠️ {csv_path.name}: 데이터 행이 없습니다")
 
-        except Exception as e:
+                return True
+
+        except (IOError, csv.Error) as e:
             self.errors.append(f"❌ {csv_path.name}: CSV 읽기 실패 - {str(e)}")
+            return False
 
-    def create_state_tracker(self, tracker_path):
-        """State tracker CSV 자동 생성"""
-        # 기본 헤더
-        headers = ['device', 'prev_state', 'current_state', 'last_change', '_key']
+    def create_state_tracker(self, tracker_path: Path) -> bool:
+        """
+        State tracker CSV 자동 생성
 
+        Args:
+            tracker_path: Path where tracker should be created
+
+        Returns:
+            True if created successfully, False otherwise
+        """
         try:
             with open(tracker_path, 'w', encoding='utf-8', newline='') as f:
                 writer = csv.writer(f)
-                writer.writerow(headers)
+                writer.writerow(STATE_TRACKER_HEADERS)
             os.chmod(tracker_path, 0o644)
-        except Exception as e:
+            return True
+        except (IOError, OSError) as e:
             self.errors.append(f"❌ {tracker_path.name}: 자동 생성 실패 - {str(e)}")
+            return False
 
-    def validate_transforms_conf(self):
-        """transforms.conf 검증 (룩업 정의)"""
-        print("🔧 [2/5] transforms.conf 검증")
-        print("-" * 60)
+    def _check_config_file_stanzas(self, config_name: str, required_stanzas: List[str]) -> None:
+        """
+        Helper method to validate configuration file stanzas
 
-        transforms_path = self.app_dir / 'default' / 'transforms.conf'
-        if not transforms_path.exists():
-            self.errors.append("❌ transforms.conf 파일이 없습니다")
+        Args:
+            config_name: Name of the configuration file (e.g., 'transforms.conf')
+            required_stanzas: List of required stanza names
+        """
+        config_path = self.app_dir / 'default' / config_name
+        if not config_path.exists():
+            self.errors.append(f"❌ {config_name} 파일이 없습니다")
             print("")
             return
 
-        # 필수 룩업 스탠자
-        required_stanzas = [
-            'fortigate_logid_lookup',
-            'severity_priority_lookup',
-            'auto_response_lookup',
-            'vpn_state_tracker',
-            'hardware_state_tracker'
-        ]
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                content = f.read()
 
-        with open(transforms_path, 'r', encoding='utf-8') as f:
-            content = f.read()
+            for stanza in required_stanzas:
+                if f"[{stanza}]" in content:
+                    self.info.append(f"✅ [{stanza}] - 정의됨")
+                else:
+                    self.errors.append(f"❌ [{stanza}] - 정의 없음")
 
-        for stanza in required_stanzas:
-            if f"[{stanza}]" in content:
-                self.info.append(f"✅ [{stanza}] - 정의됨")
-            else:
-                self.errors.append(f"❌ [{stanza}] - 정의 없음")
+        except IOError as e:
+            self.errors.append(f"❌ {config_name} 읽기 실패: {str(e)}")
 
         print("")
+
+    def validate_transforms_conf(self) -> None:
+        """transforms.conf 검증 (룩업 정의)"""
+        print("-" * 60)
+        self._check_config_file_stanzas('transforms.conf', REQUIRED_TRANSFORMS_STANZAS)
 
     def validate_props_conf(self):
         """props.conf 검증 (자동 룩업)"""
@@ -233,8 +277,17 @@ class AutoValidator:
 
         print("")
 
-    def validate_spl_in_alert(self, content, alert_name):
-        """알림 내 SPL 쿼리 기본 검증"""
+    def validate_spl_in_alert(self, content: str, alert_name: str) -> bool:
+        """
+        알림 내 SPL 쿼리 기본 검증
+
+        Args:
+            content: Configuration file content
+            alert_name: Name of the alert
+
+        Returns:
+            True if SPL is valid, False otherwise
+        """
         # 알림 스탠자 추출
         pattern = rf'\[{re.escape(alert_name)}\](.*?)(?=\[|$)'
         match = re.search(pattern, content, re.DOTALL)
@@ -252,18 +305,16 @@ class AutoValidator:
         spl_query = search_match.group(1).strip()
 
         # 기본 SPL 문법 검증
-        if not spl_query.startswith('index='):
-            self.warnings.append(f"⚠️ {alert_name}: index 지정 권장")
+        if not spl_query.startswith(('index=', '`')):  # Allow macro starts
+            self.warnings.append(f"⚠️ {alert_name}: index 지정 또는 매크로 사용 권장")
 
         # 파이프 문법 검증
         if '|' in spl_query:
-            # 기본 명령어 검증
-            valid_commands = ['stats', 'eval', 'where', 'table', 'sort', 'head', 'tail', 'dedup', 'rex', 'rename']
             pipes = spl_query.split('|')
             for pipe in pipes[1:]:  # 첫 번째는 index 쿼리
-                cmd = pipe.strip().split()[0]
-                if cmd not in valid_commands and not cmd.startswith('lookup'):
-                    self.warnings.append(f"⚠️ {alert_name}: 알 수 없는 SPL 명령어 '{cmd}'")
+                cmd = pipe.strip().split()[0] if pipe.strip() else ''
+                if cmd and cmd not in VALID_SPL_COMMANDS and not cmd.startswith('lookup') and not cmd.startswith('`'):
+                    self.warnings.append(f"⚠️ {alert_name}: 검증 필요 SPL 명령어 '{cmd}'")
 
         return True
 

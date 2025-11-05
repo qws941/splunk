@@ -3,6 +3,8 @@
 """
 Slack Block Kit Alert Action for Splunk
 Sends formatted FortiGate alerts to Slack using Block Kit
+
+Optimized version with improved modularity and type hints
 """
 
 import sys
@@ -12,35 +14,69 @@ import os
 import gzip
 import csv
 from datetime import datetime
+from typing import List, Dict, Optional, Any
 
-def parse_splunk_results(results_file):
-    """Parse Splunk search results from gzipped CSV"""
+def parse_splunk_results(results_file: str) -> List[Dict[str, str]]:
+    """
+    Parse Splunk search results from gzipped CSV
+
+    Args:
+        results_file: Path to gzipped CSV results file
+
+    Returns:
+        List of dictionaries containing search results
+    """
     results = []
     try:
         with gzip.open(results_file, 'rt', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
                 results.append(row)
+    except (IOError, gzip.BadGzipFile) as e:
+        print(f"Error reading gzipped file: {e}", file=sys.stderr)
     except Exception as e:
         print(f"Error parsing results: {e}", file=sys.stderr)
     return results
 
-def get_severity_emoji(alert_name):
-    """Get emoji based on alert name"""
-    if 'Hardware' in alert_name or 'VPN' in alert_name:
-        return '🔴'
-    elif 'HA' in alert_name or 'Interface' in alert_name:
-        return '🟠'
-    elif 'Config' in alert_name or 'CPU' in alert_name:
-        return '🟡'
-    else:
-        return '🔵'
+def get_severity_emoji(alert_name: str) -> str:
+    """
+    Get emoji based on alert name priority
 
-def format_field_value(key, value):
-    """Format field value with proper emoji and formatting"""
+    Args:
+        alert_name: Name of the alert
+
+    Returns:
+        Emoji string representing severity level
+    """
+    severity_map = {
+        'Hardware': '🔴',
+        'VPN': '🔴',
+        'HA': '🟠',
+        'Interface': '🟠',
+        'Config': '🟡',
+        'CPU': '🟡'
+    }
+
+    for keyword, emoji in severity_map.items():
+        if keyword in alert_name:
+            return emoji
+    return '🔵'
+
+def format_field_value(key: str, value: str, max_length: int = 100) -> str:
+    """
+    Format field value with proper emoji and formatting
+
+    Args:
+        key: Field name
+        value: Field value
+        max_length: Maximum length for value truncation
+
+    Returns:
+        Formatted field string with emoji
+    """
     # Truncate long values
-    if isinstance(value, str) and len(value) > 100:
-        value = value[:97] + "..."
+    if isinstance(value, str) and len(value) > max_length:
+        value = value[:max_length - 3] + "..."
 
     # Add emoji for specific fields
     emoji_map = {
@@ -57,92 +93,135 @@ def format_field_value(key, value):
     }
 
     emoji = emoji_map.get(key, '')
-    return f"{emoji} *{key.replace('_', ' ').title()}:* {value}"
+    formatted_key = key.replace('_', ' ').title()
+    return f"{emoji} *{formatted_key}:* {value}"
 
-def build_block_kit_message(alert_name, search_name, results, view_link=""):
-    """Build Block Kit formatted message"""
+def build_header_block(alert_name: str, severity_emoji: str) -> Dict[str, Any]:
+    """
+    Build header block for Slack message
 
-    severity_emoji = get_severity_emoji(alert_name)
-    result_count = len(results)
+    Args:
+        alert_name: Name of the alert
+        severity_emoji: Emoji representing severity
 
-    # Header block
-    blocks = [
-        {
-            "type": "header",
-            "text": {
-                "type": "plain_text",
-                "text": f"{severity_emoji} FortiGate Alert: {alert_name}",
-                "emoji": True
-            }
-        },
-        {
-            "type": "section",
-            "fields": [
-                {
-                    "type": "mrkdwn",
-                    "text": f"*Alert:* {search_name}"
-                },
-                {
-                    "type": "mrkdwn",
-                    "text": f"*Count:* {result_count} events"
-                },
-                {
-                    "type": "mrkdwn",
-                    "text": f"*Time:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S KST')}"
-                },
-                {
-                    "type": "mrkdwn",
-                    "text": f"*Source:* NextTrade Security Alert"
-                }
-            ]
-        },
-        {
-            "type": "divider"
+    Returns:
+        Header block dictionary
+    """
+    return {
+        "type": "header",
+        "text": {
+            "type": "plain_text",
+            "text": f"{severity_emoji} FortiGate Alert: {alert_name}",
+            "emoji": True
         }
-    ]
+    }
 
-    # Add result details (limit to first 5 events)
-    for i, result in enumerate(results[:5]):
+def build_metadata_section(search_name: str, result_count: int) -> Dict[str, Any]:
+    """
+    Build metadata section with alert details
+
+    Args:
+        search_name: Name of the search
+        result_count: Number of results
+
+    Returns:
+        Metadata section dictionary
+    """
+    return {
+        "type": "section",
+        "fields": [
+            {"type": "mrkdwn", "text": f"*Alert:* {search_name}"},
+            {"type": "mrkdwn", "text": f"*Count:* {result_count} events"},
+            {"type": "mrkdwn", "text": f"*Time:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S KST')}"},
+            {"type": "mrkdwn", "text": "*Source:* NextTrade Security Alert"}
+        ]
+    }
+
+def build_event_fields(result: Dict[str, str], max_fields: int = 10) -> List[Dict[str, str]]:
+    """
+    Build fields for a single event
+
+    Args:
+        result: Event data dictionary
+        max_fields: Maximum number of fields to include
+
+    Returns:
+        List of field dictionaries
+    """
+    important_fields = [
+        'device', 'user', 'source_ip', 'srcip', 'vpn_name',
+        'interface', 'component', 'criticality', 'severity',
+        'logdesc', 'msg', 'details'
+    ]
+    excluded_fields = ['_time', '_raw', 'count']
+
+    fields = []
+
+    # Add important fields first
+    for key in important_fields:
+        if key in result and result[key]:
+            fields.append({
+                "type": "mrkdwn",
+                "text": format_field_value(key, result[key])
+            })
+
+    # Add other fields
+    for key, value in result.items():
+        if key not in important_fields and key not in excluded_fields and value:
+            fields.append({
+                "type": "mrkdwn",
+                "text": format_field_value(key, value)
+            })
+
+    return fields[:max_fields]
+
+def build_event_blocks(results: List[Dict[str, str]], max_events: int = 5) -> List[Dict[str, Any]]:
+    """
+    Build blocks for event details
+
+    Args:
+        results: List of event dictionaries
+        max_events: Maximum number of events to display
+
+    Returns:
+        List of block dictionaries
+    """
+    blocks = []
+
+    for i, result in enumerate(results[:max_events]):
         if i > 0:
             blocks.append({"type": "divider"})
 
-        # Build fields for this event
-        fields = []
-        important_fields = ['device', 'user', 'source_ip', 'srcip', 'vpn_name',
-                           'interface', 'component', 'criticality', 'severity',
-                           'logdesc', 'msg', 'details']
-
-        # Add important fields first
-        for key in important_fields:
-            if key in result and result[key]:
-                fields.append({
-                    "type": "mrkdwn",
-                    "text": format_field_value(key, result[key])
-                })
-
-        # Add other fields
-        for key, value in result.items():
-            if key not in important_fields and key not in ['_time', '_raw', 'count'] and value:
-                fields.append({
-                    "type": "mrkdwn",
-                    "text": format_field_value(key, value)
-                })
-
-        # Limit to 10 fields per event
+        fields = build_event_fields(result)
         if fields:
             blocks.append({
                 "type": "section",
-                "fields": fields[:10]
+                "fields": fields
             })
 
-    # Add footer with view link
-    if result_count > 5:
+    return blocks
+
+def build_footer_blocks(result_count: int, view_link: str, max_events: int = 5) -> List[Dict[str, Any]]:
+    """
+    Build footer blocks with count and view button
+
+    Args:
+        result_count: Total number of results
+        view_link: URL to view in Splunk
+        max_events: Maximum events shown
+
+    Returns:
+        List of footer block dictionaries
+    """
+    blocks = []
+
+    if result_count > max_events:
         blocks.append({
             "type": "context",
             "elements": [
                 {
                     "type": "mrkdwn",
-                    "text": f"📌 Showing 5 of {result_count} events. Check Splunk for full details."
+                    "text": f"📌 Showing {max_events} of {result_count} events. Check Splunk for full details."
                 }
             ]
         })
@@ -166,9 +245,52 @@ def build_block_kit_message(alert_name, search_name, results, view_link=""):
 
     return blocks
 
-def send_to_slack(webhook_url, bot_token, channel, blocks, proxies=None):
-    """Send message to Slack via webhook or Bot Token"""
+def build_block_kit_message(alert_name: str, search_name: str, results: List[Dict[str, str]], view_link: str = "") -> List[Dict[str, Any]]:
+    """
+    Build complete Block Kit formatted message
 
+    Args:
+        alert_name: Name of the alert
+        search_name: Name of the search
+        results: List of event dictionaries
+        view_link: URL to view in Splunk
+
+    Returns:
+        List of Block Kit blocks
+    """
+    severity_emoji = get_severity_emoji(alert_name)
+    result_count = len(results)
+
+    # Build message components
+    blocks = [
+        build_header_block(alert_name, severity_emoji),
+        build_metadata_section(search_name, result_count),
+        {"type": "divider"}
+    ]
+
+    # Add event blocks
+    blocks.extend(build_event_blocks(results))
+
+    # Add footer blocks
+    blocks.extend(build_footer_blocks(result_count, view_link))
+
+    return blocks
+
+def send_to_slack(webhook_url: Optional[str], bot_token: Optional[str], channel: str,
+                  blocks: List[Dict[str, Any]], proxies: Optional[Dict[str, str]] = None) -> bool:
+    """
+    Send message to Slack via webhook or Bot Token
+
+    Args:
+        webhook_url: Slack webhook URL (fallback method)
+        bot_token: Slack bot token (preferred method)
+        channel: Target Slack channel
+        blocks: Block Kit formatted message blocks
+        proxies: Optional proxy configuration
+
+    Returns:
+        True if message sent successfully, False otherwise
+    """
     payload = {
         "channel": channel,
         "username": "FortiGate Security Alert",
@@ -280,7 +402,8 @@ def main():
                         'https': proxy_full_url
                     }
                     print(f"Using proxy: {proxy_url}:{proxy_port}", file=sys.stderr)
-    except:
+    except (json.JSONDecodeError, KeyError, ValueError) as e:
+        print(f"Warning: Failed to parse configuration from stdin: {e}", file=sys.stderr)
         search_name = sys.argv[1] if len(sys.argv) > 1 else 'Manual Alert'
         view_link = ''
 
