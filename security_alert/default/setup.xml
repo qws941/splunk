@@ -1,147 +1,130 @@
 <setup>
-  <block title="Slack 인증 설정 (Slack Authentication)" endpoint="configs/conf-alert_actions" entity="slack">
+  <block title="Slack Authentication" endpoint="configs/conf-alert_actions" entity="slack">
     <text>
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      🔐 인증 방법 선택 (Choose ONE authentication method)
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-      ✅ 권장: Bot Token (OAuth) - 더 많은 기능 지원
-      ⚠️  대안: Webhook URL - 간단하지만 기능 제한
+      Configure Slack integration using ONE of the following methods:
+      - Bot Token (Recommended): Supports more features
+      - Webhook URL (Alternative): Simpler but limited functionality
     </text>
 
     <input field="param.slack_app_oauth_token">
-      <label>🤖 Bot Token (권장 / Recommended)</label>
+      <label>Bot Token (Recommended)</label>
       <type>text</type>
     </input>
 
     <text>
-      예시: xoxb-YOUR-BOT-TOKEN-HERE
+      Example: xoxb-YOUR-BOT-TOKEN-HERE
     </text>
 
     <input field="param.webhook_url">
-      <label>🔗 Webhook URL (대안 / Alternative)</label>
+      <label>Webhook URL (Alternative)</label>
       <type>text</type>
     </input>
 
     <text>
-      예시: https://hooks.slack.com/services/YOUR-WEBHOOK-URL-HERE
+      Example: https://hooks.slack.com/services/YOUR-WEBHOOK-URL-HERE
     </text>
   </block>
 
-  <block title="Slack 채널 설정 (Channel Configuration)" endpoint="configs/conf-alert_actions" entity="slack">
+  <block title="Slack Channel Configuration" endpoint="configs/conf-alert_actions" entity="slack">
     <text>
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      📢 알림을 받을 채널 지정 (Specify notification channel)
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      Specify the Slack channel to receive notifications.
+      The bot must be invited to the channel before sending messages.
     </text>
 
     <input field="param.channel">
-      <label>📌 Slack Channel (# 포함 / Include #)</label>
+      <label>Slack Channel (include #)</label>
       <type>text</type>
     </input>
 
     <text>
-      ⚠️  Bot을 채널에 초대해야 합니다!
-      ⚠️  Bot must be invited to the channel!
-
-      예시: #security-firewall-alert
-      예시: #security-alerts
-      예시: #ops-notifications
+      Examples:
+      - #security-firewall-alert
+      - #security-alerts
+      - #ops-notifications
     </text>
   </block>
 
-  <block title="프록시 설정 (Proxy Configuration - Optional)" endpoint="configs/conf-alert_actions" entity="slack">
+  <block title="Proxy Configuration (Optional)" endpoint="configs/conf-alert_actions" entity="slack">
     <text>
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      🌐 프록시 서버 사용 (선택사항)
-      🌐 Use Proxy Server (Optional)
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-      인터넷 접속에 프록시가 필요한 경우만 설정하세요.
-      Only configure if proxy is required for internet access.
+      Configure proxy server if required for internet access.
+      Leave blank if no proxy is needed.
     </text>
 
     <input field="param.proxy_enabled">
-      <label>✅ Enable Proxy (프록시 사용)</label>
+      <label>Enable Proxy</label>
       <type>checkbox</type>
     </input>
 
     <input field="param.proxy_url">
-      <label>🖥️  Proxy Server (서버 주소)</label>
+      <label>Proxy Server</label>
       <type>text</type>
     </input>
 
     <text>
-      HTTP/HTTPS 프로토콜 포함 가능 (둘 다 가능)
-      Both formats supported:
+      Supported formats:
       - http://proxy.company.com
       - proxy.company.com
     </text>
 
     <input field="param.proxy_port">
-      <label>🔌 Proxy Port (포트)</label>
+      <label>Proxy Port</label>
       <type>text</type>
     </input>
 
     <text>
-      예시: 8080, 3128, 8888
+      Examples: 8080, 3128, 8888
     </text>
 
     <input field="param.proxy_username">
-      <label>👤 Proxy Username (사용자명 - 선택)</label>
+      <label>Proxy Username (Optional)</label>
       <type>text</type>
     </input>
 
     <input field="param.proxy_password">
-      <label>🔑 Proxy Password (비밀번호 - 선택)</label>
+      <label>Proxy Password (Optional)</label>
       <type>password</type>
     </input>
   </block>
 
-  <block title="설정 가이드 (Setup Guide)">
+  <block title="Setup Guide">
     <text>
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      📖 Bot Token 설정 방법 (Recommended Method)
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      ============================================================
+      Bot Token Setup (Recommended Method)
+      ============================================================
 
-      1️⃣  https://api.slack.com/apps 접속
-      2️⃣  "Create New App" 클릭 → "From scratch" 선택
-      3️⃣  App Name 입력 (예: FortiGate Security Alerts)
-      4️⃣  좌측 메뉴 → "OAuth &amp; Permissions" 클릭
-      5️⃣  "Scopes" 섹션에서 다음 권한 추가:
-          ✅ chat:write
-          ✅ chat:write.public
-          ✅ channels:read
-      6️⃣  상단 "Install to Workspace" 버튼 클릭
-      7️⃣  "Bot User OAuth Token" 복사 (xoxb-로 시작)
-      8️⃣  위의 "Bot Token" 필드에 붙여넣기
-      9️⃣  Slack 채널에서 Bot 초대: /invite @YourBotName
+      1. Visit https://api.slack.com/apps
+      2. Click "Create New App" and select "From scratch"
+      3. Enter App Name (e.g., FortiGate Security Alerts)
+      4. Navigate to "OAuth &amp; Permissions" in the left menu
+      5. Add the following Bot Token Scopes:
+         - chat:write
+         - chat:write.public
+         - channels:read
+      6. Click "Install to Workspace" at the top
+      7. Copy the "Bot User OAuth Token" (starts with xoxb-)
+      8. Paste the token in the "Bot Token" field above
+      9. Invite the bot to your channel: /invite @YourBotName
 
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      📖 Webhook URL 설정 방법 (Alternative Method)
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      ============================================================
+      Webhook URL Setup (Alternative Method)
+      ============================================================
 
-      1️⃣  https://api.slack.com/apps 접속
-      2️⃣  앱 선택 → "Incoming Webhooks" 메뉴
-      3️⃣  "Activate Incoming Webhooks" 토글을 ON으로 변경
-      4️⃣  "Add New Webhook to Workspace" 클릭
-      5️⃣  알림을 받을 채널 선택
-      6️⃣  생성된 Webhook URL 복사 (https://hooks.slack.com/services/...)
-      7️⃣  위의 "Webhook URL" 필드에 붙여넣기
+      1. Visit https://api.slack.com/apps
+      2. Select your app and go to "Incoming Webhooks"
+      3. Turn on "Activate Incoming Webhooks"
+      4. Click "Add New Webhook to Workspace"
+      5. Select the channel to receive notifications
+      6. Copy the generated Webhook URL
+      7. Paste the URL in the "Webhook URL" field above
 
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      ℹ️  참고 사항 (Notes)
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      ============================================================
+      Important Notes
+      ============================================================
 
-      • 기본 채널: #security-firewall-alert (권장)
-      • Bot Token과 Webhook URL 중 하나만 입력하세요
-      • 프록시 설정은 필요한 경우에만 사용하세요
-      • 테스트 알림을 보내서 설정을 확인하세요
-
-      • Default channel: #security-firewall-alert (recommended)
-      • Use EITHER Bot Token OR Webhook URL (not both)
-      • Proxy settings only if required
-      • Send a test alert to verify configuration
+      - Default channel: #security-firewall-alert (recommended)
+      - Use EITHER Bot Token OR Webhook URL (not both)
+      - Proxy settings are optional (only if required)
+      - Send a test alert to verify configuration
     </text>
   </block>
 </setup>
