@@ -1,3 +1,29 @@
+# ============================================================================
+# IMPORTANT: Hybrid Pattern (Development on Rocky + Execution on Synology)
+# ============================================================================
+#
+# Docker Context: synology (192.168.50.215:2375)
+# Source Location: Rocky Linux (/home/jclee/app/splunk/)
+# Execution Location: Synology NAS (192.168.50.215)
+# Data Location: Synology local filesystem (/volume1/splunk/data/)
+#
+# Workflow:
+#   1. Edit source on Rocky Linux (local filesystem, Git repository)
+#   2. Run `docker compose up -d --build` from Rocky
+#   3. Context files sent to Synology Docker daemon
+#   4. Image built on Synology
+#   5. Container runs on Synology
+#   6. Data persists to Synology local path (no NFS needed)
+#
+# Why this pattern?
+#   - No NFS configuration needed (Synology Docker uses local /volume1/)
+#   - Git development stays on Rocky (faster, safer)
+#   - Centralized execution on NAS (data persistence)
+#   - Proven working configuration
+#
+# Alternative: See /tmp/splunk-nfs-final-solution.md for full local migration
+# ============================================================================
+
 services:
   # Main Application: FortiAnalyzer → Splunk HEC Integration
   faz-splunk-integration:
@@ -76,17 +102,33 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik-public"
 
-      # HTTP Router (Main App)
+      # HTTP → HTTPS Redirect
+      - "traefik.http.routers.faz-splunk-http.rule=Host(`faz-splunk.jclee.me`)"
+      - "traefik.http.routers.faz-splunk-http.entrypoints=web"
+      - "traefik.http.routers.faz-splunk-http.middlewares=https-redirect"
+
+      # HTTPS Router (Main App)
       - "traefik.http.routers.faz-splunk.rule=Host(`faz-splunk.jclee.me`)"
       - "traefik.http.routers.faz-splunk.entrypoints=websecure"
       - "traefik.http.routers.faz-splunk.tls=true"
       - "traefik.http.routers.faz-splunk.tls.certresolver=letsencrypt"
-      - "traefik.http.services.faz-splunk.loadbalancer.server.port=8080"
+      - "traefik.http.routers.faz-splunk.priority=100"
+      - "traefik.http.routers.faz-splunk.service=faz-splunk-web"
+
+      # Main App Service
+      - "traefik.http.services.faz-splunk-web.loadbalancer.server.port=8080"
+      - "traefik.http.services.faz-splunk-web.loadbalancer.healthcheck.path=/health"
+      - "traefik.http.services.faz-splunk-web.loadbalancer.healthcheck.interval=30s"
 
       # Metrics Router (Prometheus)
       - "traefik.http.routers.faz-splunk-metrics.rule=Host(`faz-splunk.jclee.me`) && PathPrefix(`/metrics`)"
       - "traefik.http.routers.faz-splunk-metrics.entrypoints=websecure"
       - "traefik.http.routers.faz-splunk-metrics.tls=true"
+      - "traefik.http.routers.faz-splunk-metrics.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.faz-splunk-metrics.priority=200"
+      - "traefik.http.routers.faz-splunk-metrics.service=faz-splunk-metrics"
+
+      # Metrics Service
       - "traefik.http.services.faz-splunk-metrics.loadbalancer.server.port=9090"
 
       # Prometheus Scraping
@@ -124,8 +166,11 @@ services:
       - "8089:8089"   # Management Port
       - "9997:9997"   # Receiving Port
     volumes:
-      - splunk-var:/opt/splunk/var
-      - splunk-etc:/opt/splunk/etc
+      # IMPORTANT: These are Synology LOCAL paths (not NFS mounts)
+      # Synology Docker daemon accesses /volume1/ directly on the NAS
+      # No NFS configuration needed - Docker sees these as local paths
+      - /volume1/splunk/data/var:/opt/splunk/var    # Splunk indexes, logs (UID 41812)
+      - /volume1/splunk/data/etc:/opt/splunk/etc    # Splunk configuration (UID 41812)
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/en-US/account/login"]
@@ -142,19 +187,38 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik-public"
 
-      # HTTP Router (Splunk Web UI)
+      # HTTP → HTTPS Redirect
+      - "traefik.http.routers.splunk-http.rule=Host(`splunk.jclee.me`)"
+      - "traefik.http.routers.splunk-http.entrypoints=web"
+      - "traefik.http.routers.splunk-http.middlewares=https-redirect"
+      - "traefik.http.middlewares.https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.https-redirect.redirectscheme.permanent=true"
+
+      # HTTPS Router (Splunk Web UI)
       - "traefik.http.routers.splunk.rule=Host(`splunk.jclee.me`)"
       - "traefik.http.routers.splunk.entrypoints=websecure"
       - "traefik.http.routers.splunk.tls=true"
       - "traefik.http.routers.splunk.tls.certresolver=letsencrypt"
       - "traefik.http.routers.splunk.priority=100"
-      - "traefik.http.services.splunk.loadbalancer.server.port=8000"
+      - "traefik.http.routers.splunk.service=splunk-web"
 
-      # HEC Router (optional, if you want external HEC access)
+      # Splunk Web Service
+      - "traefik.http.services.splunk-web.loadbalancer.server.port=8000"
+      - "traefik.http.services.splunk-web.loadbalancer.healthcheck.path=/en-US/account/login"
+      - "traefik.http.services.splunk-web.loadbalancer.healthcheck.interval=30s"
+
+      # HEC Router (HTTPS only)
       - "traefik.http.routers.splunk-hec.rule=Host(`splunk.jclee.me`) && PathPrefix(`/services/collector`)"
       - "traefik.http.routers.splunk-hec.entrypoints=websecure"
       - "traefik.http.routers.splunk-hec.tls=true"
+      - "traefik.http.routers.splunk-hec.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.splunk-hec.priority=200"
+      - "traefik.http.routers.splunk-hec.service=splunk-hec"
+
+      # HEC Service
       - "traefik.http.services.splunk-hec.loadbalancer.server.port=8088"
+      - "traefik.http.services.splunk-hec.loadbalancer.healthcheck.path=/services/collector/health"
+      - "traefik.http.services.splunk-hec.loadbalancer.healthcheck.interval=30s"
 
       # Prometheus Scraping (optional)
       - "prometheus.scrape=false"
@@ -171,8 +235,3 @@ networks:
   traefik-public:
     external: true
 
-volumes:
-  splunk-var:
-    driver: local
-  splunk-etc:
-    driver: local

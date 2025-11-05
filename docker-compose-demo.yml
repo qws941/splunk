@@ -1,0 +1,21 @@
+services:
+  splunk:
+    image: splunk/splunk:latest
+    container_name: splunk
+    hostname: splunk
+    environment:
+      - SPLUNK_GENERAL_TERMS=--accept-sgt-current-at-splunk-com
+      - SPLUNK_START_ARGS=--accept-license
+      - SPLUNK_PASSWORD=changeme123
+      - SPLUNK_HEC_TOKEN=00000000-0000-0000-0000-000000000000
+    ports:
+      - "8000:8000"   # Web UI
+      - "8088:8088"   # HEC
+      - "9997:9997"   # TCP
+    volumes:
+      - /volume1/docker/splunk-apps/security_alert:/opt/splunk/etc/apps/security_alert
+    restart: unless-stopped
+
+networks:
+  default:
+    name: splunk-demo

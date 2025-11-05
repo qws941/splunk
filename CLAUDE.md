@@ -1,6 +1,127 @@
-# CLAUDE.md - Splunk Security Alert System
+# CLAUDE.md
 
-This file provides guidance to Claude Code when working with the Splunk security alert application codebase.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## 💾 Hybrid Pattern: Development on Rocky + Execution on Synology
+
+**IMPORTANT**: This project uses a **Hybrid Pattern** - source code on Rocky Linux, execution on Synology NAS.
+
+### Architecture Overview
+
+**Docker Context**: `synology` (192.168.50.215:2375)
+**Source Location**: Rocky Linux `/home/jclee/app/splunk/` (Git repository)
+**Execution Location**: Synology NAS (192.168.50.215)
+**Data Location**: Synology local filesystem `/volume1/splunk/data/`
+
+### Directory Structure
+
+**Rocky Linux** (Development):
+```
+/home/jclee/app/splunk/
+├── backend/              # Node.js source
+├── frontend/             # Frontend source
+├── docker-compose.yml    # ⚠️ Executed via synology context
+├── .docker-context       # Contains "synology"
+├── .git/                 # Git repository
+└── (source files)
+```
+
+**Synology NAS** (Runtime):
+```
+/volume1/splunk/
+├── data/
+│   ├── var/              # Splunk indexes, logs (UID 41812)
+│   │   ├── lib/splunk/   # Databases
+│   │   ├── log/splunk/   # Logs
+│   │   └── run/splunk/   # Runtime data
+│   └── etc/              # Splunk configuration (UID 41812)
+│       ├── apps/         # Installed apps
+│       ├── system/       # System configs
+│       └── users/        # User preferences
+├── CLAUDE.md             # Documentation (partial copy)
+└── (deployment files)
+```
+
+### Workflow
+
+**Development**:
+```bash
+cd /home/jclee/app/splunk
+vim backend/index.js               # Edit source on Rocky
+git add -A && git commit -m "..."  # Commit on Rocky
+git push origin master             # Push to remote
+```
+
+**Deployment**:
+```bash
+cd /home/jclee/app/splunk
+docker context use synology        # Ensure synology context
+docker compose up -d --build       # Build & run on Synology
+
+# What happens:
+# 1. Context files sent to Synology Docker daemon (192.168.50.215:2375)
+# 2. Image built on Synology (using transferred source)
+# 3. Container runs on Synology
+# 4. Data persists to Synology local path (/volume1/splunk/data/)
+```
+
+### Why This Pattern?
+
+**Pros**:
+- ✅ No NFS configuration needed (Synology Docker uses local `/volume1/`)
+- ✅ Git development stays on Rocky (faster, safer filesystem)
+- ✅ Centralized execution on NAS (data persistence, monitoring)
+- ✅ Proven working configuration (already in production)
+- ✅ Easy rollback (source on Rocky, data on NAS)
+
+**Cons**:
+- ⚠️ Build happens on NAS (slower for development iterations)
+- ⚠️ Source and execution separated (requires context awareness)
+- ⚠️ Context transfer overhead (files sent over network)
+
+### Permission Requirements
+
+**Critical**: Splunk container runs as UID **41812** (splunk user inside container).
+
+```bash
+# Verify permissions on NAS
+ssh -p 1111 jclee@192.168.50.215
+stat -c "UID=%u GID=%g Mode=%a" /volume1/splunk/data/{var,etc}
+
+# Expected:
+# var/  → UID=41812 GID=41812 Mode=755
+# etc/  → UID=41812 GID=41812 Mode=755
+```
+
+**Fix permissions if needed**:
+```bash
+ssh -p 1111 jclee@192.168.50.215
+sudo chown -R 41812:41812 /volume1/splunk/data/{var,etc}
+sudo chmod 755 /volume1/splunk/data/{var,etc}
+docker restart splunk
+```
+
+### Comparison with Other Apps
+
+| App | Source Location | Docker Context | Data Location | Pattern |
+|-----|----------------|----------------|---------------|---------|
+| **Blacklist** | Rocky (NFS mount) | local (default) | NFS mount | Full NFS |
+| **Splunk** | Rocky (local FS) | synology | Synology local | **Hybrid** |
+| **HYCU** | Synology | synology | Synology local | Full Local |
+
+→ Splunk uses **Hybrid Pattern** for separation of concerns
+
+### Alternative: Full Local Migration
+
+If you want to unify with blacklist pattern (full NFS mount):
+- See `/tmp/splunk-nfs-final-solution.md` for detailed migration guide
+- Requires Synology NFS export configuration (Web UI)
+- Requires Git repository migration to NAS
+- Higher complexity, but consistent pattern
+
+**Current recommendation**: Keep Hybrid Pattern (documented above)
+
+---
 
 ## ⚡ Quick Start for Development
 
@@ -67,11 +188,52 @@ tail -f /opt/splunk/var/log/splunk/splunkd.log | grep security_alert
 ### Important Directories
 
 - **Active development**: `security_alert/` (modify this)
+- **User variant app**: `security_alert_user/` (separate app for user-specific configurations)
 - **Deployment package**: `security_alert.tar.gz` (generated from above)
 - **Release directory**: `release/` (distribution packages)
 - **Validation scripts**: `scripts/` (check-stanza.py, etc.)
 - **Reference only**: `configs/`, `lookups/`, `docs/` (examples)
 - **Legacy (ignore)**: `nextrade/`, `archive-dev/`, `xwiki/`
+
+### Docker Testing Environment (Synology)
+
+```bash
+# Test on Synology Docker before production deployment
+# Synology NAS: 192.168.50.215:1111
+
+# Sync files to Synology
+rsync -avz -e "ssh -p 1111" \
+  security_alert/ \
+  jclee@192.168.50.215:/volume1/docker/splunk-apps/security_alert/
+
+# Restart Splunk container
+ssh jclee@192.168.50.215 -p 1111 "docker exec splunk /opt/splunk/bin/splunk restart"
+
+# Access Splunk Web UI
+# http://192.168.50.215:8000
+# User: admin / Pass: changeme123
+```
+
+## 🏗️ Dual-Stack Architecture
+
+This project actually contains TWO distinct components:
+
+### 1. Splunk App (`security_alert/`)
+- **Purpose**: Splunk app for alert management and Slack integration
+- **Deployment**: Tarball package installed on Splunk server
+- **Components**: Python scripts, configuration files, dashboards
+- **Data Source**: FortiGate syslog directly to Splunk (index=fw)
+
+### 2. FortiAnalyzer Integration Service (`docker-compose.yml`)
+- **Purpose**: Node.js service that fetches logs from FortiAnalyzer and sends to Splunk HEC
+- **Deployment**: Docker container on dedicated server
+- **Stack**: Node.js + Express + Axios + Prometheus
+- **Data Flow**: FortiAnalyzer API → Node.js → Splunk HEC → index=fortianalyzer
+- **Monitoring**: Grafana/Prometheus/Loki integration, Traefik reverse proxy
+- **Ports**: 8080 (app), 9090 (metrics)
+- **External Access**: https://faz-splunk.jclee.me (via Traefik)
+
+**Note**: Most users only need the Splunk App (#1). The integration service (#2) is optional for environments with FortiAnalyzer instead of direct FortiGate syslog.
 
 ## 🎯 Project Overview
 
@@ -372,6 +534,42 @@ definition = lookup fortigate_logid_lookup logid \
 
 ---
 
+## 🔀 Two Splunk Apps: security_alert vs security_alert_user
+
+This repository contains TWO Splunk apps with different purposes:
+
+### `security_alert/` (Base App)
+- **Purpose**: Core alerting system with Python backend
+- **Contains**:
+  - Python scripts in `bin/` (slack.py, auto_validator.py, etc.)
+  - 15 pre-configured alerts
+  - Full configuration files
+  - Backend automation
+- **Use Case**: Standard installation for most users
+- **Package**: `security_alert.tar.gz`
+
+### `security_alert_user/` (User-Customizable Variant)
+- **Purpose**: Simplified app for end-user customization without Python backend
+- **Contains**:
+  - Configuration files only (no bin/ directory)
+  - Same alerts and macros
+  - User can modify via Splunk Web UI
+- **Use Case**: Environments where Python script execution is restricted
+- **Deployment**: Uses separate deployment scripts (`scripts/deploy-user-app.sh`)
+
+**Key Differences**:
+| Feature | security_alert | security_alert_user |
+|---------|----------------|---------------------|
+| Python Backend | ✅ Yes | ❌ No |
+| Auto-validation | ✅ Yes | ❌ No |
+| Slack Integration | ✅ Full (Block Kit) | ⚠️ Basic only |
+| User Modification | ⚠️ Via local/ | ✅ Direct editing |
+| Deployment | Tarball | Direct copy |
+
+**Recommendation**: Use `security_alert/` (base app) unless Python execution is blocked.
+
+---
+
 ## 📂 Directory Structure (Source vs. Deployed)
 
 ### Repository Root (`/home/jclee/app/splunk/`)
@@ -569,6 +767,42 @@ ls -la /opt/splunk/etc/apps/security_alert/bin/*.py
 # Tail logs for errors
 tail -f /opt/splunk/var/log/splunk/splunkd.log | grep security_alert
 ```
+
+### Environment-Specific Deployment
+
+**Development/Testing (Synology Docker)**:
+```bash
+# Recommended for testing before production
+cd /home/jclee/app/splunk
+
+# Deploy to Synology test environment
+./scripts/deploy-simple.sh        # Basic deployment
+./scripts/deploy-secmon-only.sh   # Security monitoring only
+./scripts/deploy-hybrid.sh        # Hybrid setup
+
+# Manual deployment
+rsync -avz -e "ssh -p 1111" security_alert/ \
+  jclee@192.168.50.215:/volume1/docker/splunk-apps/security_alert/
+```
+
+**Production (Air-gap OPS Server)**:
+```bash
+# Production deployment uses tarball only (no direct access)
+tar -czf security_alert.tar.gz security_alert/
+cp security_alert.tar.gz release/
+
+# User manually transfers tarball to air-gapped server via:
+# - USB drive
+# - Internal file transfer system
+# - Approved secure channels
+```
+
+**Deployment Scripts Available**:
+- `deploy-simple.sh` - Minimal deployment (no FAZ integration)
+- `deploy-secmon-only.sh` - Security monitoring only (recommended)
+- `deploy-hybrid.sh` - Hybrid with both FAZ and direct syslog
+- `deploy-production.sh` - Full production deployment
+- `deploy-user-app.sh` - Deploy security_alert_user variant
 
 ---
 
@@ -1053,6 +1287,120 @@ ls -la /opt/splunk/etc/apps/security_alert/
 
 # Check logs
 tail -100 /opt/splunk/var/log/splunk/splunkd.log | grep security_alert
+```
+
+---
+
+## 🐳 FortiAnalyzer Integration Service Deployment
+
+**Only needed if using FortiAnalyzer API instead of direct FortiGate syslog**
+
+### Quick Start (Docker Compose)
+
+```bash
+# 1. Configure environment
+cd /home/jclee/app/splunk
+cp .env.example .env
+vim .env  # Set FAZ credentials, Splunk HEC, Slack tokens
+
+# 2. Start services
+docker-compose up -d
+
+# 3. Check health
+curl http://localhost:8080/health
+curl http://localhost:9090/metrics
+
+# 4. View logs
+docker-compose logs -f faz-splunk-integration
+```
+
+### Service Architecture
+
+```
+FortiAnalyzer (FortiGate logs)
+      ↓ (API polling every 60s)
+Node.js Integration Service (port 8080)
+      ↓ (Batch processing)
+Splunk HEC (port 8088)
+      ↓
+index=fortianalyzer
+      ↓
+Security Alert App (alerts + Slack)
+```
+
+### Key Features
+
+- **Circuit Breaker**: Auto-recovers from API failures
+- **Batch Processing**: 100 events per batch (configurable)
+- **Health Monitoring**: `/health` endpoint for load balancer
+- **Metrics Export**: Prometheus metrics on port 9090
+- **Grafana Integration**: Auto-sends logs to Loki
+- **Traefik Integration**: External access via https://faz-splunk.jclee.me
+- **Slack Notifications**: Alert on errors and circuit breaker trips
+
+### Configuration (.env)
+
+```bash
+# FortiAnalyzer
+FAZ_HOST=192.168.1.100
+FAZ_USERNAME=admin
+FAZ_PASSWORD=password
+FAZ_VDOM=root
+
+# Splunk HEC
+SPLUNK_HEC_HOST=splunk.company.com
+SPLUNK_HEC_PORT=8088
+SPLUNK_HEC_TOKEN=your-hec-token
+SPLUNK_INDEX_FORTIGATE=fortianalyzer
+
+# Slack
+SLACK_BOT_TOKEN=xoxb-your-bot-token
+SLACK_CHANNEL=splunk-alerts
+
+# Performance
+POLLING_INTERVAL=60000           # 60 seconds
+EVENT_BATCH_SIZE=100
+CIRCUIT_BREAKER_THRESHOLD=5      # Failures before opening
+CIRCUIT_BREAKER_TIMEOUT=60000    # 60s recovery time
+
+# Monitoring
+LOKI_URL=https://grafana.jclee.me
+PROMETHEUS_URL=https://prometheus.jclee.me
+```
+
+### Monitoring
+
+**Prometheus Metrics**:
+- `faz_events_total` - Total events fetched
+- `faz_events_sent_total` - Events sent to Splunk
+- `faz_api_errors_total` - API errors
+- `faz_circuit_breaker_state` - Circuit breaker status
+
+**Grafana Dashboard**:
+- Pre-configured dashboard for service health
+- Loki log aggregation
+- Alert rules for downtime/errors
+
+### Troubleshooting
+
+```bash
+# Check service status
+docker-compose ps
+
+# View logs
+docker-compose logs -f faz-splunk-integration
+
+# Test FortiAnalyzer connection
+curl -X POST http://localhost:8080/api/test-faz
+
+# Test Splunk HEC connection
+curl -X POST http://localhost:8080/api/test-splunk
+
+# Restart service
+docker-compose restart faz-splunk-integration
+
+# View metrics
+curl http://localhost:9090/metrics | grep faz_
 ```
 
 ---
