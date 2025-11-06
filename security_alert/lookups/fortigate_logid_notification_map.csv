@@ -1,0 +1,33 @@
+logid,category,severity,notify_slack,notify_email,description,available_fields,field_coverage
+0101037124,vpn,critical,1,1,"IPsec Phase 1 Negotiation Failed","logid,type,subtype,level,vd,logdesc,devname,remip,locip,remport,locport,vpntunnel,tunnelip,error_num,reason,init,cookies,spi,seq,outintf",30
+0101037131,vpn,critical,1,1,"IPsec ESP Error","logid,type,subtype,level,vd,logdesc,devname,remip,locip,remport,locport,vpntunnel,tunnelip,error_num,reason,init,cookies,spi,seq,outintf",30
+0101037134,vpn,critical,1,1,"IPsec Phase 1 SA Deleted","logid,type,subtype,level,vd,logdesc,devname,remip,locip,remport,locport,vpntunnel,tunnelip,error_num,reason,init,cookies,spi,seq,outintf",30
+0101037127,vpn,info,0,0,"IPsec Phase 1 Progress (Informational)","logid,type,subtype,level,vd,logdesc,devname,remip,locip,vpntunnel,tunnelip",0
+0101037129,vpn,info,0,0,"IPsec Phase 2 Progress (Informational)","logid,type,subtype,level,vd,logdesc,devname,remip,locip,vpntunnel,tunnelip",0
+0101037138,vpn,info,0,0,"IPsec Tunnel Up (Success)","logid,type,subtype,level,vd,logdesc,devname,remip,locip,vpntunnel,tunnelip,action",0
+0103040001,hardware,critical,1,1,"Fan Failure","logid,type,subtype,level,vd,logdesc,devname,component,fan_id,fan_speed,fan_status,temperature,threshold",20
+0103040002,hardware,critical,1,1,"Power Supply Failure","logid,type,subtype,level,vd,logdesc,devname,component,psu_id,psu_status,voltage,power_wattage,redundancy_status",20
+0103040003,hardware,critical,1,1,"Temperature Critical","logid,type,subtype,level,vd,logdesc,devname,temperature,threshold,sensor_id,component,location",20
+0104043003,resource,critical,1,1,"Disk Full","logid,type,subtype,level,vd,logdesc,devname,disk_usage,disk_available,disk_total,partition,mount_point",20
+0104043004,resource,critical,1,1,"Session Limit Exceeded","logid,type,subtype,level,vd,logdesc,devname,session_count,session_limit,session_used_percent,new_session_drop_count",20
+0100044546,config,high,1,1,"Configuration Attribute Changed","logid,type,subtype,level,vd,logdesc,devname,cfgpath,cfgobj,cfgattr,cfgold,cfgnew,user,ui,srcip,dstip,devid,action,status",60
+0100044547,config,high,1,1,"Object Attribute Configured","logid,type,subtype,level,vd,logdesc,devname,cfgpath,cfgobj,cfgattr,cfgold,cfgnew,user,ui,srcip,dstip,devid,action,status",60
+0100020010,ha,high,1,1,"HA State Change","logid,type,subtype,level,vd,logdesc,devname,ha_state,ha_old_state,ha_role,ha_group,member,priority,serial,checksum_ok",17
+0104043544,ha,high,1,1,"HA Member Status Change","logid,type,subtype,level,vd,logdesc,devname,ha_state,ha_old_state,ha_role,ha_group,member,priority,serial,checksum_ok",17
+0104043545,ha,high,1,0,"HA Configuration Sync","logid,type,subtype,level,vd,logdesc,devname,ha_state,ha_old_state,ha_role,ha_group,member,priority,serial,checksum_ok,sync_status,sync_error",17
+0105032004,security,high,1,1,"Admin Authentication Failed","logid,type,subtype,level,vd,logdesc,devname,user,srcip,dstip,authproto,method,profile,duration,reason",40
+0100032001,security,high,1,1,"Admin Login Failed (General)","logid,type,subtype,level,vd,logdesc,devname,user,srcip,dstip,authproto,method,profile,duration,reason",40
+0100020007,network,high,1,1,"Interface Link Status Change","logid,type,subtype,level,vd,logdesc,devname,interface,link_status,speed,duplex,carrier,media_type",20
+0100040704,performance,medium,0,0,"System Performance Statistics","logid,type,subtype,level,vd,logdesc,devname,cpu,cpu_user,cpu_system,cpu_iowait,memory,memory_cached,memory_buffers,session_count,session_setup_rate,disk_usage,disk_log_rate,disk_fa_rate,bandwidth_tx,bandwidth_rx",10
+0100040705,performance,medium,0,0,"Performance Statistics (Extended)","logid,type,subtype,level,vd,logdesc,devname,cpu,cpu_user,cpu_system,cpu_iowait,memory,memory_cached,memory_buffers,session_count,session_setup_rate,disk_usage,disk_log_rate,disk_fa_rate,bandwidth_tx,bandwidth_rx",10
+0101039424,security,critical,1,1,"SSL VPN Authentication Failed","logid,type,subtype,level,vd,logdesc,devname,user,srcip,dstip,authproto,method,profile,duration,reason,group,tunnel,vpntype",45
+0101039426,security,critical,1,1,"SSL VPN Certificate Validation Failed","logid,type,subtype,level,vd,logdesc,devname,user,srcip,dstip,authproto,method,profile,duration,reason,group,tunnel,vpntype,cert_subject,cert_issuer",45
+0100032003,security,critical,1,1,"SSL VPN User Account Locked","logid,type,subtype,level,vd,logdesc,devname,user,srcip,dstip,authproto,method,profile,duration,reason,lockout_duration",40
+0000000013,traffic,low,0,0,"Traffic Log - Forward Session Start","logid,type,subtype,level,vd,logdesc,devname,srcip,dstip,srcport,dstport,srcintf,dstintf,proto,service,policyid,action,tranip,tranport,duration,sentbyte,rcvdbyte,sentpkt,rcvdpkt,sessionid,appcat,app,appid,apprisk",90
+0000000014,traffic,low,0,0,"Traffic Log - Forward Session End","logid,type,subtype,level,vd,logdesc,devname,srcip,dstip,srcport,dstport,srcintf,dstintf,proto,service,policyid,action,tranip,tranport,duration,sentbyte,rcvdbyte,sentpkt,rcvdpkt,sessionid,appcat,app,appid,apprisk",90
+0000000020,traffic,low,0,0,"Traffic Log - Deny","logid,type,subtype,level,vd,logdesc,devname,srcip,dstip,srcport,dstport,srcintf,dstintf,proto,service,policyid,action,policytype,policyname,msg",60
+0100032002,system,high,1,1,"System Scheduled Reboot","logid,type,subtype,level,vd,logdesc,devname,reason,initiated_by,scheduled_time,uptime,version,build",30
+0100032004,system,critical,1,1,"Kernel Panic Detected","logid,type,subtype,level,vd,logdesc,devname,panic_msg,panic_code,stack_trace,uptime,version,build,kernel_version",40
+0104043009,license,medium,1,1,"License Expiry Warning - 30 Days","logid,type,subtype,level,vd,logdesc,devname,license_type,license_id,expiry_date,days_remaining,serial",25
+0104043010,license,high,1,1,"License Expiry Warning - 14 Days","logid,type,subtype,level,vd,logdesc,devname,license_type,license_id,expiry_date,days_remaining,serial",25
+0100032011,license,critical,1,1,"License Expired","logid,type,subtype,level,vd,logdesc,devname,license_type,license_id,expiry_date,days_expired,serial,impact",25

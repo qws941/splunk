@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "2.0.0",
+  "info": {
+    "title": "Security Alert System",
+    "id": {
+      "group": null,
+      "name": "security_alert",
+      "version": "2.0.4"
+    },
+    "author": [
+      {
+        "name": "NextTrade Security Team",
+        "email": "security@nexttrade.com",
+        "company": "NextTrade"
+      }
+    ],
+    "releaseDate": null,
+    "description": "FortiGate security event monitoring and Slack notification system with EMS-based state tracking",
+    "classification": {
+      "intendedAudience": "Security Operations",
+      "categories": ["Security, Fraud & Compliance", "IT Operations"],
+      "developmentStatus": "Production/Stable"
+    },
+    "commonInformationModels": null,
+    "license": {
+      "name": "MIT",
+      "text": null,
+      "uri": null
+    },
+    "privacyPolicy": {
+      "name": null,
+      "text": null,
+      "uri": null
+    },
+    "releaseNotes": {
+      "name": null,
+      "text": "./README.md",
+      "uri": null
+    }
+  },
+  "dependencies": {
+    "python": {
+      "version": ">=3.7",
+      "modules": {
+        "requests": {
+          "version": ">=2.20.0",
+          "bundled": true,
+          "location": "lib/python3"
+        },
+        "urllib3": {
+          "version": ">=1.21.1",
+          "bundled": true,
+          "location": "lib/python3"
+        },
+        "charset-normalizer": {
+          "version": ">=2.0.0",
+          "bundled": true,
+          "location": "lib/python3"
+        },
+        "certifi": {
+          "version": ">=2020.0.0",
+          "bundled": true,
+          "location": "lib/python3"
+        },
+        "idna": {
+          "version": ">=2.5",
+          "bundled": true,
+          "location": "lib/python3"
+        }
+      }
+    }
+  },
+  "tasks": [],
+  "inputGroups": {},
+  "incompatibleApps": {},
+  "platformRequirements": {
+    "splunk": {
+      "Enterprise": "*"
+    }
+  },
+  "supportedDeployments": ["*"],
+  "targetWorkloads": ["*"]
+}

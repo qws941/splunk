@@ -1,0 +1,238 @@
+<form version="1.1">
+  <label>Dynamic Alert Builder</label>
+  <description>Create custom alerts based on index=fw data</description>
+
+  <fieldset submitButton="true" autoRun="false">
+    <!-- Alert Basic Info -->
+    <input type="text" token="alert_name" searchWhenChanged="false">
+      <label>Alert Name</label>
+      <default>Custom_Alert_$(now()$)</default>
+    </input>
+
+    <input type="text" token="alert_description" searchWhenChanged="false">
+      <label>Alert Description</label>
+      <default>Auto-generated alert from index=fw data</default>
+    </input>
+
+    <!-- Data Selection -->
+    <input type="dropdown" token="field_name" searchWhenChanged="true">
+      <label>Field to Monitor</label>
+      <choice value="logid">LogID</choice>
+      <choice value="srcip">Source IP</choice>
+      <choice value="dstip">Destination IP</choice>
+      <choice value="action">Action</choice>
+      <choice value="level">Severity Level</choice>
+      <choice value="devname">Device Name</choice>
+      <default>logid</default>
+    </input>
+
+    <input type="text" token="field_value" searchWhenChanged="false">
+      <label>Field Value (use * for wildcard)</label>
+      <default>*</default>
+    </input>
+
+    <!-- Threshold Settings -->
+    <input type="dropdown" token="threshold_type" searchWhenChanged="false">
+      <label>Alert When</label>
+      <choice value="count">Event Count</choice>
+      <choice value="distinct">Distinct Values</choice>
+      <choice value="exists">Event Exists</choice>
+      <default>count</default>
+    </input>
+
+    <input type="text" token="threshold_value" searchWhenChanged="false">
+      <label>Threshold Value</label>
+      <default>10</default>
+    </input>
+
+    <input type="dropdown" token="time_window" searchWhenChanged="false">
+      <label>Time Window</label>
+      <choice value="5m">Last 5 minutes</choice>
+      <choice value="15m">Last 15 minutes</choice>
+      <choice value="1h">Last hour</choice>
+      <choice value="24h">Last 24 hours</choice>
+      <choice value="rt-10m">Real-time (last 10 min)</choice>
+      <default>15m</default>
+    </input>
+
+    <!-- Slack Configuration -->
+    <input type="text" token="slack_channel" searchWhenChanged="false">
+      <label>Slack Channel</label>
+      <default>#security-firewall-alert</default>
+    </input>
+
+    <input type="text" token="slack_message" searchWhenChanged="false">
+      <label>Slack Message Template</label>
+      <default>🚨 Alert: $alert_name$ triggered - $result.count$ events detected</default>
+    </input>
+
+    <input type="dropdown" token="alert_severity" searchWhenChanged="false">
+      <label>Alert Severity</label>
+      <choice value="low">Low</choice>
+      <choice value="medium">Medium</choice>
+      <choice value="high">High</choice>
+      <choice value="critical">Critical</choice>
+      <default>medium</default>
+    </input>
+  </fieldset>
+
+  <!-- Preview Section -->
+  <row>
+    <panel>
+      <title>Preview: Current Matching Events</title>
+      <table>
+        <search>
+          <query>index=fw earliest=-$time_window$ latest=now $field_name$="$field_value$"
+| stats count as event_count,
+        dc(devname) as devices,
+        values(logdesc) as descriptions
+    by $field_name$
+| where event_count &gt;= $threshold_value$
+| sort -event_count</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Generated SPL Query -->
+  <row>
+    <panel>
+      <title>Generated Alert Query (SPL)</title>
+      <html>
+        <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; font-family: monospace;">
+          <pre>
+index=fw earliest=-$time_window$ latest=now $field_name$="$field_value$"
+| stats count as event_count by $field_name$, devname, logdesc
+| where event_count &gt;= $threshold_value$
+| eval alert_name = "$alert_name$"
+| eval severity = "$alert_severity$"
+| table _time, alert_name, $field_name$, event_count, devname, severity, logdesc
+          </pre>
+          <br/>
+          <strong>Slack Channel:</strong> $slack_channel$<br/>
+          <strong>Message Template:</strong> $slack_message$
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <!-- Configuration Output -->
+  <row>
+    <panel>
+      <title>Generated Alert Configuration</title>
+      <html>
+        <div style="background-color: #e8f5e9; padding: 15px; border-radius: 5px;">
+          <h3>savedsearches.conf Entry</h3>
+          <pre style="background: white; padding: 10px; border: 1px solid #ccc;">
+[$alert_name$]
+description = $alert_description$
+search = index=fw earliest=-$time_window$ latest=now $field_name$="$field_value$" \
+| stats count as event_count by $field_name$, devname, logdesc \
+| where event_count &gt;= $threshold_value$ \
+| eval alert_name = "$alert_name$" \
+| eval severity = "$alert_severity$" \
+| table _time, alert_name, $field_name$, event_count, devname, severity, logdesc
+
+alert.track = 1
+alert_type = always
+alert_condition = search count &gt; 0
+counttype = number of events
+relation = greater than
+quantity = 0
+alert.severity = 4
+
+# Slack Configuration
+action.slack_blockkit = 1
+action.slack_blockkit.param.channel = $slack_channel$
+action.slack_blockkit.param.message = $slack_message$
+action.slack_blockkit.param.severity = $alert_severity$
+
+# Throttling
+alert.suppress = 1
+alert.suppress.period = 10m
+alert.suppress.fields = $field_name$
+
+# Lifecycle
+alert.expires = 24h
+cron_schedule = */5 * * * *
+enableSched = 1
+          </pre>
+
+          <br/>
+          <button onclick="copyToClipboard()" style="padding: 10px 20px; background-color: #4CAF50; color: white; border: none; cursor: pointer; border-radius: 5px;">
+            📋 Copy Configuration
+          </button>
+
+          <button onclick="saveAlert()" style="padding: 10px 20px; background-color: #2196F3; color: white; border: none; cursor: pointer; border-radius: 5px; margin-left: 10px;">
+            💾 Save Alert to Splunk
+          </button>
+
+          <div id="save_status" style="margin-top: 10px; font-weight: bold;"></div>
+        </div>
+
+        <script>
+          function copyToClipboard() {
+            const text = document.querySelector('pre').innerText;
+            navigator.clipboard.writeText(text).then(() => {
+              alert('✅ Configuration copied to clipboard!');
+            });
+          }
+
+          function saveAlert() {
+            const alertName = "$alert_name$";
+            const config = document.querySelector('pre').innerText;
+
+            // Call REST API to save alert
+            fetch('/services/saved/searches', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Splunk-Form-Key': window.SPLUNK_FORM_KEY || ''
+              },
+              body: `name=${encodeURIComponent(alertName)}&amp;search=${encodeURIComponent(config)}`
+            }).then(response => {
+              if (response.ok) {
+                document.getElementById('save_status').innerHTML = '✅ Alert saved successfully!';
+                document.getElementById('save_status').style.color = 'green';
+              } else {
+                document.getElementById('save_status').innerHTML = '❌ Save failed. Please copy config manually.';
+                document.getElementById('save_status').style.color = 'red';
+              }
+            }).catch(error => {
+              document.getElementById('save_status').innerHTML = '❌ Error: ' + error.message;
+              document.getElementById('save_status').style.color = 'red';
+            });
+          }
+        </script>
+      </html>
+    </panel>
+  </row>
+
+  <!-- Instructions -->
+  <row>
+    <panel>
+      <title>How to Use</title>
+      <html>
+        <div style="padding: 15px; background-color: #fff3cd; border-radius: 5px;">
+          <h3>📖 Instructions</h3>
+          <ol>
+            <li><strong>Configure Settings:</strong> Fill in alert name, field to monitor, threshold, and Slack settings above</li>
+            <li><strong>Preview Data:</strong> Check "Preview: Current Matching Events" to see if your conditions are correct</li>
+            <li><strong>Review SPL Query:</strong> Verify the generated SPL query matches your intent</li>
+            <li><strong>Save Alert:</strong> Click "💾 Save Alert to Splunk" or copy the configuration manually</li>
+            <li><strong>Test:</strong> Wait for the cron schedule (every 5 minutes) or run the alert manually in Search &amp; Reporting</li>
+          </ol>
+
+          <h3>💡 Examples</h3>
+          <ul>
+            <li><strong>Monitor Failed Logins:</strong> Field=action, Value=failed, Threshold=5, Time=15m</li>
+            <li><strong>Track Specific LogID:</strong> Field=logid, Value=0100032003, Threshold=1, Time=5m</li>
+            <li><strong>Detect Anomalies from IP:</strong> Field=srcip, Value=192.168.1.100, Threshold=10, Time=1h</li>
+          </ul>
+        </div>
+      </html>
+    </panel>
+  </row>
+</form>
