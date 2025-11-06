@@ -60,6 +60,33 @@ All binary state alerts (VPN, Hardware, Interface, HA) follow this pattern:
 
 Threshold-based alerts (CPU, Resource, Brute Force) use states like `ABNORMAL/NORMAL`, `EXCEEDED/NORMAL`, `ATTACK/NORMAL`.
 
+### Alert Message Formatting
+
+All alerts now use a `formatted_message` field with clean, structured format:
+
+**Message Structure:**
+```spl
+| eval formatted_message = <type> . " | " . <key_info> . " | " . <details>
+```
+
+**Formatting Rules:**
+- **UUID Cleanup**: Replace UUID patterns with `[UUID]` using `rex mode=sed`
+- **Length Truncation**: Truncate long values (30-50 chars) with `substr()` and "..." suffix
+- **Whitespace**: Trim all values with `trim()`
+- **Multi-value Fields**: Use `mvjoin()` for lists, show first 3 items with "+more" for large lists
+
+**Slack Integration:**
+- Uses Splunk's **official Slack alert action** (not custom bin/slack.py)
+- Configured with: `action.slack.param.message = $result.formatted_message$`
+- Sends plain text format (not Block Kit)
+- Emojis preserved in message content
+
+**Example Output:**
+```
+VPN Type: tunnel1 | Tunnel Down | Remote: 10.1.1.1 | Reason: Phase1 negotiation failed
+🟠 Brute Force from 192.168.1.100 | 15 failures | Users: admin, user1, user2 +more | Duration: 00:05:23
+```
+
 ---
 
 ## Development Commands
