@@ -1,321 +1,218 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Slack Block Kit Alert Action for Splunk
-Sends formatted FortiGate alerts to Slack using Block Kit
-"""
-
-import sys
-import os
-
-# Add bundled libraries to path
-APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LIB_DIR = os.path.join(APP_DIR, 'lib', 'python3')
-if os.path.exists(LIB_DIR) and LIB_DIR not in sys.path:
-    sys.path.insert(0, LIB_DIR)
-
 import json
-import requests
-import gzip
-import csv
-from datetime import datetime
+import re
+import sys
+import time
+import traceback
+from copy import deepcopy
+from fnmatch import fnmatch
+from safe_fmt import safe_format
+from six import ensure_binary
+from six.moves import urllib
 
-def parse_splunk_results(results_file):
-    """Parse Splunk search results from gzipped CSV"""
-    results = []
-    try:
-        with gzip.open(results_file, 'rt', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                results.append(row)
-    except Exception as e:
-        print(f"Error parsing results: {e}", file=sys.stderr)
-    return results
+SEVERITY_COLORS = ['#555555','#6DB7C6','#65A637','#F7BC38','#F58F39','#D93F3C']
 
-def get_severity_emoji(alert_name):
-    """Get emoji based on alert name"""
-    if 'Hardware' in alert_name or 'VPN' in alert_name:
-        return '🔴'
-    elif 'HA' in alert_name or 'Interface' in alert_name:
-        return '🟠'
-    elif 'Config' in alert_name or 'CPU' in alert_name:
-        return '🟡'
+OK = 0
+ERROR_CODE_UNKNOWN = 1
+ERROR_CODE_VALIDATION_FAILED = 2
+ERROR_CODE_CHANNEL_NOT_FOUND = 3
+ERROR_CODE_FORBIDDEN = 4
+ERROR_CODE_HTTP_FAIL = 5
+ERROR_CODE_UNEXPECTED = 6
+
+def log(msg, *args):
+    sys.stderr.write(msg + " ".join([str(a) for a in args]) + "\n")
+
+def build_fields_attachment(payload):
+    res = payload.get('result', dict())
+    available_fields = list(res.keys())
+    field_attachments = []
+    seen_fields = set()
+    field_list = re.split(r'\s*,\s*', payload['configuration'].get('fields', '').strip())
+    for f in field_list:
+        for af in available_fields:
+            if af not in seen_fields and fnmatch(af, f):
+                seen_fields.add(af)
+                val = res[af]
+                if isinstance(val, list):
+                    val = val[0]
+                field_attachments.append(dict(title=af, value=val, short=True))
+    return field_attachments
+
+def format_template(template_key, payload, fallback=''):
+    config = payload['configuration']
+    template = config.get(template_key)
+    if template is not None:
+        fallback = template
+        try:
+            args = deepcopy(payload)
+            args['configuration']['webhook_url'] = '****'
+            args['configuration']['webhook_url_override'] = '****'
+            return safe_format(template, args)
+        except:
+            log("WARN Failed to format template %s \"%s\" -" % (template_key, template), sys.exc_info()[1])
+    return fallback
+
+def build_alert_attachment(payload):
+    config = payload['configuration']
+    attachment = dict()
+    if 'info_severity' in config:
+        try:
+            attachment['color'] = SEVERITY_COLORS[int(config['info_severity'])]
+        except: pass
+    attachment['fallback'] = format_template('attachment_fallback', payload)
+    attachment_title_key = 'attachment_alert_title' if payload.get('search_name') else 'attachment_adhoc_title'
+    attachment['title'] = format_template(attachment_title_key, payload, 'Alert')
+    if config.get('attachment', 'none') == 'message':
+        attachment['text'] = format_template('message', payload)
     else:
-        return '🔵'
-
-def format_field_value(key, value):
-    """Format field value with proper emoji and formatting"""
-    # Truncate long values
-    if isinstance(value, str) and len(value) > 100:
-        value = value[:97] + "..."
-
-    # Add emoji for specific fields
-    emoji_map = {
-        'device': '🖥️',
-        'user': '👤',
-        'source_ip': '🌐',
-        'srcip': '🌐',
-        'dstip': '🎯',
-        'vpn_name': '🔐',
-        'interface': '🔌',
-        'component': '⚙️',
-        'criticality': '⚡',
-        'severity': '📊'
-    }
-
-    emoji = emoji_map.get(key, '')
-    return f"{emoji} *{key.replace('_', ' ').title()}:* {value}"
-
-def build_block_kit_message(alert_name, search_name, results, view_link=""):
-    """Build Block Kit formatted message"""
-
-    severity_emoji = get_severity_emoji(alert_name)
-    result_count = len(results)
-
-    # Header block
-    blocks = [
-        {
-            "type": "header",
-            "text": {
-                "type": "plain_text",
-                "text": f"{severity_emoji} FortiGate Alert: {alert_name}",
-                "emoji": True
-            }
-        },
-        {
-            "type": "section",
-            "fields": [
-                {
-                    "type": "mrkdwn",
-                    "text": f"*Alert:* {search_name}"
-                },
-                {
-                    "type": "mrkdwn",
-                    "text": f"*Count:* {result_count} events"
-                },
-                {
-                    "type": "mrkdwn",
-                    "text": f"*Time:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S KST')}"
-                },
-                {
-                    "type": "mrkdwn",
-                    "text": f"*Source:* NextTrade Security Alert"
-                }
-            ]
-        },
-        {
-            "type": "divider"
-        }
-    ]
-
-    # Add result details (limit to first 5 events)
-    for i, result in enumerate(results[:5]):
-        if i > 0:
-            blocks.append({"type": "divider"})
-
-        # Build fields for this event
-        fields = []
-        important_fields = ['device', 'user', 'source_ip', 'srcip', 'vpn_name',
-                           'interface', 'component', 'criticality', 'severity',
-                           'logdesc', 'msg', 'details']
-
-        # Add important fields first
-        for key in important_fields:
-            if key in result and result[key]:
-                fields.append({
-                    "type": "mrkdwn",
-                    "text": format_field_value(key, result[key])
-                })
-
-        # Add other fields
-        for key, value in result.items():
-            if key not in important_fields and key not in ['_time', '_raw', 'count'] and value:
-                fields.append({
-                    "type": "mrkdwn",
-                    "text": format_field_value(key, value)
-                })
-
-        # Limit to 10 fields per event
-        if fields:
-            blocks.append({
-                "type": "section",
-                "fields": fields[:10]
-            })
-
-    # Add footer with view link
-    if result_count > 5:
-        blocks.append({
-            "type": "context",
-            "elements": [
-                {
-                    "type": "mrkdwn",
-                    "text": f"📌 Showing 5 of {result_count} events. Check Splunk for full details."
-                }
-            ]
-        })
-
-    if view_link:
-        blocks.append({
-            "type": "actions",
-            "elements": [
-                {
-                    "type": "button",
-                    "text": {
-                        "type": "plain_text",
-                        "text": "View in Splunk",
-                        "emoji": True
-                    },
-                    "url": view_link,
-                    "style": "primary"
-                }
-            ]
-        })
-
-    return blocks
-
-def send_to_slack(webhook_url, bot_token, channel, blocks, proxies=None):
-    """Send message to Slack via webhook or Bot Token"""
-
-    payload = {
-        "channel": channel,
-        "username": "FortiGate Security Alert",
-        "icon_emoji": ":rotating_light:",
-        "blocks": blocks
-    }
-
+        attachment['text'] = format_template('attachment_results_link', payload)
+    attachment['title_link'] = config.get('view_link')
+    attachment['footer'] = format_template('attachment_footer_text', payload)
+    attachment['footer_icon'] = 'https://s3-us-west-1.amazonaws.com/ziegfried-apps/slack-alerts/splunk-icon.png'
     try:
-        # Method 1: Bot Token (OAuth) - Preferred
-        if bot_token and bot_token.startswith('xoxb-'):
-            response = requests.post(
-                'https://slack.com/api/chat.postMessage',
-                json=payload,
-                timeout=10,
-                headers={
-                    'Content-Type': 'application/json',
-                    'Authorization': f'Bearer {bot_token}'
-                },
-                proxies=proxies
-            )
-            response.raise_for_status()
-            result = response.json()
+        attachment['ts'] = int(float(config.get('info_trigger_time')))
+    except: pass
+    if config.get('fields'):
+        attachment['fields'] = build_fields_attachment(payload)
+    return attachment
 
-            if result.get('ok'):
-                print("Alert sent to Slack successfully (Bot Token)", file=sys.stderr)
-                return True
+def build_slack_message(payload):
+    config = payload.get('configuration')
+    params = dict()
+
+    if config['attachment'] != 'message':
+        params['text'] = format_template('message', payload)
+    if config.get('from_user'):
+        params['username'] = config.get('from_user')
+    if config.get('from_user_icon'):
+        params['icon_url'] = config.get('from_user_icon')
+
+    channel = config.get('channel')
+    if channel:
+        params['channel'] = channel
+    else:
+        log("WARN No channel supplied, using default for webhook")
+
+    if config.get('attachment', 'none') != 'none':
+        params['attachments'] = [build_alert_attachment(payload)]
+    elif config.get('fields'):
+        params['attachments'] = [dict(fields=build_fields_attachment(payload))]
+    return params
+
+def send_slack_message(payload):
+    try:
+        req = {}
+        config = payload.get('configuration')
+        body = json.dumps(build_slack_message(payload))
+
+        http_proxy = config.get('http_proxy', '')
+        
+        if config.get('proxy_url_override'):
+            http_proxy = config.get('proxy_url_override', '')
+            log("DEBUG Using proxy URL from proxy_url_override: %s" % http_proxy)
+        
+        req = urllib.request
+        if http_proxy:
+            proxy_handler = req.ProxyHandler({ 'http': "%s" % http_proxy, 'https': "%s" % http_proxy})
+            opener = req.build_opener(proxy_handler)
+            req.install_opener(opener) 
+
+        # Since Slack webhook URLs are deprecated, we will bias towards using Slack Apps, if they are provided
+        is_using_slack_app = (("slack_app_oauth_token" in config and config["slack_app_oauth_token"]) or ("slack_app_oauth_token_override" in config and config["slack_app_oauth_token_override"]))
+        if is_using_slack_app:
+            token = config.get("slack_app_oauth_token", "")
+            if config.get("slack_app_oauth_token_override"):
+                token = config.get("slack_app_oauth_token_override")
+                log("INFO Using Slack App OAuth token from slack_app_oauth_token_override: %s" % token)
             else:
-                print(f"Slack API error: {result.get('error', 'unknown')}", file=sys.stderr)
-                return False
+                log("INFO Using configured Slack App OAuth token: %s" % token)
 
-        # Method 2: Webhook URL - Fallback
-        elif webhook_url and webhook_url.startswith('https://hooks.slack.com'):
-            response = requests.post(
-                webhook_url,
-                json=payload,
-                timeout=10,
-                headers={'Content-Type': 'application/json'},
-                proxies=proxies
-            )
-            response.raise_for_status()
+            log('DEBUG Calling url="https://slack.com/api/chat.postMessage" with token=%s and body=%s' % (token, body))
+            msg_req = req.Request("https://slack.com/api/chat.postMessage", ensure_binary(body), {"Content-Type": "application/json", 'Authorization': "Bearer %s" % token})
 
-            if response.text == 'ok':
-                print("Alert sent to Slack successfully (Webhook)", file=sys.stderr)
-                return True
-            else:
-                print(f"Slack webhook response: {response.text}", file=sys.stderr)
-                return False
-
+        # To preserve backwards compatibility, we will fallback to the webhook_url configuration, if a Slack App OAuth token is not provided
         else:
-            print("Error: No valid Slack credentials (need bot_token or webhook_url)", file=sys.stderr)
-            return False
+            url = config.get('webhook_url', '')
+            if config.get('webhook_url_override'):
+                url = config.get('webhook_url_override', '')
+                log("INFO Using webhook URL from webhook_url_override: %s" % url)
+            elif not url:
+                log("FATAL No webhook URL configured and no override specified")
+                return ERROR_CODE_VALIDATION_FAILED
+            else:
+                log("INFO Using configured webhook URL: %s" % url)
 
-    except requests.exceptions.Timeout:
-        print("Error: Request to Slack timed out", file=sys.stderr)
-        return False
-    except requests.exceptions.RequestException as e:
-        print(f"Error sending to Slack: {e}", file=sys.stderr)
-        return False
+            if not url.startswith('https:'):
+                log("FATAL Invalid webhook URL specified. The URL must use HTTPS.")
+                return ERROR_CODE_VALIDATION_FAILED
 
-def main():
-    """Main execution"""
+            log('DEBUG Calling url="%s" with body=%s' % (url, body))
+            msg_req = req.Request(url, ensure_binary(body), {"Content-Type": "application/json"})
 
-    if len(sys.argv) < 2:
-        print("Error: Missing arguments. Usage: slack_blockkit_alert.py <results_file>", file=sys.stderr)
-        sys.exit(1)
-
-    # Get configuration from environment or Splunk settings
-    webhook_url = os.environ.get('SLACK_WEBHOOK_URL')
-    bot_token = os.environ.get('SLACK_BOT_TOKEN')
-    channel = os.environ.get('SLACK_CHANNEL', '#security-firewall-alert')
-
-    # Proxy configuration
-    proxies = None
-
-    # Try to read from stdin for configuration (Splunk alert action format)
-    try:
-        config_str = sys.stdin.read()
-        if config_str:
-            config = json.loads(config_str)
-            webhook_url = config.get('configuration', {}).get('webhook_url', webhook_url)
-            # Splunk uses 'slack_app_oauth_token' not 'bot_token'
-            bot_token = config.get('configuration', {}).get('slack_app_oauth_token', bot_token)
-            # Fallback to bot_token for backward compatibility
-            if not bot_token:
-                bot_token = config.get('configuration', {}).get('bot_token', bot_token)
-            # Channel hardcoded (Splunk doesn't support param.channel)
-            channel = '#security-firewall-alert'
-            search_name = config.get('search_name', 'Unknown Alert')
-            view_link = config.get('results_link', '')
-
-            # Read proxy configuration
-            proxy_enabled = config.get('configuration', {}).get('proxy_enabled', '0')
-            if proxy_enabled == '1' or proxy_enabled is True:
-                proxy_url = config.get('configuration', {}).get('proxy_url', '')
-                proxy_port = config.get('configuration', {}).get('proxy_port', '')
-                proxy_username = config.get('configuration', {}).get('proxy_username', '')
-                proxy_password = config.get('configuration', {}).get('proxy_password', '')
-
-                if proxy_url and proxy_port:
-                    # Build proxy URL
-                    if proxy_username and proxy_password:
-                        proxy_auth = f"{proxy_username}:{proxy_password}@"
-                    else:
-                        proxy_auth = ""
-
-                    proxy_full_url = f"http://{proxy_auth}{proxy_url}:{proxy_port}"
-                    proxies = {
-                        'http': proxy_full_url,
-                        'https': proxy_full_url
-                    }
-                    print(f"Using proxy: {proxy_url}:{proxy_port}", file=sys.stderr)
+        try:
+            res = urllib.request.urlopen(msg_req)
+            res_body = str(res.read())
+            log("INFO Slack API responded with HTTP status=%d" % res.code)
+            log("DEBUG Slack API response: %s" % res_body)
+            if 200 <= res.code < 300:
+                if "invalid_auth" in res_body:
+                    log("FATAL The Slack App OAuth token provided is invalid or does not have the permission to post messages to the channel provided.")
+                    return ERROR_CODE_FORBIDDEN
+                if "channel_not_found" in res_body or "channel_is_archived" in res_body:
+                    log("FATAL The channel provided was not found or is archived. If the channel is private, please make sure the Slack App is added to the channel.")
+                    return ERROR_CODE_CHANNEL_NOT_FOUND
+                if "error" in res_body:
+                    return ERROR_CODE_UNKNOWN
+                return OK
+        except urllib.error.HTTPError as e:
+            log("ERROR HTTP request to Slack API failed: %s" % e)
+            try:
+                res = e.read()
+                log("ERROR Slack error response: %s" % res)
+                if res in ('channel_not_found', 'channel_is_archived'):
+                    return ERROR_CODE_CHANNEL_NOT_FOUND
+                if res == 'action_prohibited':
+                    return ERROR_CODE_FORBIDDEN
+            except:
+                pass
+            return ERROR_CODE_HTTP_FAIL
     except:
-        search_name = sys.argv[1] if len(sys.argv) > 1 else 'Manual Alert'
-        view_link = ''
+        log("FATAL Unexpected error:", sys.exc_info()[0])
+        track = traceback.format_exc()
+        log(track)
+        return ERROR_CODE_UNEXPECTED
 
-    if not webhook_url and not bot_token:
-        print("Error: Neither SLACK_WEBHOOK_URL nor SLACK_BOT_TOKEN configured", file=sys.stderr)
-        print("Configure via: Splunk Web → Apps → Security Alert System → Setup", file=sys.stderr)
-        sys.exit(1)
+def validate_payload(payload):
+    if not 'configuration' in payload:
+        log("FATAL Invalid payload, missing 'configuration'")
+        return False
+    config = payload.get('configuration')
+    channel = config.get('channel')
 
-    # Parse results file
-    results_file = sys.argv[1] if len(sys.argv) > 1 else None
-    if results_file and os.path.exists(results_file):
-        results = parse_splunk_results(results_file)
-    else:
-        print(f"Warning: Results file not found: {results_file}", file=sys.stderr)
-        results = []
+    if channel and (channel[0] != '#' and channel[0] != '@'):
+        # Only warn here for now
+        log("WARN Validation warning: Parameter `channel` \"%s\" should start with # or @" % channel)
 
-    if not results:
-        print("No results to send", file=sys.stderr)
-        sys.exit(0)
+    msg = config.get('message')
+    if not msg:
+        log("FATAL Validation error: Parameter `message` is missing or empty")
+        return False
 
-    # Extract alert name from search name
-    alert_name = search_name.replace('_', ' ').title()
+    att = config.get('attachment')
+    if att and att not in ('alert_link', 'message'):
+        log("WARN Validation warning: Parameter `attachment` must be ether \"alert_link\" or \"message\"")
 
-    # Build and send message
-    blocks = build_block_kit_message(alert_name, search_name, results, view_link)
-    success = send_to_slack(webhook_url, bot_token, channel, blocks, proxies)
-
-    sys.exit(0 if success else 1)
+    return True
 
 if __name__ == '__main__':
-    main()
+    log("INFO Running python %s" % (sys.version_info[0]))
+    if len(sys.argv) > 1 and sys.argv[1] == "--execute":
+        payload = json.loads(sys.stdin.read())
+        if not validate_payload(payload):
+            sys.exit(ERROR_CODE_VALIDATION_FAILED)
+        result = send_slack_message(payload)
+        if result == OK:
+            log("INFO Successfully sent slack message")
+        else:
+            log("FATAL Alert action failed")
+        sys.exit(result)

@@ -25,21 +25,30 @@ chown -R splunk:splunk security_alert
 
 ## 설정
 
-### Slack Webhook URL 설정
+### Slack 알림 설정
 
-`security_alert/default/alert_actions.conf` 파일 수정:
+이 앱은 **공식 Slack Add-on과 동일한 구조**로 설계되었습니다.
 
-```ini
-[slack]
-param.webhook_url = https://hooks.slack.com/services/YOUR/WEBHOOK/URL
-param.channel = #security-firewall-alert
-```
+**설정 방법:**
 
-또는 환경변수 설정:
+1. Slack Workspace에서 Incoming Webhook 생성
+2. Webhook URL 복사
+3. Splunk에서 설정:
+   ```bash
+   # local/alert_actions.conf 생성
+   mkdir -p security_alert/local
+   cat > security_alert/local/alert_actions.conf <<EOF
+   [slack]
+   param.webhook_url = https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+   EOF
+   ```
 
-```bash
-export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
-```
+**메시지 형식:**
+- `attachment = none`: Plain Text 전송 (첨부 형식 없음)
+- `formatted_message` 필드: 정리된 단일 메시지
+- 이모지 포함
+- UUID 패턴 자동 제거
+- 긴 값 자동 truncate (40자)
 
 ## 알림 목록
 
