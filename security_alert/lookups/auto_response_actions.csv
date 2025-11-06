@@ -1,8 +1,0 @@
-alert_name,action_type,action_command,approval_required,max_executions_per_hour
-013_SSL_VPN_Brute_Force,firewall_block,fmg_add_address_blacklist,yes,10
-015_Abnormal_Traffic_Spike,traffic_shape,fmg_apply_bandwidth_limit,yes,5
-002_VPN_Tunnel_Down,notification_only,slack_notify_netops,no,unlimited
-007_Hardware_Failure,ticket_create,servicenow_create_incident,no,unlimited
-011_Admin_Login_Failed,account_lock,fmg_disable_admin_account,yes,3
-016_System_Reboot,notification_escalate,slack_notify_manager,no,unlimited
-001_Config_Change,audit_log,splunk_index_audit,no,unlimited
