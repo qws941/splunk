@@ -58,3 +58,6 @@ metadata/local.meta
 *.secret
 *.key
 credentials.conf
+
+# Exception: Allow certifi's public CA certificate bundle
+!security_alert/lib/python3/certifi/cacert.pem
