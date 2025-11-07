@@ -1,14 +1,14 @@
 # FortiGate Security Alert Repository
 
-**Security Alert System v2.0.4** - XWiki 문서
+**Security Alert System v2.0.4** - XWiki 문서화
 
 ---
 
 ## 📋 목차
 
 1. [개요](#개요)
-2. [알림 분류](#알림-분류)
-3. [알림 상세](#알림-상세)
+2. [알림 목록](#알림-목록)
+3. [알림 상세 (001-018)](#알림-상세)
 4. [상태 추적 시스템](#상태-추적-시스템)
 5. [LogID 참조](#logid-참조)
 6. [트러블슈팅](#트러블슈팅)
@@ -21,7 +21,7 @@
 
 - **버전**: v2.0.4
 - **플랫폼**: Splunk Enterprise 8.x/9.x
-- **데이터 소스**: FortiGate Firewall Logs (index=fw)
+- **데이터 소스**: FortiGate Firewall Logs (`index=fw`)
 - **알림 채널**: Slack (#security-firewall-alert)
 - **상태 추적**: EMS 방식 (11개 CSV 파일)
 
@@ -32,52 +32,41 @@
 - ✅ **실시간 모니터링**: 1분 간격 실시간 검색
 - ✅ **자동 메시지 포맷**: UUID 제거, 값 truncate, 구조화된 메시지
 
-### 알림 통계
-
-| 분류 | 개수 | 설명 |
-|------|------|------|
-| **바이너리 상태** | 4개 | VPN, Hardware, Interface, HA |
-| **임계값 기반** | 6개 | CPU/Memory, Resource, Login, Brute Force, Traffic, License |
-| **이벤트 기반** | 5개 | Config Change, System Reboot, FMG Sync |
-| **전체** | **15개** | - |
-
 ---
 
-## 알림 분류
+## 알림 목록
 
-### 1. 바이너리 상태 알림 (4개)
+### 전체 알림 (15개)
 
-상태가 **FAIL ↔ OK** 또는 **DOWN ↔ UP**으로 전환될 때만 알림
+| ID | 알림명 | 분류 | 상태 | 심각도 | State Tracker |
+|----|--------|------|------|--------|---------------|
+| **001** | Config Change | 이벤트 | ✅ Enabled | Medium | - |
+| **002** | VPN Tunnel Down/Up | 바이너리 | ✅ Enabled | Critical | vpn_state_tracker.csv |
+| ~~003~~ | ~~예약됨~~ | - | - | - | - |
+| ~~004~~ | ~~예약됨~~ | - | - | - | - |
+| ~~005~~ | ~~예약됨~~ | - | - | - | - |
+| **006** | CPU/Memory Anomaly | 임계값 | ✅ Enabled | High | cpu_memory_state_tracker.csv |
+| **007** | Hardware Failure/Restored | 바이너리 | ✅ Enabled | Critical | hardware_state_tracker.csv |
+| **008** | HA State Change | 바이너리 | ✅ Enabled | High | ha_state_tracker.csv |
+| ~~009~~ | ~~예약됨~~ | - | - | - | - |
+| **010** | Resource Limit | 임계값 | ✅ Enabled | Medium | resource_state_tracker.csv |
+| **011** | Admin Login Failed | 임계값 | ⚠️ Disabled | High | admin_login_state_tracker.csv |
+| **012** | Interface Down/Up | 바이너리 | ✅ Enabled | Medium | interface_state_tracker.csv |
+| **013** | SSL VPN Brute Force | 임계값 | ⚠️ Disabled | High | vpn_brute_force_state_tracker.csv |
+| ~~014~~ | ~~예약됨~~ | - | - | - | - |
+| **015** | Abnormal Traffic Spike | 임계값 | ✅ Enabled | Medium | traffic_spike_state_tracker.csv |
+| **016** | System Reboot | 이벤트 | ✅ Enabled | Low | - |
+| **017** | License Expiry Warning | 임계값 | ⚠️ Disabled | Low | license_state_tracker.csv |
+| **018** | FMG Out of Sync | 이벤트 | ✅ Enabled | Medium | fmg_sync_state_tracker.csv |
 
-| ID | 알림명 | 상태 전환 | 심각도 | State Tracker |
-|----|--------|----------|--------|---------------|
-| 002 | VPN Tunnel Down/Up | DOWN ↔ UP | Critical | vpn_state_tracker.csv |
-| 007 | Hardware Failure/Restored | FAIL ↔ OK | Critical | hardware_state_tracker.csv |
-| 012 | Interface Down/Up | DOWN ↔ UP | Medium-High | interface_state_tracker.csv |
-| 008 | HA State Change | 상태 전환 | Medium-High | ha_state_tracker.csv |
+### 분류별 통계
 
-### 2. 임계값 기반 알림 (6개)
-
-특정 임계값을 초과하면 **ABNORMAL/ATTACK/EXCEEDED** 상태로 전환
-
-| ID | 알림명 | 임계값 | 상태 전환 | State Tracker |
-|----|--------|--------|----------|---------------|
-| 006 | CPU/Memory Anomaly | 베이스라인 대비 20% 편차 | ABNORMAL ↔ NORMAL | cpu_memory_state_tracker.csv |
-| 010 | Resource Limit | 75% 사용량 | EXCEEDED ↔ NORMAL | resource_state_tracker.csv |
-| 011 | Admin Login Failed | 3회 이상 실패 | ATTACK ↔ NORMAL | admin_login_state_tracker.csv |
-| 013 | SSL VPN Brute Force | 5회 이상 실패 | ATTACK ↔ NORMAL | vpn_brute_force_state_tracker.csv |
-| 015 | Abnormal Traffic Spike | 3배 급증 | SPIKE ↔ NORMAL | traffic_spike_state_tracker.csv |
-| 017 | License Expiry Warning | 30일 이내 만료 | WARNING ↔ NORMAL | license_state_tracker.csv |
-
-### 3. 이벤트 기반 알림 (5개)
-
-특정 이벤트 발생 시 즉시 알림 (suppression 사용)
-
-| ID | 알림명 | 트리거 | Suppression | State Tracker |
-|----|--------|--------|-------------|---------------|
-| 001 | Config Change | 설정 변경 (CLI/GUI) | 10분 (device, user, config_path) | - |
-| 016 | System Reboot | 시스템 재시작/크래시 | 10분 (device) | - |
-| 018 | FMG Out of Sync | FortiManager 동기화 실패 | 15분 (device, fmg_server) | fmg_sync_state_tracker.csv |
+| 분류 | 개수 | 활성화 | 비활성화 |
+|------|------|--------|----------|
+| **바이너리 상태** | 4개 | 4 | 0 |
+| **임계값 기반** | 6개 | 3 | 3 |
+| **이벤트 기반** | 5개 | 3 | 2 |
+| **전체** | **15개** | **10개** | **5개** |
 
 ---
 
@@ -85,12 +74,16 @@
 
 ### Alert 001: Config Change (설정 변경)
 
+**분류**: 이벤트 기반
+**상태**: ✅ Enabled
+**심각도**: Medium
+
 **목적**: FortiGate 설정 변경을 실시간으로 감지하고 변경 내역 추적
 
 **LogID**:
 - `0100044546` - CLI 설정 변경
 - `0100044547` - GUI 설정 변경
-- `0100044548-50` - FMG Install (제외됨)
+- `0100044548-50` - FMG Install
 
 **감지 조건**:
 - 설정 변경 이벤트 발생
@@ -120,10 +113,15 @@
 ```
 
 **Suppression**: 10분 (device, user, config_path)
+**State Tracker**: 없음 (Suppression 사용)
 
 ---
 
 ### Alert 002: VPN Tunnel Down/Up (VPN 터널 상태)
+
+**분류**: 바이너리 상태
+**상태**: ✅ Enabled
+**심각도**: Critical
 
 **목적**: VPN 터널 장애 감지 및 복구 알림
 
@@ -158,13 +156,25 @@ IPsec: tunnel1 | Tunnel Up | Remote: 10.1.1.100
     | rename state as previous_state ]
 | eval state_changed = if(isnull(previous_state) OR previous_state!=current_state, 1, 0)
 | where state_changed=1
+| outputlookup append=t vpn_state_tracker
 ```
 
 **State Tracker**: `vpn_state_tracker.csv`
+**Suppression**: 없음 (EMS 상태 추적 사용)
+
+---
+
+### Alert 003-005: (예약됨)
+
+현재 사용되지 않음. 향후 확장을 위해 예약됨.
 
 ---
 
 ### Alert 006: CPU/Memory Anomaly (CPU/메모리 이상)
+
+**분류**: 임계값 기반
+**상태**: ✅ Enabled
+**심각도**: High
 
 **목적**: CPU/Memory 사용률의 베이스라인 대비 급격한 변화 감지
 
@@ -198,10 +208,15 @@ CPU Usage Spike | Current: 85% (Baseline: 60%) | +41.7% deviation
 ```
 
 **State Tracker**: `cpu_memory_state_tracker.csv`
+**Suppression**: 없음 (EMS 상태 추적 사용)
 
 ---
 
 ### Alert 007: Hardware Failure/Restored (하드웨어 장애)
+
+**분류**: 바이너리 상태
+**상태**: ✅ Enabled
+**심각도**: Critical
 
 **목적**: 하드웨어 컴포넌트 장애 감지 및 복구 알림
 
@@ -244,10 +259,15 @@ Fan FAN 1 | Status: RESTORED
 ```
 
 **State Tracker**: `hardware_state_tracker.csv`
+**Suppression**: 없음 (EMS 상태 추적 사용)
 
 ---
 
 ### Alert 008: HA State Change (HA 상태 변경)
+
+**분류**: 바이너리 상태
+**상태**: ✅ Enabled
+**심각도**: High
 
 **목적**: HA 클러스터 상태 변경 감지 (역할 전환, 멤버 변경)
 
@@ -278,16 +298,27 @@ PRIMARY | Transition: slave → master | Member: FW01 | Reason: Peer unreachable
     like(ha_state, "%standalone%"), "STANDALONE",
     true(), "UNKNOWN")
 | eval criticality = case(
-    like(transition, "%→%"), "🟠 CHANGE",
     ha_state="standalone", "🔴 CRITICAL",
+    like(transition, "%→%"), "🟠 CHANGE",
     true(), "🟢 NORMAL")
 ```
 
 **State Tracker**: `ha_state_tracker.csv`
+**Suppression**: 없음 (EMS 상태 추적 사용)
+
+---
+
+### Alert 009: (예약됨)
+
+현재 사용되지 않음. 향후 확장을 위해 예약됨.
 
 ---
 
 ### Alert 010: Resource Limit (리소스 한계)
+
+**분류**: 임계값 기반
+**상태**: ✅ Enabled
+**심각도**: Medium
 
 **목적**: 시스템 리소스 사용률이 임계값 초과 시 알림
 
@@ -324,10 +355,15 @@ Disk | Usage: 85% | Remaining: 15GB
 ```
 
 **State Tracker**: `resource_state_tracker.csv`
+**Suppression**: 없음 (EMS 상태 추적 사용)
 
 ---
 
 ### Alert 011: Admin Login Failed (관리자 로그인 실패)
+
+**분류**: 임계값 기반
+**상태**: ⚠️ Disabled (enableSched = 0)
+**심각도**: High
 
 **목적**: 관리자 계정에 대한 반복적인 로그인 실패 감지 (브루트포스 공격)
 
@@ -366,12 +402,17 @@ Disk | Usage: 85% | Remaining: 15GB
 ```
 
 **State Tracker**: `admin_login_state_tracker.csv`
+**Suppression**: 없음 (EMS 상태 추적 사용)
 
-**Status**: ⚠️ Currently disabled (enableSched = 0)
+**비활성화 이유**: 프로덕션 환경에서 false positive 높음. 필요 시 활성화.
 
 ---
 
 ### Alert 012: Interface Down/Up (인터페이스 상태)
+
+**분류**: 바이너리 상태
+**상태**: ✅ Enabled
+**심각도**: Medium
 
 **목적**: 네트워크 인터페이스 링크 상태 변화 감지
 
@@ -406,10 +447,15 @@ WAN Interface: port1 | Status: UP | 1000Mbps/full
 ```
 
 **State Tracker**: `interface_state_tracker.csv`
+**Suppression**: 없음 (EMS 상태 추적 사용)
 
 ---
 
 ### Alert 013: SSL VPN Brute Force (SSL VPN 브루트포스)
+
+**분류**: 임계값 기반
+**상태**: ⚠️ Disabled (enableSched = 0)
+**심각도**: High
 
 **목적**: SSL VPN에 대한 브루트포스 공격 감지
 
@@ -450,12 +496,23 @@ WAN Interface: port1 | Status: UP | 1000Mbps/full
 ```
 
 **State Tracker**: `vpn_brute_force_state_tracker.csv`
+**Suppression**: 없음 (EMS 상태 추적 사용)
 
-**Status**: ⚠️ Currently disabled (enableSched = 0)
+**비활성화 이유**: VPN 로그 볼륨 높음. 필요 시 임계값 조정 후 활성화.
+
+---
+
+### Alert 014: (예약됨)
+
+현재 사용되지 않음. 향후 확장을 위해 예약됨.
 
 ---
 
 ### Alert 015: Abnormal Traffic Spike (비정상 트래픽 급증)
+
+**분류**: 임계값 기반
+**상태**: ✅ Enabled
+**심각도**: Medium
 
 **목적**: 네트워크 트래픽 볼륨 급증 감지 (DDoS, 데이터 유출)
 
@@ -494,10 +551,15 @@ WAN Interface: port1 | Status: UP | 1000Mbps/full
 ```
 
 **State Tracker**: `traffic_spike_state_tracker.csv`
+**Suppression**: 없음 (EMS 상태 추적 사용)
 
 ---
 
 ### Alert 016: System Reboot (시스템 재시작)
+
+**분류**: 이벤트 기반
+**상태**: ✅ Enabled
+**심각도**: Low
 
 **목적**: FortiGate 시스템 재시작/크래시 감지
 
@@ -534,11 +596,16 @@ WAN Interface: port1 | Status: UP | 1000Mbps/full
     true(), "🟢 INFO")
 ```
 
+**State Tracker**: 없음 (Suppression 사용)
 **Suppression**: 10분 (device)
 
 ---
 
 ### Alert 017: License Expiry Warning (라이센스 만료 경고)
+
+**분류**: 임계값 기반
+**상태**: ⚠️ Disabled (enableSched = 0)
+**심각도**: Low
 
 **목적**: FortiGate/FortiGuard 라이센스 만료 임박 알림
 
@@ -576,12 +643,17 @@ WAN Interface: port1 | Status: UP | 1000Mbps/full
 ```
 
 **State Tracker**: `license_state_tracker.csv`
+**Suppression**: 없음 (EMS 상태 추적 사용)
 
-**Status**: ⚠️ Currently disabled (enableSched = 0)
+**비활성화 이유**: 라이센스 이벤트 로그 빈도 낮음. 필요 시 활성화.
 
 ---
 
 ### Alert 018: FMG Out of Sync (FortiManager 동기화 실패)
+
+**분류**: 이벤트 기반
+**상태**: ✅ Enabled
+**심각도**: Medium
 
 **목적**: FortiManager와 FortiGate 간 설정 동기화 실패 감지
 
@@ -621,7 +693,6 @@ FMG: fmg.example.com | Status: OUT_OF_SYNC | 📊 Revision Mismatch | Target: ro
 ```
 
 **State Tracker**: `fmg_sync_state_tracker.csv`
-
 **Suppression**: 15분 (device, fmg_server)
 
 ---
@@ -654,19 +725,19 @@ FMG: fmg.example.com | Status: OUT_OF_SYNC | 📊 Revision Mismatch | Target: ro
 
 ### 11개 State Tracker 파일
 
-| 파일명 | 용도 | 상태 값 |
-|--------|------|---------|
-| `vpn_state_tracker.csv` | VPN 터널 | DOWN, UP |
-| `hardware_state_tracker.csv` | 하드웨어 | FAIL, OK |
-| `ha_state_tracker.csv` | HA 클러스터 | master, slave, standalone |
-| `interface_state_tracker.csv` | 네트워크 인터페이스 | DOWN, UP |
-| `cpu_memory_state_tracker.csv` | CPU/Memory | ABNORMAL, NORMAL |
-| `resource_state_tracker.csv` | 시스템 리소스 | EXCEEDED, NORMAL |
-| `admin_login_state_tracker.csv` | 관리자 로그인 | ATTACK, NORMAL |
-| `vpn_brute_force_state_tracker.csv` | VPN 브루트포스 | ATTACK, NORMAL |
-| `traffic_spike_state_tracker.csv` | 트래픽 급증 | SPIKE, NORMAL |
-| `license_state_tracker.csv` | 라이센스 | WARNING, NORMAL |
-| `fmg_sync_state_tracker.csv` | FMG 동기화 | OUT_OF_SYNC, SYNCHRONIZED |
+| 파일명 | 알림 ID | 상태 값 | 용도 |
+|--------|---------|---------|------|
+| `vpn_state_tracker.csv` | 002 | DOWN, UP | VPN 터널 |
+| `hardware_state_tracker.csv` | 007 | FAIL, OK | 하드웨어 |
+| `ha_state_tracker.csv` | 008 | master, slave, standalone | HA 클러스터 |
+| `interface_state_tracker.csv` | 012 | DOWN, UP | 네트워크 인터페이스 |
+| `cpu_memory_state_tracker.csv` | 006 | ABNORMAL, NORMAL | CPU/Memory |
+| `resource_state_tracker.csv` | 010 | EXCEEDED, NORMAL | 시스템 리소스 |
+| `admin_login_state_tracker.csv` | 011 | ATTACK, NORMAL | 관리자 로그인 |
+| `vpn_brute_force_state_tracker.csv` | 013 | ATTACK, NORMAL | VPN 브루트포스 |
+| `traffic_spike_state_tracker.csv` | 015 | SPIKE, NORMAL | 트래픽 급증 |
+| `license_state_tracker.csv` | 017 | WARNING, NORMAL | 라이센스 |
+| `fmg_sync_state_tracker.csv` | 018 | OUT_OF_SYNC, SYNCHRONIZED | FMG 동기화 |
 
 ### CSV 파일 구조
 
@@ -680,7 +751,7 @@ fw01,tunnel1,UP,1699123789,Tunnel restored
 
 ## LogID 참조
 
-### LogID 그룹별 분류
+### 전체 LogID 목록 (알림 번호순)
 
 #### Alert 001: Configuration Change
 ```
@@ -821,13 +892,13 @@ index=_internal source=*scheduler.log savedsearch_name="002_VPN_Tunnel_Down"
 
 **해결**:
 ```spl
-# 1. Webhook URL 확인
-# cat /opt/splunk/etc/apps/security_alert/default/alert_actions.conf | grep webhook_url
-
-# 2. Slack 전송 로그 확인
+# 1. Slack 전송 로그 확인
 index=_internal source=*alert_actions.log action_name="slack" earliest=-1h
 | table _time, savedsearch_name, action_status, stderr
 | head 20
+
+# 2. Webhook URL 확인
+# cat /opt/splunk/etc/apps/security_alert/local/alert_actions.conf | grep webhook_url
 
 # 3. 수동 테스트
 # curl -X POST YOUR_WEBHOOK_URL \
@@ -898,3 +969,4 @@ index=_internal source=*splunkd.log outputlookup error
 **버전**: v2.0.4
 **마지막 업데이트**: 2025-11-07
 **저장소**: https://gitlab.jclee.me/jclee/splunk
+**알림 통계**: 15개 (활성 10개, 비활성 5개)
