@@ -6,49 +6,94 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Security Alert System v2.0.4** - FortiGate security event monitoring and Slack notification system for Splunk.
+**Security Alert System v2.0.4** - A production Splunk app for FortiGate security event monitoring with Slack notifications.
 
-This is a **fully self-contained** Splunk app that monitors FortiGate firewall events and sends intelligent alerts to Slack using EMS (Event Management System) state tracking to eliminate duplicate notifications.
-
-**Key Capabilities:**
-- 15 active alert types covering VPN, HA, hardware, resources, admin logins, and traffic
-- EMS-based state tracking (only alerts on state changes)
-- Slack Block Kit formatted notifications
-- Automated response capabilities (IP blocking, bandwidth limiting, account disabling)
-- 10 CSV state tracker files for persistent state management
-- ⭐ **All Python dependencies bundled** - works on air-gapped servers
-- ⭐ **Zero external dependencies** - no pip install required
+**Key Architecture:**
+- **EMS-based State Tracking**: Eliminates duplicate alerts by tracking state transitions in CSV files
+- **15 Alert Definitions**: Configured in `savedsearches.conf` with SPL queries
+- **Self-contained Dependencies**: All Python libraries bundled in `lib/python3/` for air-gapped deployment
+- **Slack Integration**: Uses Splunk's official Slack alert action with plain text formatting
 
 ---
 
-## Architecture
+## Development Commands
 
-### Core Components
+### Testing & Validation
 
-1. **Saved Searches** (`default/savedsearches.conf`)
-   - 15 alert definitions with SPL queries
-   - Real-time scheduling (cron + realtime mode)
-   - State tracking logic using CSV lookups
+```bash
+# Validate SPL syntax (all alerts)
+cd /opt/splunk/etc/apps/security_alert
+splunk btool savedsearches list --debug
 
-2. **State Tracking** (`lookups/*.csv`)
-   - 10 state tracker CSV files (plus 3 additional lookup files)
-   - EMS pattern: compares `previous_state` vs `current_state`
-   - Only triggers alerts when state changes (prevents duplicates)
+# Test specific alert SPL (replace with alert name)
+splunk search "`fortigate_index` `logids_vpn_tunnel` earliest=-1h | head 10"
 
-3. **Alert Actions** (`bin/*.py`)
-   - `slack.py` - Slack Block Kit message formatter
-   - `fortigate_auto_response.py` - Automated remediation engine
-   - `splunk_feature_checker.py` - System health validator
+# Check alert execution logs
+splunk search "index=_internal source=*scheduler.log savedsearch_name=\"*Alert*\" | stats count by savedsearch_name, status"
 
-4. **Configuration**
-   - `macros.conf` - Centralized LogID groups and thresholds
-   - `transforms.conf` - Lookup table definitions
-   - `alert_actions.conf` - Slack webhook configuration
+# Check Slack delivery status
+splunk search "index=_internal source=*alert_actions.log action_name=\"slack\" | stats count by action_status"
 
-### Alert State Machine
+# Validate state tracker integrity
+splunk search "| inputlookup vpn_state_tracker | stats count by device, state"
+```
 
-All binary state alerts (VPN, Hardware, Interface, HA) follow this pattern:
+### Deployment
 
+```bash
+# Package app for distribution (production-ready)
+cd /home/jclee/app/alert
+tar -czf security_alert-v2.0.4-production.tar.gz \
+  --exclude='security_alert/__pycache__' \
+  --exclude='security_alert/*.pyc' \
+  --exclude='security_alert/local/*' \
+  --exclude='security_alert/*.log' \
+  security_alert/
+
+# Install on Splunk server
+cd /opt/splunk/etc/apps/
+tar -xzf security_alert-v2.0.4-production.tar.gz
+chown -R splunk:splunk security_alert
+
+# Configure Slack webhook (REQUIRED)
+cat > security_alert/local/alert_actions.conf <<EOF
+[slack]
+param.webhook_url = https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+EOF
+
+# Restart Splunk to load app
+/opt/splunk/bin/splunk restart
+```
+
+### Configuration
+
+```bash
+# Set Slack webhook (Option 1: local config file)
+vim security_alert/local/alert_actions.conf
+
+# Set FortiGate index (if not 'index=fw')
+vim security_alert/default/macros.conf
+# Edit: [fortigate_index] definition = index=your_index
+
+# Enable/disable specific alerts
+vim security_alert/local/savedsearches.conf
+# Add: [alert_name] enableSched = 0 (to disable)
+```
+
+---
+
+## Architecture & Key Concepts
+
+### State Tracking System (EMS Pattern)
+
+All alerts use CSV-based state tracking to prevent duplicate notifications. The pattern:
+
+1. **Calculate current state** from real-time events
+2. **Load previous state** from CSV lookup
+3. **Compare states** - only trigger if changed
+4. **Update state** back to CSV for next iteration
+
+**SPL Pattern:**
 ```spl
 | eval current_state = if(condition, "FAIL", "OK")
 | join type=left device [| inputlookup state_tracker | rename state as previous_state]
@@ -58,165 +103,127 @@ All binary state alerts (VPN, Hardware, Interface, HA) follow this pattern:
 | outputlookup append=t state_tracker
 ```
 
-Threshold-based alerts (CPU, Resource, Brute Force) use states like `ABNORMAL/NORMAL`, `EXCEEDED/NORMAL`, `ATTACK/NORMAL`.
+**11 State Tracker Files** (in `lookups/`):
+- `vpn_state_tracker.csv` - VPN tunnel UP/DOWN
+- `hardware_state_tracker.csv` - Hardware FAIL/OK
+- `ha_state_tracker.csv` - HA role changes
+- `interface_state_tracker.csv` - Interface UP/DOWN
+- `cpu_memory_state_tracker.csv` - CPU/Memory ABNORMAL/NORMAL
+- `resource_state_tracker.csv` - Resource EXCEEDED/NORMAL
+- `admin_login_state_tracker.csv` - Admin login ATTACK/NORMAL
+- `vpn_brute_force_state_tracker.csv` - VPN brute force ATTACK/NORMAL
+- `traffic_spike_state_tracker.csv` - Traffic SPIKE/NORMAL
+- `license_state_tracker.csv` - License WARNING/NORMAL
+- `fmg_sync_state_tracker.csv` - FortiManager sync FAIL/OK
 
 ### Alert Message Formatting
 
-All alerts now use a `formatted_message` field with clean, structured format:
+All alerts generate a `formatted_message` field using this pattern:
 
-**Message Structure:**
 ```spl
 | eval formatted_message = <type> . " | " . <key_info> . " | " . <details>
+| rex mode=sed field=formatted_message "s/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[UUID]/g"
+| eval formatted_message = if(len(formatted_message) > 200, substr(formatted_message, 1, 197) + "...", formatted_message)
 ```
 
 **Formatting Rules:**
-- **UUID Cleanup**: Replace UUID patterns with `[UUID]` using `rex mode=sed`
-- **Length Truncation**: Truncate long values (30-50 chars) with `substr()` and "..." suffix
-- **Whitespace**: Trim all values with `trim()`
-- **Multi-value Fields**: Use `mvjoin()` for lists, show first 3 items with "+more" for large lists
+- Replace UUIDs with `[UUID]` placeholder
+- Truncate long values (30-50 chars depending on field importance)
+- Use `mvjoin()` for multi-value fields
+- Trim whitespace with `trim()`
+- Include emojis for visual clarity
 
-**Slack Integration:**
-- Uses Splunk's **official Slack alert action** (not custom bin/slack.py)
-- Configured with: `action.slack.param.message = $result.formatted_message$`
-- Sends plain text format (not Block Kit)
-- Emojis preserved in message content
-
-**Example Output:**
+**Example outputs:**
 ```
 VPN Type: tunnel1 | Tunnel Down | Remote: 10.1.1.1 | Reason: Phase1 negotiation failed
-🟠 Brute Force from 192.168.1.100 | 15 failures | Users: admin, user1, user2 +more | Duration: 00:05:23
+🟠 Brute Force from 192.168.1.100 | 15 failures | Users: admin, user1, user2 +more
+🔴 Hardware: PSU-1 | Status: FAIL | Device: fw01 | Severity: Critical
+```
+
+### Macro System
+
+Centralized configuration in `default/macros.conf`:
+
+**Index & Time Macros:**
+- `fortigate_index` → `index=fw` (modify for your index)
+- `baseline_time_range` → `-8d to -1d`
+- `realtime_time_range` → `rt-10m to now`
+
+**LogID Group Macros** (15 alert types):
+- `logids_vpn_tunnel` → `(logid=0101037124 OR ...)`
+- `logids_hardware_failure` → `(logid=0103040001 OR ...)`
+- `logids_ha_state` → `(logid=0100020010 OR ...)`
+- etc.
+
+**Enrichment Macro:**
+- `enrich_with_logid_lookup` → Adds category, severity, description from CSV
+
+**Usage in alerts:**
+```spl
+`fortigate_index` `logids_vpn_tunnel`
+| `enrich_with_logid_lookup`
+```
+
+### Bundled Dependencies
+
+All Python dependencies are **pre-bundled** in `lib/python3/` - no pip install required:
+
+- `requests` (2.32.5) - HTTP client for Slack/FortiManager
+- `urllib3` (2.5.0) - Connection pooling
+- `charset-normalizer` (3.4.4) - Encoding detection
+- `certifi` (2025.10.5) - SSL certificates
+- `idna` (3.11) - Domain name encoding
+
+**Auto-loaded** via sys.path modification in `bin/slack.py` and `bin/fortigate_auto_response.py`:
+```python
+import sys, os
+APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LIB_DIR = os.path.join(APP_DIR, 'lib', 'python3')
+if os.path.exists(LIB_DIR):
+    sys.path.insert(0, LIB_DIR)
 ```
 
 ---
 
-## Development Commands
-
-### Testing & Validation
-
-```bash
-# Run installation verification (bundled dependencies check)
-cd /opt/splunk/etc/apps/security_alert
-bash bin/install.sh
-
-# Validate SPL syntax
-splunk btool savedsearches list --debug
-
-# Check alert execution logs
-index=_internal source=*scheduler.log savedsearch_name="*Alert*"
-
-# Check Slack delivery logs
-index=_internal source=*alert_actions.log action_name="slack"
-
-# Validate state tracker integrity
-| inputlookup vpn_state_tracker
-| stats count by device, state
-
-# Run feature checker (validates all Splunk components)
-python3 bin/splunk_feature_checker.py /opt/splunk
-```
-
-### Deployment
-
-**✅ All dependencies are bundled - NO external installation required!**
-
-```bash
-# Package app for distribution (with bundled dependencies)
-tar -czf security_alert-v2.0.4-bundled.tar.gz \
-  --exclude='__pycache__' \
-  --exclude='*.pyc' \
-  --exclude='*.log' \
-  security_alert/
-
-# Install on Splunk server
-cd /opt/splunk/etc/apps/
-tar -xzf security_alert-v2.0.4-bundled.tar.gz
-chown -R splunk:splunk security_alert
-
-# Run installation check
-cd security_alert
-bash bin/install.sh
-
-# Restart Splunk to load app
-/opt/splunk/bin/splunk restart
-```
-
-**Key Features:**
-- ✅ All Python dependencies bundled in `lib/python3/`
-- ✅ No `pip install` required
-- ✅ Works on air-gapped/isolated Splunk servers
-- ✅ Automatic dependency path resolution
-
-### Configuration
-
-```bash
-# Set Slack webhook URL (required)
-vim default/alert_actions.conf
-# Set: param.webhook_url = https://hooks.slack.com/services/YOUR/WEBHOOK/URL
-
-# Or use environment variable
-export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
-
-# Configure FortiManager for auto-response
-vim bin/fortigate_auto_response.py
-# Set: FORTIMANAGER_URL and FORTIMANAGER_TOKEN
-```
-
----
-
-## Alert Types
+## Alert Categories
 
 ### Binary State Alerts (4 types)
 
-| Alert | State Transition | Severity | LogIDs |
-|-------|-----------------|----------|--------|
-| `002_VPN_Tunnel_Down/Up` | DOWN ↔ UP | Critical | 0101037124, 0101037131, 0101037134 |
-| `007_Hardware_Failure/Restored` | FAIL ↔ OK | Critical | 0103040001-0103040003 |
-| `012_Interface_Down/Up` | DOWN ↔ UP | Medium-High | 0100032001, 0100020007 |
-| `008_HA_State_Change` | State transitions | Medium-High | 0100020010, 0104043544-45 |
+State transitions between two values (e.g., UP/DOWN, FAIL/OK):
+
+| Alert ID | Description | States | Severity |
+|----------|-------------|--------|----------|
+| 002 | VPN Tunnel | DOWN ↔ UP | Critical |
+| 007 | Hardware Failure | FAIL ↔ OK | Critical |
+| 012 | Interface Status | DOWN ↔ UP | Medium-High |
+| 008 | HA State Change | Role transitions | Medium-High |
 
 ### Threshold-Based Alerts (6 types)
 
-| Alert | Threshold | State | LogIDs |
-|-------|-----------|-------|--------|
-| `006_CPU_Memory_Anomaly` | 20% deviation from baseline | ABNORMAL | 0104043001-02 |
-| `010_Resource_Limit` | 75% usage | EXCEEDED | 0104043003-04 |
-| `011_Admin_Login_Failed` | 3+ failures | ATTACK | 0105032003-05 |
-| `013_SSL_VPN_Brute_Force` | 5+ failures | ATTACK | 0101039424-26 |
-| `015_Abnormal_Traffic_Spike` | 3x baseline | SPIKE | 0000000013-14 |
-| `017_License_Expiry_Warning` | 30 days remaining | WARNING | 0104043009-10 |
+Trigger when values exceed defined thresholds:
 
-### Other Alerts (5 types)
+| Alert ID | Description | Threshold | States |
+|----------|-------------|-----------|--------|
+| 006 | CPU/Memory Anomaly | 20% deviation from 7-day baseline | ABNORMAL/NORMAL |
+| 010 | Resource Limit | 75% usage | EXCEEDED/NORMAL |
+| 011 | Admin Login Failed | ≥3 failures in 10min | ATTACK/NORMAL |
+| 013 | SSL VPN Brute Force | ≥5 failures in 10min | ATTACK/NORMAL |
+| 015 | Traffic Spike | 3x baseline | SPIKE/NORMAL |
+| 017 | License Expiry | 30 days remaining | WARNING/NORMAL |
 
-- `001_Config_Change` - Configuration changes (CLI/GUI)
-- `016_System_Reboot` - System reboot/crash events
+### Event-Based Alerts (5 types)
 
----
+Fire on specific events without state tracking:
 
-## State Tracker Files
-
-All state trackers use the same CSV structure:
-
-```csv
-device,component,state,last_seen,details
-fw01,tunnel1,DOWN,1699123456,Phase1 negotiation failed
-fw01,tunnel1,UP,1699123789,Tunnel restored
-```
-
-**Files:**
-- `vpn_state_tracker.csv` - VPN tunnel states
-- `hardware_state_tracker.csv` - Hardware component health
-- `ha_state_tracker.csv` - HA role/state changes
-- `interface_state_tracker.csv` - Network interface status
-- `cpu_memory_state_tracker.csv` - CPU/Memory anomalies
-- `resource_state_tracker.csv` - Resource exhaustion
-- `admin_login_state_tracker.csv` - Admin login failures
-- `vpn_brute_force_state_tracker.csv` - VPN brute force attempts
-- `traffic_spike_state_tracker.csv` - Traffic anomalies
-- `license_state_tracker.csv` - License expiry warnings
+| Alert ID | Description | Suppression |
+|----------|-------------|-------------|
+| 001 | Config Change | 10min (device+user+path) |
+| 016 | System Reboot | 30min (device) |
+| 018 | FMG Out of Sync | 15min (device) |
 
 ---
 
-## SPL Query Patterns
+## Common SPL Patterns
 
 ### Standard Alert Structure
 
@@ -224,68 +231,152 @@ fw01,tunnel1,UP,1699123789,Tunnel restored
 `fortigate_index` `logids_<category>`
 | `enrich_with_logid_lookup`
 | eval device = coalesce(devname, "unknown")
-| [... alert-specific logic ...]
+| eval component = coalesce(field_name, "N/A")
 | eval current_state = if(condition, "FAIL", "OK")
-| stats latest(*) as * by device, <key_field>
-| join type=left device <key_field> [
-    | inputlookup <state_tracker>
+| stats latest(*) as * by device, component
+| join type=left device component [
+    | inputlookup state_tracker
     | rename state as previous_state
 ]
 | eval state_changed = if(isnull(previous_state) OR previous_state!=current_state, 1, 0)
 | where state_changed=1
 | eval state = current_state
-| outputlookup append=t <state_tracker>
-| table _time, device, [relevant_fields]
+| outputlookup append=t state_tracker
+| eval formatted_message = component . " | " . state . " | Device: " . device
+| table _time, device, component, state, previous_state, formatted_message
 ```
 
-### Macro Usage
+### Baseline Anomaly Detection
 
-All alerts use centralized macros from `macros.conf`:
+Used by Alert 006 (CPU/Memory):
 
 ```spl
-`fortigate_index`              → index=fw
-`logids_vpn_tunnel`            → (logid=0101037124 OR logid=0101037131 ...)
-`enrich_with_logid_lookup`     → lookup fortigate_logid_lookup logid OUTPUT ...
+# Calculate 7-day baseline
+| search `baseline_time_range`
+| stats avg(cpu) as baseline_cpu by device
+| eval threshold = baseline_cpu * 1.2
+
+# Compare to current values
+| append [search `realtime_time_range` | stats avg(cpu) as current_cpu by device]
+| eventstats values(baseline_cpu) as baseline_cpu by device
+| eval current_state = if(current_cpu > baseline_cpu * 1.2, "ABNORMAL", "NORMAL")
 ```
 
-**Key thresholds:**
-- `cpu_high_threshold` → 80
-- `memory_high_threshold` → 85
-- `baseline_anomaly_multiplier` → 2
+### Multi-value Field Handling
+
+```spl
+# Show first 3 items, indicate if more exist
+| eval user_list = mvjoin(mvindex(users, 0, 2), ", ")
+| eval user_list = if(mvcount(users) > 3, user_list . " +more", user_list)
+```
 
 ---
 
-## Automated Response System
+## File Structure Reference
 
-The `fortigate_auto_response.py` script provides automated remediation:
-
-### Supported Actions
-
-1. **IP Blacklisting** (Brute Force)
-   - Triggers: SSL VPN ≥10 failures
-   - Action: Add to FortiGate address blacklist
-   - API: `POST /api/v2/cmdb/firewall/address`
-
-2. **Bandwidth Limiting** (Traffic Spike)
-   - Triggers: Traffic ≥5x baseline
-   - Action: Apply 10 Mbps traffic shaper
-   - API: `POST /api/v2/cmdb/firewall/shaping-policy`
-
-3. **Account Disabling** (Admin Login)
-   - Triggers: Admin login ≥5 failures
-   - Action: Disable admin account
-   - API: `PUT /api/v2/cmdb/system/admin/{user}`
-
-### Integration
-
-Configure in `savedsearches.conf`:
-
-```ini
-action.script = 1
-action.script.filename = fortigate_auto_response.py
+```
+security_alert/
+├── app.manifest                   # Splunk app manifest (version 2.0.4)
+├── README.md                      # User documentation (Korean)
+├── default/                       # Default configuration
+│   ├── app.conf                   # App metadata
+│   ├── savedsearches.conf         # 15 alert definitions (PRIMARY)
+│   ├── macros.conf                # LogID groups, thresholds, index config
+│   ├── transforms.conf            # 11 state tracker + 3 reference lookups
+│   ├── alert_actions.conf         # Slack webhook configuration
+│   ├── props.conf                 # Field extractions (not used)
+│   └── data/ui/
+│       ├── views/                 # Dashboards (4 XML files)
+│       └── nav/default.xml        # Navigation
+├── local/                         # User overrides (gitignored)
+│   ├── alert_actions.conf         # Slack webhook (REQUIRED)
+│   └── savedsearches.conf         # Alert enable/disable overrides
+├── bin/                           # Python scripts
+│   ├── slack.py                   # Slack Block Kit formatter (official compatible)
+│   ├── fortigate_auto_response.py # Automated remediation (NOT IN USE)
+│   ├── safe_fmt.py                # Safe string formatting
+│   └── six.py                     # Python 2/3 compatibility
+├── lib/python3/                   # Bundled dependencies (NO pip needed)
+│   ├── requests/
+│   ├── urllib3/
+│   ├── charset_normalizer/
+│   ├── certifi/
+│   └── idna/
+├── lookups/                       # CSV state trackers + reference data
+│   ├── *_state_tracker.csv        # 11 state tracking files
+│   └── fortigate_logid_notification_map.csv  # LogID reference (6091 lines)
+└── metadata/
+    └── default.meta               # Permissions
 ```
 
-Pass alert data via stdin (JSON format).
+---
+
+## Modifying Alerts
+
+### Adding a New Alert
+
+1. **Define LogID macro** (`default/macros.conf`):
+```ini
+[logids_new_alert]
+definition = (logid=0100000001 OR logid=0100000002)
+iseval = 0
+```
+
+2. **Create state tracker** (`lookups/new_alert_state_tracker.csv`):
+```csv
+device,component,state,last_seen,details
+```
+
+3. **Register lookup** (`default/transforms.conf`):
+```ini
+[new_alert_state_tracker]
+filename = new_alert_state_tracker.csv
+```
+
+4. **Create alert** (`default/savedsearches.conf`):
+```ini
+[019_New_Alert]
+description = Description of alert
+search = `fortigate_index` `logids_new_alert` \
+| [... use standard pattern above ...]
+cron_schedule = * * * * *
+enableSched = 1
+realtime_schedule = 1
+dispatch.earliest_time = rt-10m
+dispatch.latest_time = rt
+alert.track = 1
+alert.severity = 5
+action.slack = 1
+action.slack.param.channel = #security-firewall-alert
+action.slack.param.message = $result.formatted_message$
+```
+
+5. **Test before enabling**:
+```bash
+splunk search "`fortigate_index` `logids_new_alert` earliest=-1h | head 10"
+```
+
+### Modifying Existing Alerts
+
+**DO:**
+- Edit thresholds in `macros.conf`
+- Add/remove LogIDs to macro definitions
+- Adjust time windows (`dispatch.earliest_time`)
+- Change Slack channels in `local/savedsearches.conf`
+
+**DON'T:**
+- Remove `state_changed=1` filter (breaks deduplication)
+- Change CSV column names (breaks existing state data)
+- Remove `outputlookup append=t` (state won't update)
+- Modify alert names (breaks references)
+
+### Disabling Alerts
+
+Create/edit `local/savedsearches.conf`:
+```ini
+[002_VPN_Tunnel_Down]
+enableSched = 0
+```
 
 ---
 
@@ -294,226 +385,135 @@ Pass alert data via stdin (JSON format).
 ### Alert Not Triggering
 
 ```spl
-# Check if events exist
+# 1. Check if events exist
 `fortigate_index` `logids_vpn_tunnel` earliest=-1h
 | stats count by logid, device
 
-# Check state tracker
+# 2. Verify state tracker
 | inputlookup vpn_state_tracker
 | table device, vpn_name, state, last_seen
 
-# Check scheduler logs
+# 3. Check scheduler execution
 index=_internal source=*scheduler.log savedsearch_name="002_VPN_Tunnel_Down"
 | stats count by status, result_count
+
+# 4. Check alert action
+index=_internal source=*alert_actions.log savedsearch_name="002_VPN_Tunnel_Down"
+| table _time, action_name, action_status, stderr
 ```
 
 ### Duplicate Alerts
 
-1. Verify `state_changed=1` filter is present
-2. Check state tracker CSV has correct previous states
-3. Validate `outputlookup append=t` is writing correctly
+**Root causes:**
+- Missing `state_changed=1` filter in SPL
+- State tracker CSV not updating (`outputlookup` failed)
+- Multiple alert instances running (check schedule)
+
+**Fix:**
+```spl
+# Verify state change logic exists
+| where state_changed=1
+
+# Verify state update at end
+| outputlookup append=t state_tracker
+```
 
 ### Slack Not Sending
 
 ```spl
 # Check alert action logs
 index=_internal source=*alert_actions.log action_name="slack"
-| table _time, sid, action_name, action_status, stderr
+| table _time, sid, action_status, stderr
+| sort - _time
 
-# Verify webhook URL
-cat default/alert_actions.conf | grep webhook_url
+# Common errors:
+# - "webhook_url not found" → Check local/alert_actions.conf
+# - "404 Not Found" → Invalid webhook URL
+# - "500 Internal Error" → Slack service issue
 ```
 
----
-
-## File Structure
-
-```
-security_alert/
-├── README.md                          # User documentation
-├── app.manifest                       # App manifest (v2.0.4)
-├── metadata/default.meta               # App metadata
-├── default/
-│   ├── app.conf                       # App definition
-│   ├── savedsearches.conf             # 15 alert definitions
-│   ├── macros.conf                    # LogID groups & thresholds
-│   ├── transforms.conf                # Lookup definitions
-│   ├── alert_actions.conf             # Slack configuration
-│   ├── props.conf                     # Field extractions
-│   └── data/ui/
-│       ├── views/*.xml                # Dashboards
-│       └── nav/default.xml            # Navigation
-├── bin/
-│   ├── install.sh                     # ⭐ Installation verification script
-│   ├── slack.py                       # Slack Block Kit formatter
-│   ├── fortigate_auto_response.py     # Automated remediation
-│   ├── splunk_feature_checker.py      # System validator
-│   ├── deployment_health_check.py     # Deployment checker
-│   ├── post_install_check.py          # Post-install checker
-│   └── auto_validator.py              # Alert validator
-├── lib/                               # ⭐ NEW: Bundled dependencies
-│   └── python3/                       # Python 3 libraries
-│       ├── requests/                  # HTTP library (v2.32.5)
-│       ├── urllib3/                   # Connection pooling (v2.5.0)
-│       ├── charset_normalizer/        # Character encoding (v3.4.4)
-│       ├── certifi/                   # SSL certificates (v2025.10.5)
-│       └── idna/                      # Internationalized domain names (v3.11)
-└── lookups/
-    ├── fortigate_logid_notification_map.csv  # LogID reference
-    ├── auto_response_actions.csv      # Response mapping
-    ├── severity_priority.csv          # Severity levels
-    └── *_state_tracker.csv            # 10 state trackers
+**Verify configuration:**
+```bash
+cat local/alert_actions.conf
+# Should contain:
+# [slack]
+# param.webhook_url = https://hooks.slack.com/services/...
 ```
 
-### Bundled Dependencies
+### CSV Lock Errors
 
-**All Python dependencies are included in the app - no external installation required!**
+**Symptom:** `Error in 'outputlookup': The lookup table is locked`
 
-The app automatically loads bundled libraries from `lib/python3/`:
-
-```python
-# Automatic path resolution in bin/slack.py and bin/fortigate_auto_response.py
-import sys
-import os
-
-APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LIB_DIR = os.path.join(APP_DIR, 'lib', 'python3')
-if os.path.exists(LIB_DIR) and LIB_DIR not in sys.path:
-    sys.path.insert(0, LIB_DIR)
-
-import requests  # Now works without pip install!
+**Solution:** Always use `append=t` mode:
+```spl
+| outputlookup append=t state_tracker  # ✓ Correct
+| outputlookup state_tracker           # ✗ Wrong (overwrites entire file)
 ```
 
-**Bundled libraries:**
-- `requests` (2.32.5) - HTTP client for Slack/FortiManager API
-- `urllib3` (2.5.0) - HTTP connection pooling
-- `charset-normalizer` (3.4.4) - Character encoding detection
-- `certifi` (2025.10.5) - SSL/TLS certificate bundle
-- `idna` (3.11) - Internationalized domain names
+### State Tracker Growing Too Large
 
-**Benefits:**
-- ✅ Works on air-gapped/isolated Splunk servers
-- ✅ No internet access required
-- ✅ No admin privileges needed for pip
-- ✅ Consistent versions across all deployments
-- ✅ No dependency conflicts with other apps
+**Symptom:** Alert performance degrades (>10,000 rows in CSV)
+
+**Solution:** Implement periodic cleanup (run monthly):
+```spl
+| inputlookup state_tracker
+| where last_seen > relative_time(now(), "-30d")
+| outputlookup state_tracker
+```
 
 ---
 
 ## Best Practices
 
-### Modifying Alerts
-
-1. **Always preserve state tracking logic** - Don't remove the `state_changed` filter
-2. **Use macros for LogIDs** - Edit `macros.conf` instead of hardcoding
-3. **Test with `| head 10` first** - Validate SPL before enabling alert
-4. **Update state tracker schema carefully** - Changing CSV columns breaks existing states
-
-### Adding New Alerts
-
-1. Define LogID macro in `macros.conf`:
-   ```ini
-   [logids_new_alert]
-   definition = (logid=0100000001 OR logid=0100000002)
-   ```
-
-2. Create state tracker CSV in `lookups/`:
-   ```csv
-   device,component,state,last_seen,details
-   ```
-
-3. Add lookup definition in `transforms.conf`:
-   ```ini
-   [new_alert_state_tracker]
-   filename = new_alert_state_tracker.csv
-   ```
-
-4. Create alert in `savedsearches.conf` using standard pattern (see SPL Query Patterns above)
-
-5. Test thoroughly before enabling:
-   ```spl
-   `fortigate_index` `logids_new_alert` earliest=-1h
-   | [... your alert logic ...]
-   | head 10
-   ```
-
 ### Performance Optimization
 
-- Use `dispatch.rt_backfill = 1` for real-time alerts
-- Set `auto_summarize = 0` to prevent summary indexing overhead
-- Keep time windows narrow (rt-10m preferred)
 - Use `stats latest(*)` to deduplicate before state comparison
+- Keep time windows narrow (`rt-10m` for real-time)
+- Use `dispatch.rt_backfill = 1` for missed events
+- Set `auto_summarize = 0` to disable summary indexing
+
+### State Tracker Maintenance
+
+- Clean up old states monthly (see above)
+- Monitor CSV size: `ls -lh lookups/*_state_tracker.csv`
+- Back up state files before major changes
+- Use `append=t` mode for atomic writes
+
+### Alert Tuning
+
+- Start with conservative thresholds, adjust based on false positive rate
+- Use suppression for noisy alerts (`alert.suppress.period`)
+- Group related fields in suppression (`alert.suppress.fields`)
+- Set appropriate expiry times (`alert.expires`)
 
 ---
 
-## Common Issues
+## Security Considerations
 
-### Issue: "No module named 'requests'"
+### Before Deployment
 
-**Symptom:** Alert actions fail with `ModuleNotFoundError: No module named 'requests'`
+**REMOVE hardcoded credentials** from `bin/fortigate_auto_response.py`:
+```python
+# ✗ Current (DO NOT DEPLOY)
+FORTIMANAGER_URL = "https://fmg.example.com"
+FORTIMANAGER_TOKEN = "YOUR_FMG_API_TOKEN"
 
-**Root Cause:** Bundled libraries not loaded properly
-
-**Solution:**
-```bash
-# 1. Verify lib directory exists
-ls -la /opt/splunk/etc/apps/security_alert/lib/python3/
-
-# 2. Verify permissions
-chmod -R 755 /opt/splunk/etc/apps/security_alert/lib/
-
-# 3. Check Python scripts have sys.path modification
-head -20 /opt/splunk/etc/apps/security_alert/bin/slack.py
-# Should contain: sys.path.insert(0, LIB_DIR)
-
-# 4. Test import manually
-cd /opt/splunk/etc/apps/security_alert
-python3 -c "
-import sys, os
-sys.path.insert(0, 'lib/python3')
-import requests
-print('OK')
-"
+# ✓ Use environment variables
+FORTIMANAGER_URL = os.environ.get('FORTIMANAGER_URL')
+FORTIMANAGER_TOKEN = os.environ.get('FORTIMANAGER_TOKEN')
 ```
 
-### Issue: CSV Lock Errors
-
-**Symptom:** `Error in 'outputlookup': The lookup table is locked`
-
-**Solution:** Use `append=t` instead of overwriting entire CSV:
-```spl
-| outputlookup append=t state_tracker
+**SET Slack webhook** in `local/alert_actions.conf` (not in default):
+```ini
+[slack]
+param.webhook_url = https://hooks.slack.com/services/YOUR/WEBHOOK/URL
 ```
 
-### Issue: State Tracker Growing Too Large
-
-**Symptom:** Alert performance degrades over time
-
-**Solution:** Implement periodic cleanup:
-```spl
-| inputlookup state_tracker
-| where last_seen > relative_time(now(), "-7d")
-| outputlookup state_tracker
+**EXCLUDE sensitive files** from version control:
 ```
-
-### Issue: Macro Not Found
-
-**Symptom:** `Error in 'search': Unknown search command 'logids_vpn_tunnel'`
-
-**Solution:** Restart Splunk to reload macros:
-```bash
-/opt/splunk/bin/splunk restart
-```
-
-### Issue: Permission Denied on lib/ Directory
-
-**Symptom:** Python scripts can't access bundled libraries
-
-**Solution:**
-```bash
-cd /opt/splunk/etc/apps/security_alert
-chown -R splunk:splunk lib/
-chmod -R 755 lib/
+local/*
+*.log
+__pycache__/
 ```
 
 ---
@@ -521,20 +521,20 @@ chmod -R 755 lib/
 ## Version History
 
 **v2.0.4** (2025-11-04)
-- Implemented EMS state tracking for all alerts
-- Added 10 state tracker CSV files
-- Integrated Slack Block Kit formatting
-- Enabled 15 alerts
+- Implemented EMS state tracking for all 15 alerts
+- Added 11 state tracker CSV files
+- Simplified Slack messages to single-line format
+- Bundled all Python dependencies (air-gapped support)
 
 **v2.0.1** (2025-11-03)
 - Enhanced field parsing with coalesce()
 - Fixed LogID definitions based on sample data
-- Added automated response system
+- Added FMG install detection (Alert 001)
 
 ---
 
 ## Repository
 
-**Source:** https://github.com/qws941/splunk.git
-
-**Maintainer:** NextTrade Security Team
+- **GitHub**: https://github.com/qws941/splunk.git
+- **Maintainer**: NextTrade Security Team
+- **License**: MIT
