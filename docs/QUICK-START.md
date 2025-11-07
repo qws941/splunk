@@ -111,15 +111,16 @@ index=_internal source=*scheduler.log
 - Traffic spike analysis
 - And more...
 
-### 10 State Trackers
+### 11 State Trackers
 - Eliminates duplicate notifications
 - EMS-based state management
 - Persistent CSV storage
+- FortiManager sync tracking
 
-### Automated Responses
-- IP blacklisting
-- Bandwidth limiting
-- Account disabling
+### Bundled Libraries
+- No pip install required
+- Air-gapped deployment support
+- Python dependencies included
 
 ---
 

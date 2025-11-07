@@ -5,9 +5,10 @@ FortiGate 보안 이벤트 모니터링 및 Slack 알림 시스템
 ## 핵심 기능
 
 - **EMS 방식 상태 추적**: 중복 알림 제거, 상태 변화만 감지
-- **15개 알림**: VPN, HA, 하드웨어, 리소스, 로그인, 트래픽 등
-- **Slack Block Kit**: 포맷된 알림 메시지
-- **CSV 상태 저장**: 10개 상태 추적 테이블
+- **15개 알림**: VPN, HA, 하드웨어, 리소스, 로그인, 트래픽, FMG 동기화 등
+- **Slack 통합**: 공식 Slack Alert Action 사용, Plain Text 포맷
+- **CSV 상태 저장**: 11개 상태 추적 테이블
+- **번들 라이브러리**: Python 의존성 포함, 격리 환경 지원
 
 ## 빠른 설치
 
@@ -76,6 +77,7 @@ chown -R splunk:splunk security_alert
 
 - 001_Config_Change - 설정 변경 감지
 - 016_System_Reboot - 시스템 재시작
+- 018_FMG_Out_Of_Sync - FortiManager 동기화 실패
 
 ## 상태 추적 로직
 
@@ -94,6 +96,8 @@ chown -R splunk:splunk security_alert
 
 ## 상태 파일
 
+**11개 CSV 파일** (EMS 상태 추적):
+
 ```
 security_alert/lookups/
 ├── vpn_state_tracker.csv
@@ -105,8 +109,12 @@ security_alert/lookups/
 ├── admin_login_state_tracker.csv
 ├── vpn_brute_force_state_tracker.csv
 ├── traffic_spike_state_tracker.csv
-└── license_state_tracker.csv
+├── license_state_tracker.csv
+└── fmg_sync_state_tracker.csv        # FortiManager 동기화 추적
 ```
+
+**추가 참조 파일**:
+- `fortigate_logid_notification_map.csv` - LogID 참조 테이블
 
 ## 트러블슈팅
 
@@ -122,11 +130,31 @@ index=_internal source=*alert_actions.log action_name="slack"
 | inputlookup hardware_state_tracker
 ```
 
+## 번들 라이브러리
+
+**격리 환경 지원** - 모든 Python 의존성 포함, pip 불필요:
+
+```
+lib/python3/
+├── requests/          # 2.32.5 - HTTP 클라이언트
+├── urllib3/           # 2.5.0 - 연결 풀링
+├── charset_normalizer/ # 3.4.4 - 문자 인코딩
+├── certifi/           # 2025.10.5 - SSL 인증서
+└── idna/              # 3.11 - 도메인 이름 인코딩
+```
+
+**장점**:
+- ✅ 격리 환경 (air-gapped) 배포 가능
+- ✅ 인터넷 접속 불필요
+- ✅ pip install 권한 불필요
+- ✅ 버전 충돌 방지
+
 ## 버전
 
-**v2.0.4** (2025-11-04)
-- EMS 상태 추적 적용
-- Slack Block Kit 알림
-- 15개 알림 활성화
+**v2.0.4** (2025-11-07)
+- EMS 상태 추적 적용 (11개 상태 추적 파일)
+- Slack 공식 Alert Action 통합 (Plain Text 포맷)
+- 15개 알림 활성화 (Alert 018 포함)
+- Python 의존성 번들 포함 (격리 환경 지원)
 
 **Repository**: https://github.com/qws941/splunk.git
