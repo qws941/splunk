@@ -50,9 +50,13 @@ local/
 metadata/local.meta
 *.pyc
 
-# Build artifacts
+# Build artifacts (moved to dist/)
 *.tar.gz.tmp
 *.zip.tmp
+
+# Distribution directory (contains packaged releases)
+dist/*.tar.gz
+dist/*.zip
 
 # Secrets (if any)
 *.secret
