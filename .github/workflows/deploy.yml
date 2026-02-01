@@ -1,0 +1,247 @@
+# GitHub Actions Deploy/Release/Package Workflows
+# Migrated from GitLab CI: 2026-02-01
+
+name: Deploy
+
+on:
+  push:
+    branches: [master, main]
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
+      deploy_wiki:
+        description: 'Sync wiki documentation'
+        required: false
+        default: false
+        type: boolean
+      build_airgap:
+        description: 'Build airgap package'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  GOWORK: 'off'
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ============================================================
+  # STAGE: deploy
+  # ============================================================
+
+  deploy-wiki:
+    name: Deploy Wiki
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_wiki == 'true') ||
+      (github.event_name == 'push' && contains(github.event.head_commit.modified, 'docs/wiki/'))
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync wiki documentation
+        run: |
+          chmod +x ./tools/scripts/util/sync-wiki.sh
+          ./tools/scripts/util/sync-wiki.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-dev:
+    name: Deploy to Development
+    runs-on: ubuntu-latest
+    environment:
+      name: development
+      url: https://splunk-dev.example.com
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'dev') ||
+      (github.ref == 'refs/heads/develop')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Deploy to dev
+        run: |
+          if [ -n "${{ secrets.SPLUNK_HOST }}" ]; then
+            chmod +x ./scripts/deploy.sh
+            ./scripts/deploy.sh dev
+          else
+            echo "⚠️ Set SPLUNK_HOST secret to enable deployment"
+            exit 0
+          fi
+        env:
+          SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
+          SPLUNK_USER: ${{ secrets.SPLUNK_USER }}
+          SPLUNK_PASS: ${{ secrets.SPLUNK_PASS }}
+
+  deploy-prod:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://splunk.jclee.me
+    needs: [deploy-dev]
+    if: |
+      always() &&
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod') ||
+      (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Deploy to production
+        run: |
+          if [ -n "${{ secrets.SPLUNK_HOST }}" ]; then
+            chmod +x ./scripts/deploy.sh
+            ./scripts/deploy.sh prod
+          else
+            echo "⚠️ Set SPLUNK_HOST secret to enable deployment"
+            exit 0
+          fi
+        env:
+          SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
+          SPLUNK_USER: ${{ secrets.SPLUNK_USER }}
+          SPLUNK_PASS: ${{ secrets.SPLUNK_PASS }}
+
+  # ============================================================
+  # STAGE: release
+  # ============================================================
+
+  release-changelog:
+    name: Generate Changelog
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' && (
+        startsWith(github.ref, 'refs/tags/v') ||
+        github.ref == 'refs/heads/master' ||
+        github.ref == 'refs/heads/main'
+      )
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install git-cliff
+        run: |
+          curl -sSfL https://github.com/orhun/git-cliff/releases/download/v2.4.0/git-cliff-2.4.0-x86_64-unknown-linux-musl.tar.gz | tar xz
+          sudo mv git-cliff-*/git-cliff /usr/local/bin/
+
+      - name: Generate changelog
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            git-cliff --config cliff.toml --latest --strip header > RELEASE_NOTES.md
+            echo "Release notes for ${{ github.ref_name }}:"
+            cat RELEASE_NOTES.md
+          else
+            git-cliff --config cliff.toml --unreleased --strip header > CHANGELOG_PREVIEW.md
+            echo "Changelog preview (unreleased):"
+            cat CHANGELOG_PREVIEW.md
+          fi
+
+      - name: Upload changelog artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog
+          path: |
+            RELEASE_NOTES.md
+            CHANGELOG_PREVIEW.md
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: ${{ contains(github.ref, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================================
+  # STAGE: package
+  # ============================================================
+
+  package-airgap:
+    name: Build Airgap Package
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.build_airgap == 'true') ||
+      (github.event_name == 'push' && (
+        github.ref == 'refs/heads/master' ||
+        github.ref == 'refs/heads/main' ||
+        startsWith(github.ref, 'refs/tags/v')
+      ))
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+          cache-dependency-path: go/go.sum
+
+      - name: Configure git
+        run: |
+          git config user.email "ci@jclee.me"
+          git config user.name "GitHub Actions"
+
+      - name: Build splunk-cli
+        run: |
+          mkdir -p releases/bin
+          cd go/cmd/splunk-cli
+          go build -mod=vendor -o ../../../releases/bin/splunk-cli .
+        env:
+          CGO_ENABLED: '0'
+          GOWORK: 'off'
+
+      - name: Build airgap package
+        run: |
+          cd go
+          ../releases/bin/splunk-cli build
+
+      - name: Sync airgap artifacts
+        run: |
+          chmod +x ./scripts/auto-sync-airgap.sh
+          ./scripts/auto-sync-airgap.sh
+        continue-on-error: true
+
+      - name: Upload airgap package
+        uses: actions/upload-artifact@v4
+        with:
+          name: airgap-package-${{ github.sha }}
+          path: releases/
+          retention-days: 30
+
+      - name: Upload to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            releases/*.tar.gz
+            releases/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

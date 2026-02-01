@@ -1,0 +1,640 @@
+# GitHub Actions CI/CD Pipeline for Splunk App
+# Migrated from GitLab CI: 2026-02-01
+
+name: CI
+
+on:
+  push:
+    branches: [master, main, develop]
+  pull_request:
+    branches: [master, main, develop]
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+
+env:
+  SPLUNK_HOME: /opt/splunk
+  PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
+  GOMODCACHE: ${{ github.workspace }}/.cache/go-mod
+  GOCACHE: ${{ github.workspace }}/.cache/go-build
+  GOWORK: 'off'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================================
+  # STAGE: validate
+  # ============================================================
+
+  validate-syntax:
+    name: Validate Syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+
+      - name: Make scripts executable
+        run: chmod -R +x scripts/*.sh tools/scripts/**/*.sh tests/integration/*.sh 2>/dev/null || true
+
+      - name: Run CI validation
+        run: ./scripts/ci-validate.sh
+
+      - name: Upload validation results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ci-validate-results
+          path: ci-validate-results.txt
+          retention-days: 7
+
+  validate-docs:
+    name: Validate Docs
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate docs structure
+        run: |
+          echo "=== Docs Structure Validation ==="
+          ERRORS=0
+
+          # Check required index files
+          for idx in docs/guides/README.md docs/deliverables/README.md runbooks/README.md; do
+            if [ ! -f "$idx" ]; then
+              echo "Missing: $idx"
+              ERRORS=$((ERRORS + 1))
+            else
+              echo "Found: $idx"
+            fi
+          done
+
+          # Check AGENTS.md exists at key locations
+          echo ""
+          echo "=== AGENTS.md Files ==="
+          for loc in AGENTS.md go/internal/AGENTS.md python/AGENTS.md appserver/AGENTS.md; do
+            if [ -f "$loc" ]; then
+              echo "Found: $loc"
+            else
+              echo "Missing: $loc"
+            fi
+          done
+
+          if [ $ERRORS -gt 0 ]; then
+            echo ""
+            echo "$ERRORS critical errors found"
+            exit 1
+          fi
+
+          echo ""
+          echo "Docs validation passed"
+
+  validate-pre-commit:
+    name: Pre-commit Checks
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Run pre-commit
+        uses: pre-commit/action@v3.0.1
+
+  validate-go:
+    name: Validate Go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: go/go.sum
+
+      - name: Validate Go code
+        working-directory: go
+        run: |
+          echo "=== Go Validation ==="
+          go vet ./...
+          go build ./...
+          echo "Go validation passed"
+
+  validate-spl:
+    name: Validate SPL
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: go/go.sum
+
+      - name: Validate SPL queries
+        run: |
+          echo "=== SPL Query Validation ==="
+          cd go/cmd/splunk-cli && go build -o splunk-cli .
+          ./splunk-cli validate --spl-only 2>&1
+          echo "SPL validation completed"
+
+  validate-types:
+    name: Validate Python Types
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Run mypy
+        run: |
+          pip install mypy types-requests
+          mypy python/ --config-file pyproject.toml --ignore-missing-imports || true
+
+  # ============================================================
+  # STAGE: security
+  # ============================================================
+
+  security-sast:
+    name: SAST Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Run Semgrep
+        run: |
+          pip install semgrep --quiet
+          echo "=== SAST Scan (Semgrep) ==="
+          semgrep scan --config auto --config p/python --config p/golang \
+            --exclude third_party --exclude node_modules --exclude python/lib \
+            --exclude extras --exclude .cache \
+            --json --output semgrep-results.json \
+            . || true
+
+          # Parse results
+          CRITICAL=$(grep -c '"severity": "ERROR"' semgrep-results.json 2>/dev/null || echo "0")
+          HIGH=$(grep -c '"severity": "WARNING"' semgrep-results.json 2>/dev/null || echo "0")
+
+          echo "Critical: $CRITICAL, High: $HIGH"
+
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "Critical vulnerabilities found"
+            cat semgrep-results.json | python -m json.tool | head -100
+            exit 1
+          fi
+
+          echo "SAST scan passed"
+
+      - name: Upload SAST results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: semgrep-results
+          path: semgrep-results.json
+          retention-days: 7
+
+  security-secrets:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Detect secrets
+        run: |
+          pip install detect-secrets --quiet
+          echo "=== Secret Detection ==="
+          detect-secrets scan --exclude-files 'third_party/.*' \
+            --exclude-files 'node_modules/.*' \
+            --exclude-files 'python/lib/.*' \
+            --exclude-files 'extras/.*' \
+            --exclude-files '\.cache/.*' \
+            --exclude-files '.*\.json$' \
+            . > secrets-results.json 2>&1 || true
+
+          SECRETS=$(grep -c '"is_secret": true' secrets-results.json 2>/dev/null || echo "0")
+
+          if [ "$SECRETS" -gt 0 ]; then
+            echo "Potential secrets detected: $SECRETS"
+            cat secrets-results.json | python -m json.tool | head -50
+          else
+            echo "No secrets detected"
+          fi
+
+      - name: Upload secrets results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: secrets-results
+          path: secrets-results.json
+          retention-days: 7
+
+  security-dependency:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: go/go.sum
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Audit dependencies
+        run: |
+          echo "=== Go Dependency Audit ==="
+          go list -json -m all > go-deps.json 2>/dev/null || true
+
+          echo ""
+          echo "=== Python Dependency Check ==="
+          pip install pip-audit --quiet
+          pip-audit --requirement requirements.txt --format json --output pip-audit.json 2>/dev/null || true
+
+          VULNS=$(grep -c '"id":' pip-audit.json 2>/dev/null || echo "0")
+          echo "Python vulnerabilities: $VULNS"
+
+          echo "Dependency scan completed"
+
+      - name: Upload dependency results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-audit
+          path: |
+            go-deps.json
+            pip-audit.json
+          retention-days: 7
+
+  security-sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: go/go.sum
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Generate SBOM
+        run: |
+          echo "=== SBOM Generation (CycloneDX) ==="
+          go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@latest
+          cyclonedx-gomod mod -json -output sbom-go.json . 2>/dev/null || echo "Go SBOM generated with warnings"
+
+          echo ""
+          echo "=== Python SBOM ==="
+          pip install cyclonedx-bom --quiet
+          cyclonedx-py requirements requirements.txt -o sbom-python.json --format json 2>/dev/null || echo "Python SBOM generated"
+
+          echo "SBOM generation completed"
+          ls -la sbom-*.json 2>/dev/null || true
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sbom
+          path: sbom-*.json
+          retention-days: 30
+
+  # ============================================================
+  # STAGE: test
+  # ============================================================
+
+  test-unit-python:
+    name: Python Unit Tests
+    runs-on: ubuntu-latest
+    needs: validate-syntax
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install pytest pytest-cov --quiet
+
+      - name: Run pytest
+        run: |
+          pytest tests/unit/ -v --tb=short \
+            --cov=python --cov-report=xml:coverage-python.xml \
+            --cov-report=term --cov-fail-under=80 2>&1 | tee pytest-results.txt
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: python-coverage
+          path: |
+            pytest-results.txt
+            coverage-python.xml
+          retention-days: 7
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: coverage-python.xml
+          flags: python
+          fail_ci_if_error: false
+
+  test-unit-go:
+    name: Go Unit Tests
+    runs-on: ubuntu-latest
+    needs: validate-go
+    env:
+      CGO_ENABLED: '0'
+      SPLUNK_TEST_ROOT: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: go/go.sum
+
+      - name: Run Go tests
+        working-directory: go
+        run: |
+          echo "=== Running Go Tests with Coverage ==="
+          go test ./internal/... ./cmd/... \
+            -coverprofile=coverage-go.out \
+            -covermode=atomic \
+            -v 2>&1 | tee go-test-results.txt || true
+
+          # Check if tests passed
+          if grep -q "FAIL" go-test-results.txt; then
+            echo "Some tests failed, but continuing with coverage report"
+          fi
+
+          # Generate coverage report
+          if [ -f coverage-go.out ]; then
+            go tool cover -func=coverage-go.out | tee coverage-go-summary.txt
+            COVERAGE=$(go tool cover -func=coverage-go.out | grep total | awk '{print $3}' | tr -d '%')
+            echo ""
+            echo "Go Coverage: ${COVERAGE}%"
+
+            # Check minimum threshold (60%)
+            if [ "$(echo "$COVERAGE < 60" | bc -l)" -eq 1 ]; then
+              echo "Coverage ${COVERAGE}% is below 60% threshold"
+            else
+              echo "Coverage ${COVERAGE}% meets 60% threshold"
+            fi
+
+            # Convert to Cobertura format
+            go install github.com/boumenot/gocover-cobertura@latest
+            gocover-cobertura < coverage-go.out > coverage-go.xml
+          else
+            echo "No coverage file generated"
+            exit 1
+          fi
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: go-coverage
+          path: |
+            go/go-test-results.txt
+            go/coverage-go.out
+            go/coverage-go.xml
+            go/coverage-go-summary.txt
+          retention-days: 7
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: go/coverage-go.xml
+          flags: go
+          fail_ci_if_error: false
+
+  test-integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: test-unit-python
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Run integration tests
+        env:
+          SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
+        run: |
+          echo "Integration tests require Splunk environment"
+          if [ -n "${SPLUNK_HOST:-}" ]; then
+            ./scripts/validate-deployment.sh
+          else
+            echo "Skipping - no Splunk environment configured"
+          fi
+
+  test-e2e-smoke:
+    name: E2E Smoke Test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: go/go.sum
+
+      - name: Install Chromium
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser chromium-chromedriver
+
+      - name: Run E2E smoke tests
+        working-directory: go/internal/e2e
+        run: |
+          echo "=== E2E Smoke Test (PR Feedback) ==="
+          go test -mod=vendor -v -timeout 5m \
+            -run "TestHealthEndpoint|TestLoginPage" \
+            ./... 2>&1 | tee e2e-smoke-results.txt
+
+          PASSED=$(grep -c "--- PASS:" e2e-smoke-results.txt || echo "0")
+          FAILED=$(grep -c "--- FAIL:" e2e-smoke-results.txt || echo "0")
+
+          echo ""
+          echo "=== Smoke Test Summary ==="
+          echo "Passed: $PASSED, Failed: $FAILED"
+
+          if [ "$FAILED" -gt 0 ]; then
+            echo "Smoke tests failed"
+            exit 1
+          fi
+
+          echo "Smoke tests passed"
+
+      - name: Upload E2E results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-smoke-results
+          path: go/internal/e2e/e2e-smoke-results.txt
+          retention-days: 3
+
+  test-e2e-nightly:
+    name: E2E Nightly Test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch')
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: go/go.sum
+
+      - name: Install Chromium
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser chromium-chromedriver
+
+      - name: Run E2E nightly tests
+        working-directory: go/internal/e2e
+        run: |
+          echo "=== Nightly E2E Smoke Test ==="
+          go test -mod=vendor -v -timeout 15m \
+            -run "TestHealthEndpoint|TestLoginPage|TestSettingsPage|TestDashboard" \
+            ./... 2>&1 | tee e2e-nightly-results.txt
+
+          PASSED=$(grep -c "--- PASS:" e2e-nightly-results.txt || echo "0")
+          FAILED=$(grep -c "--- FAIL:" e2e-nightly-results.txt || echo "0")
+
+          echo ""
+          echo "=== Summary ==="
+          echo "Passed: $PASSED, Failed: $FAILED"
+
+          if [ "$FAILED" -gt 0 ]; then
+            echo "Some E2E tests failed"
+            exit 1
+          fi
+
+          echo "Nightly E2E passed"
+
+      - name: Upload E2E results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-nightly-results
+          path: go/internal/e2e/e2e-nightly-results.txt
+          retention-days: 7
+
+  test-benchmark:
+    name: Performance Benchmark
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: go/go.sum
+
+      - name: Run benchmarks
+        working-directory: go/internal/e2e
+        run: |
+          echo "=== Performance Benchmark ==="
+          go test -mod=vendor -bench=. -benchmem -run=^$ ./... 2>&1 | tee benchmark-results.txt
+
+          echo ""
+          echo "=== Key Metrics ==="
+          grep -E "Benchmark.*\s+[0-9]+" benchmark-results.txt | head -20
+
+          echo ""
+          echo "Benchmark completed"
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-results
+          path: go/internal/e2e/benchmark-results.txt
+          retention-days: 30
+
+  coverage-report:
+    name: Coverage Report
+    runs-on: ubuntu-latest
+    needs: [test-unit-python, test-unit-go]
+    if: always()
+    steps:
+      - name: Download Python coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: python-coverage
+          path: .
+        continue-on-error: true
+
+      - name: Download Go coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: go-coverage
+          path: go/
+        continue-on-error: true
+
+      - name: Display coverage summary
+        run: |
+          echo "=== Unified Coverage Report ==="
+          echo ""
+          echo "Python: $([ -f coverage-python.xml ] && echo 'Available' || echo 'Not available')"
+          echo "Go:     $([ -f go/coverage-go.xml ] && echo 'Available' || echo 'Not available')"
