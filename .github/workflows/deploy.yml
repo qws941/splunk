@@ -176,13 +176,7 @@ jobs:
   package-airgap:
     name: Build Airgap Package
     runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.build_airgap == 'true') ||
-      (github.event_name == 'push' && (
-        github.ref == 'refs/heads/master' ||
-        github.ref == 'refs/heads/main' ||
-        startsWith(github.ref, 'refs/tags/v')
-      ))
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_airgap == 'true'
     steps:
       - uses: actions/checkout@v4
         with:

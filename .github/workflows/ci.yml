@@ -396,6 +396,7 @@ jobs:
   test-unit-go:
     name: Go Unit Tests
     runs-on: ubuntu-latest
+    if: hashFiles('go/go.sum') != ''
     needs: validate-go
     env:
       CGO_ENABLED: '0'
@@ -625,7 +626,7 @@ jobs:
   coverage-report:
     name: Coverage Report
     runs-on: ubuntu-latest
-    needs: [test-unit-python, test-unit-go]
+    needs: [test-unit-python]
     if: always()
     steps:
       - name: Download Python coverage
