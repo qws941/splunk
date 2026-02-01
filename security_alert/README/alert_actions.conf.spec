@@ -3,6 +3,10 @@
 [slack]
 * Send formatted alert to Slack using Block Kit
 
+param._cam = <json>
+* CAM (Common Action Model) configuration
+* Default: {"supports_adhoc": true, "task": ["alert"]}
+
 param.slack_app_oauth_token = <string>
 * Slack Bot OAuth Token (xoxb-...)
 * Required if using Bot Token authentication
