@@ -5,7 +5,7 @@ name: Deploy
 
 on:
   push:
-    branches: [master, main]
+    branches: [master, main, develop]
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+*'
   workflow_dispatch:
@@ -71,11 +71,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.9'
-
       - name: Deploy to dev
         run: |
           if [ -n "${{ secrets.SPLUNK_HOST }}" ]; then
@@ -98,16 +93,12 @@ jobs:
       url: https://splunk.jclee.me
     needs: [deploy-dev]
     if: |
-      always() &&
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod') ||
-      (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+      always() && (
+        (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod') ||
+        (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+      )
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.9'
 
       - name: Deploy to production
         run: |
