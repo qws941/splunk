@@ -1,0 +1,41 @@
+name: Test-Validate
+
+on:
+  workflow_dispatch:
+
+env:
+  SPLUNK_HOME: /opt/splunk
+  PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-syntax:
+    name: Validate Syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+
+      - name: Make scripts executable
+        run: chmod -R +x scripts/*.sh tools/scripts/**/*.sh tests/integration/*.sh 2>/dev/null || true
+
+      - name: Run CI validation
+        run: ./scripts/ci-validate-security-alert.sh
+
+      - name: Upload validation results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ci-validate-results
+          path: ci-validate-results.txt
+          retention-days: 7
