@@ -1,4 +1,4 @@
-## [2.0.5] - 2025-01-XX (CI/CD Critical Issues Fixed)
+## [2.0.5] - 2026-02-01 (CI/CD Critical Issues Fixed)
 
 ### 🔧 CI/CD Infrastructure Improvements
 
