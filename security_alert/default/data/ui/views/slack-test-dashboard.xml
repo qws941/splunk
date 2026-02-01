@@ -1,0 +1,151 @@
+<form version="1.1">
+  <label>Slack Alert Test Dashboard</label>
+  <description>Generate test events and trigger Slack notifications</description>
+
+  <fieldset submitButton="false" autoRun="true">
+    <input type="time" token="time_range">
+      <label>Time Range</label>
+      <default>
+        <earliest>-15m</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+  </fieldset>
+
+  <row>
+    <panel>
+      <title>1. Slack Configuration Status</title>
+      <table>
+        <search>
+          <query>| rest /servicesNS/-/security_alert/configs/conf-alert_actions/slack splunk_server=local
+| table param.slack_app_oauth_token param.webhook_url param.channel param.proxy_enabled
+| eval bot_token_status=if(len('param.slack_app_oauth_token')>10, "✅ Configured", "❌ Not Set")
+| eval webhook_status=if(len('param.webhook_url')>20, "✅ Configured", "❌ Not Set")
+| eval channel=if(len('param.channel')>0, 'param.channel', "#security-firewall-alert")
+| eval proxy_status=if('param.proxy_enabled'="1", "✅ Enabled", "⚪ Disabled")
+| table bot_token_status webhook_status channel proxy_status
+| rename bot_token_status AS "Bot Token" webhook_status AS "Webhook URL" channel AS "Channel" proxy_status AS "Proxy"</query>
+          <earliest>-1m</earliest>
+          <latest>now</latest>
+        </search>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>2. Generate Test Event (Manual)</title>
+      <html>
+        <style>
+          .test-section { padding: 15px; background: #f5f5f5; border-radius: 8px; margin: 10px 0; }
+          .test-section h4 { margin-top: 0; color: #333; }
+          .code-block { background: #2d2d2d; color: #f8f8f2; padding: 12px; border-radius: 4px; font-family: monospace; font-size: 12px; overflow-x: auto; }
+          .success { color: #28a745; }
+          .warning { color: #ffc107; }
+        </style>
+        <div class="test-section">
+          <h4>Option A: Send Test Event via CLI</h4>
+          <p>Run this command on Splunk server to inject a test event:</p>
+          <div class="code-block">
+docker exec -u splunk splunk /opt/splunk/bin/splunk add oneshot \
+  -source "slack_test" \
+  -sourcetype "fortigate_log" \
+  -index fw \
+  &lt;&lt;&lt; 'date=2026-02-01 time=17:00:00 devname="FG-TEST" devid="FG100F0000000000" logid="0100032001" type="event" subtype="system" level="warning" vd="root" eventtime=1738400400 tz="+0900" logdesc="Admin login successful" sn="0000000001" user="test_admin" ui="GUI(192.168.1.100)" srcip=192.168.1.100 dstip=192.168.50.1 action="login" status="success" msg="Administrator test_admin logged in successfully from 192.168.1.100"'
+          </div>
+        </div>
+        <div class="test-section">
+          <h4>Option B: Use SPL to Create Event</h4>
+          <p>Run this search to generate and output test data:</p>
+          <div class="code-block">
+| makeresults 
+| eval _raw="date=2026-02-01 time=17:00:00 devname=FG-TEST logid=0100032001 type=event subtype=system level=warning user=test_admin srcip=192.168.1.100 action=login status=success"
+| collect index=fw sourcetype=fortigate_log source=slack_test
+          </div>
+          <p class="warning">⚠️ Note: collect command requires write permission to index=fw</p>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>3. Trigger Alert Manually</title>
+      <html>
+        <div class="test-section">
+          <h4>Force Run Saved Search</h4>
+          <p>Execute a saved search to trigger Slack notification:</p>
+          <div class="code-block">
+# List available alerts
+docker exec -u splunk splunk /opt/splunk/bin/splunk list saved-search -app security_alert
+
+# Trigger specific alert (replace ALERT_NAME)
+docker exec -u splunk splunk /opt/splunk/bin/splunk dispatch "ALERT_NAME" -app security_alert
+          </div>
+        </div>
+        <div class="test-section">
+          <h4>Direct Python Test</h4>
+          <p>Test Slack connection directly:</p>
+          <div class="code-block">
+docker exec -u splunk splunk python3 /opt/splunk/etc/apps/security_alert/bin/slack.py --test
+          </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>4. Recent Test Events</title>
+      <table>
+        <search>
+          <query>index=fw source="slack_test" OR sourcetype="fortigate_log"
+| head 20
+| table _time devname logid type subtype level user srcip action status msg
+| rename _time AS "Time" devname AS "Device" logid AS "LogID" type AS "Type" subtype AS "Subtype" level AS "Level" user AS "User" srcip AS "Source IP" action AS "Action" status AS "Status" msg AS "Message"</query>
+          <earliest>$time_range.earliest$</earliest>
+          <latest>$time_range.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>5. Alert Execution History</title>
+      <table>
+        <search>
+          <query>index=_internal sourcetype=scheduler app=security_alert status=*
+| head 50
+| table _time savedsearch_name status run_time result_count
+| rename _time AS "Time" savedsearch_name AS "Alert Name" status AS "Status" run_time AS "Run Time (s)" result_count AS "Results"</query>
+          <earliest>-24h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>6. Slack Alert Logs</title>
+      <table>
+        <search>
+          <query>index=_internal sourcetype=splunkd component=sendmodalert action=slack OR "slack.py"
+| head 50
+| table _time log_level message
+| rename _time AS "Time" log_level AS "Level" message AS "Message"</query>
+          <earliest>-24h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">10</option>
+      </table>
+    </panel>
+  </row>
+
+</form>

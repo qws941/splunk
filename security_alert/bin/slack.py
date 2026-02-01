@@ -254,8 +254,8 @@ def main():
             # Fallback to bot_token for backward compatibility
             if not bot_token:
                 bot_token = config.get('configuration', {}).get('bot_token', bot_token)
-            # Channel hardcoded (Splunk doesn't support param.channel)
-            channel = '#security-firewall-alert'
+            # Read channel from config, fallback to environment variable
+            channel = config.get('configuration', {}).get('channel', channel)
             search_name = config.get('search_name', 'Unknown Alert')
             view_link = config.get('results_link', '')
 

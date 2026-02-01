@@ -16,6 +16,11 @@ param.webhook_url = <string>
 * Required if using Webhook authentication
 * Format: https://hooks.slack.com/services/...
 
+param.channel = <string>
+* Slack channel to send notifications
+* Must include # prefix
+* Default: #security-firewall-alert
+
 param.proxy_enabled = <0|1>
 * Enable proxy for Slack connection
 * Default: 0

@@ -8,5 +8,9 @@
     <view name="easy_alert_builder" />
   </collection>
 
+  <collection label="Testing">
+    <view name="slack-test-dashboard" />
+  </collection>
+
   <a href="/app/security_alert/setup">Setup</a>
 </nav>
