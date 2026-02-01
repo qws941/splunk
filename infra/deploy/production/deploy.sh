@@ -16,8 +16,8 @@ NC='\033[0m' # No Color
 
 # Configuration
 APP_VERSION="4.1.438"
-PROXY_SERVER="http://172.16.4.217:5001"
-SLACK_CHANNEL="일반"
+PROXY_SERVER="${PROXY_SERVER:-http://172.16.4.217:5001}"
+SLACK_CHANNEL="${SLACK_CHANNEL:-일반}"
 PACKAGE_NAME="security-${APP_VERSION}_*.tar.gz"
 
 # Arguments
