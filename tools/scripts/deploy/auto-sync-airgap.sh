@@ -82,7 +82,7 @@ cat > AIRGAP-DEPLOY.md << EOF
 
 \`\`\`bash
 # 1. Download tarball
-git clone -b airgap https://gitlab.jclee.me/nextrade/splunk.git
+git clone -b airgap ${REMOTE_URL}
 cd splunk/releases
 
 # 2. Deploy to Splunk
@@ -120,7 +120,7 @@ echo -e "${YELLOW}Pushing to origin/airgap...${NC}"
 if git push origin airgap; then
     echo -e "${GREEN}✅ Airgap branch synced successfully!${NC}"
     echo -e "${BLUE}📦 Version: ${VERSION}${NC}"
-    echo -e "${BLUE}🔗 Download: git clone -b airgap https://gitlab.jclee.me/nextrade/splunk.git${NC}"
+    echo -e "${BLUE}🔗 Download: git clone -b airgap ${REMOTE_URL}${NC}"
 else
     echo -e "${RED}✗ Push failed (check credentials or network)${NC}"
     exit 1
