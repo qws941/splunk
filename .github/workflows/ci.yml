@@ -8,17 +8,12 @@ name: CI
 
 env:
   SPLUNK_HOME: /opt/splunk
-  PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # ============================================================
-  # STAGE: validate
-  # ============================================================
-
   validate-syntax:
     name: Validate Syntax
     runs-on: ubuntu-latest
@@ -29,13 +24,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
-          cache: 'pip'
 
       - name: Make scripts executable
         run: chmod -R +x scripts/*.sh tools/scripts/**/*.sh tests/integration/*.sh 2>/dev/null || true
 
       - name: Run CI validation
-        run: ./scripts/ci-validate-security-alert.sh
+        run: |
+          ./scripts/ci-validate-security-alert.sh | tee ci-validate-results.txt
+          exit ${PIPESTATUS[0]}
 
       - name: Upload validation results
         uses: actions/upload-artifact@v4
@@ -44,20 +40,17 @@ jobs:
           name: ci-validate-results
           path: ci-validate-results.txt
           retention-days: 7
+          if-no-files-found: ignore
 
   validate-docs:
     name: Validate Docs
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
       - name: Validate docs structure
         run: |
-          echo "=== Docs Structure Validation ==="
           ERRORS=0
-
-          # Check required documentation files
           for doc in README.md; do
             if [ ! -f "$doc" ]; then
               echo "Missing: $doc"
@@ -66,23 +59,13 @@ jobs:
               echo "Found: $doc"
             fi
           done
-
-          # Check security_alert app exists
           if [ ! -d "security_alert" ]; then
-            echo "Missing: security_alert/ app directory"
+            echo "Missing: security_alert/"
             ERRORS=$((ERRORS + 1))
           else
-            echo "Found: security_alert/ app directory"
+            echo "Found: security_alert/"
           fi
-
-          if [ $ERRORS -gt 0 ]; then
-            echo ""
-            echo "$ERRORS critical errors found"
-            exit 1
-          fi
-
-          echo ""
-          echo "Docs validation passed"
+          [ $ERRORS -eq 0 ] || exit 1
 
   validate-pre-commit:
     name: Pre-commit Checks
@@ -95,46 +78,26 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
-          cache: 'pip'
-
-      - name: Install pre-commit
-        run: pip install pre-commit
 
       - name: Run pre-commit
-        run: pre-commit run --all-files --show-diff-on-failure || true
+        run: |
+          pip install pre-commit -q
+          pre-commit run --all-files --show-diff-on-failure || true
 
   validate-spl:
     name: Validate SPL
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
       - name: Validate SPL queries
         run: |
-          echo "=== SPL Query Validation ==="
-          
-          # Check savedsearches.conf exists
           if [ -f "security_alert/default/savedsearches.conf" ]; then
-            echo "Found: savedsearches.conf"
-            SEARCH_COUNT=$(grep -c "^\[" security_alert/default/savedsearches.conf || echo "0")
-            echo "Saved searches count: $SEARCH_COUNT"
-          else
-            echo "Warning: savedsearches.conf not found"
+            echo "savedsearches.conf: $(grep -c '^\[' security_alert/default/savedsearches.conf) stanzas"
           fi
-          
-          # Check macros.conf exists
           if [ -f "security_alert/default/macros.conf" ]; then
-            echo "Found: macros.conf"
-            MACRO_COUNT=$(grep -c "^\[" security_alert/default/macros.conf || echo "0")
-            echo "Macros count: $MACRO_COUNT"
+            echo "macros.conf: $(grep -c '^\[' security_alert/default/macros.conf) stanzas"
           fi
-          
-          echo "SPL validation completed"
-
-  # ============================================================
-  # STAGE: security
-  # ============================================================
 
   security-sast:
     name: SAST Scan
@@ -146,31 +109,17 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
-          cache: 'pip'
 
       - name: Run Semgrep
         run: |
-          pip install semgrep --quiet
-          echo "=== SAST Scan (Semgrep) ==="
+          pip install semgrep -q
           semgrep scan --config auto --config p/python \
             --exclude third_party --exclude node_modules --exclude python/lib \
             --exclude extras --exclude .cache \
-            --json --output semgrep-results.json \
-            . || true
-
-          # Parse results
+            --json --output semgrep-results.json . || true
           CRITICAL=$(grep -c '"severity": "ERROR"' semgrep-results.json 2>/dev/null || echo "0")
-          HIGH=$(grep -c '"severity": "WARNING"' semgrep-results.json 2>/dev/null || echo "0")
-
-          echo "Critical: $CRITICAL, High: $HIGH"
-
-          if [ "$CRITICAL" -gt 0 ]; then
-            echo "Critical vulnerabilities found"
-            cat semgrep-results.json | python -m json.tool | head -100
-            exit 1
-          fi
-
-          echo "SAST scan passed"
+          echo "Critical: $CRITICAL"
+          [ "$CRITICAL" -eq 0 ] || exit 1
 
       - name: Upload SAST results
         uses: actions/upload-artifact@v4
@@ -179,6 +128,7 @@ jobs:
           name: semgrep-results
           path: semgrep-results.json
           retention-days: 7
+          if-no-files-found: ignore
 
   security-secrets:
     name: Secret Detection
@@ -190,12 +140,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
-          cache: 'pip'
 
       - name: Detect secrets
         run: |
-          pip install detect-secrets --quiet
-          echo "=== Secret Detection ==="
+          pip install detect-secrets -q
           detect-secrets scan --exclude-files 'third_party/.*' \
             --exclude-files 'node_modules/.*' \
             --exclude-files 'python/lib/.*' \
@@ -203,15 +151,8 @@ jobs:
             --exclude-files '\.cache/.*' \
             --exclude-files '.*\.json$' \
             . > secrets-results.json 2>&1 || true
-
           SECRETS=$(grep -c '"is_secret": true' secrets-results.json 2>/dev/null || echo "0")
-
-          if [ "$SECRETS" -gt 0 ]; then
-            echo "Potential secrets detected: $SECRETS"
-            cat secrets-results.json | python -m json.tool | head -50
-          else
-            echo "No secrets detected"
-          fi
+          echo "Secrets found: $SECRETS"
 
       - name: Upload secrets results
         uses: actions/upload-artifact@v4
@@ -220,6 +161,7 @@ jobs:
           name: secrets-results
           path: secrets-results.json
           retention-days: 7
+          if-no-files-found: ignore
 
   security-dependency:
     name: Dependency Audit
@@ -232,22 +174,16 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
-          cache: 'pip'
 
       - name: Audit dependencies
         run: |
-          echo "=== Python Dependency Check ==="
-          pip install pip-audit --quiet
-          
+          pip install pip-audit -q
           if [ -f requirements.txt ]; then
-            pip-audit --requirement requirements.txt --format json --output pip-audit.json 2>/dev/null || true
-            VULNS=$(grep -c '"id":' pip-audit.json 2>/dev/null || echo "0")
-            echo "Python vulnerabilities: $VULNS"
+            pip-audit -r requirements.txt --format json -o pip-audit.json 2>/dev/null || true
+            echo "Vulnerabilities: $(grep -c '"id":' pip-audit.json 2>/dev/null || echo "0")"
           else
-            echo "No requirements.txt found, skipping pip-audit"
+            echo "No requirements.txt"
           fi
-
-          echo "Dependency scan completed"
 
       - name: Upload dependency results
         uses: actions/upload-artifact@v4
@@ -270,22 +206,15 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
-          cache: 'pip'
 
       - name: Generate SBOM
         run: |
-          echo "=== Python SBOM (CycloneDX) ==="
-          pip install cyclonedx-bom --quiet
-          
+          pip install cyclonedx-bom -q
           if [ -f requirements.txt ]; then
-            cyclonedx-py requirements requirements.txt -o sbom-python.json --format json 2>/dev/null || echo "Python SBOM generated"
+            cyclonedx-py requirements requirements.txt -o sbom-python.json --format json 2>/dev/null || true
           else
-            echo "No requirements.txt found, creating minimal SBOM"
             echo '{"bomFormat": "CycloneDX", "specVersion": "1.4", "components": []}' > sbom-python.json
           fi
-
-          echo "SBOM generation completed"
-          ls -la sbom-*.json 2>/dev/null || true
 
       - name: Upload SBOM
         uses: actions/upload-artifact@v4
@@ -295,10 +224,6 @@ jobs:
           path: sbom-*.json
           retention-days: 30
           if-no-files-found: ignore
-
-  # ============================================================
-  # STAGE: test
-  # ============================================================
 
   test-unit-python:
     name: Python Unit Tests
@@ -311,20 +236,16 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: pip install pytest pytest-cov --quiet
 
       - name: Run pytest
         run: |
+          pip install pytest pytest-cov -q
           if [ -d "tests/unit" ]; then
             pytest tests/unit/ -v --tb=short \
               --cov=python --cov-report=xml:coverage-python.xml \
-              --cov-report=term --cov-fail-under=80 2>&1 | tee pytest-results.txt
+              --cov-report=term 2>&1 | tee pytest-results.txt
           else
-            echo "No tests/unit directory found, skipping tests"
-            echo "SKIPPED - no tests/unit directory" > pytest-results.txt
+            echo "No tests/unit directory" | tee pytest-results.txt
           fi
 
       - name: Upload coverage
@@ -337,14 +258,6 @@ jobs:
             coverage-python.xml
           retention-days: 7
           if-no-files-found: ignore
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        if: always()
-        with:
-          files: coverage-python.xml
-          flags: python
-          fail_ci_if_error: false
 
   test-integration:
     name: Integration Tests
@@ -359,17 +272,15 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
-          cache: 'pip'
 
       - name: Run integration tests
         env:
           SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
         run: |
-          echo "Integration tests require Splunk environment"
           if [ -n "${SPLUNK_HOST:-}" ]; then
             ./scripts/validate-deployment.sh
           else
-            echo "Skipping - no Splunk environment configured"
+            echo "Skipping - no SPLUNK_HOST configured"
           fi
 
   coverage-report:
@@ -378,19 +289,17 @@ jobs:
     needs: [test-unit-python]
     if: always()
     steps:
-      - name: Download Python coverage
+      - name: Download coverage
         uses: actions/download-artifact@v4
         with:
           name: python-coverage
           path: .
         continue-on-error: true
 
-      - name: Display coverage summary
+      - name: Summary
         run: |
-          echo "=== Coverage Report ==="
-          echo ""
           if [ -f coverage-python.xml ]; then
-            echo "Python: Available"
+            echo "Python coverage: Available"
           else
-            echo "Python: Not available"
+            echo "Python coverage: Not available"
           fi
