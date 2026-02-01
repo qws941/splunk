@@ -57,7 +57,7 @@ jobs:
           chmod +x ./tools/scripts/util/sync-wiki.sh
           ./tools/scripts/util/sync-wiki.sh
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
 
   deploy-dev:
     name: Deploy to Development
