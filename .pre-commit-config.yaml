@@ -1,0 +1,28 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^(vendor/|extras/addons/|bin/lib/)
+      - id: end-of-file-fixer
+        exclude: ^(vendor/|extras/addons/|bin/lib/)
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+        exclude: ^(vendor/|extras/addons/)
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: check-merge-conflict
+
+  - repo: https://github.com/psf/black
+    rev: 24.3.0
+    hooks:
+      - id: black
+        language_version: python3.9
+        exclude: ^(vendor/|extras/addons/|bin/lib/)
+
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        args: [--max-line-length=120, --ignore=E501,W503]
+        exclude: ^(vendor/|extras/addons/|bin/lib/)
