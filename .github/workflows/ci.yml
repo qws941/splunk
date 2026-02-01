@@ -32,6 +32,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: false
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -43,7 +45,7 @@ jobs:
         run: chmod -R +x scripts/*.sh tools/scripts/**/*.sh tests/integration/*.sh 2>/dev/null || true
 
       - name: Run CI validation
-        run: ./scripts/ci-validate.sh
+        run: ./scripts/ci-validate-security-alert.sh
 
       - name: Upload validation results
         uses: actions/upload-artifact@v4
@@ -65,26 +67,23 @@ jobs:
           echo "=== Docs Structure Validation ==="
           ERRORS=0
 
-          # Check required index files
-          for idx in docs/guides/README.md docs/deliverables/README.md runbooks/README.md; do
-            if [ ! -f "$idx" ]; then
-              echo "Missing: $idx"
+          # Check required documentation files
+          for doc in README.md; do
+            if [ ! -f "$doc" ]; then
+              echo "Missing: $doc"
               ERRORS=$((ERRORS + 1))
             else
-              echo "Found: $idx"
+              echo "Found: $doc"
             fi
           done
 
-          # Check AGENTS.md exists at key locations
-          echo ""
-          echo "=== AGENTS.md Files ==="
-          for loc in AGENTS.md go/internal/AGENTS.md python/AGENTS.md appserver/AGENTS.md; do
-            if [ -f "$loc" ]; then
-              echo "Found: $loc"
-            else
-              echo "Missing: $loc"
-            fi
-          done
+          # Check security_alert app exists
+          if [ ! -d "security_alert" ]; then
+            echo "Missing: security_alert/ app directory"
+            ERRORS=$((ERRORS + 1))
+          else
+            echo "Found: security_alert/ app directory"
+          fi
 
           if [ $ERRORS -gt 0 ]; then
             echo ""
@@ -112,9 +111,12 @@ jobs:
 
   validate-go:
     name: Validate Go
+    if: hashFiles('go/go.sum') != ''
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: false
 
       - name: Set up Go
         uses: actions/setup-go@v5
