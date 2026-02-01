@@ -1,3 +1,68 @@
+# v2.0.5 CI/CD Configuration Checklist (NEW)
+
+## ✅ Environment Variables Setup
+
+- [ ] Set `PROXY_SERVER` if using corporate proxy
+  ```bash
+  export PROXY_SERVER="http://proxy.company.com:8080"
+  ```
+
+- [ ] Set `SLACK_CHANNEL` if using custom notification channel
+  ```bash
+  export SLACK_CHANNEL="deployment-alerts"
+  ```
+
+- [ ] Verify Git remote is configured
+  ```bash
+  git remote get-url origin
+  # Should show: https://github.com/jclee-homelab/splunk.git
+  ```
+
+## 🚀 Deployment Method Selection
+
+### For Develop/Test Deployments
+- [ ] Push to `develop` branch (auto-triggers workflow)
+  ```bash
+  git checkout develop
+  git push origin develop
+  ```
+
+- [ ] Monitor GitHub Actions
+  ```bash
+  open https://github.com/jclee-homelab/splunk/actions
+  ```
+
+- [ ] Wait for `deploy-dev` workflow to complete
+
+### For Production Deployments
+- [ ] Run production deployment script
+  ```bash
+  ./infra/deploy/production/deploy.sh
+  ```
+
+- [ ] Verify deployment completes without errors
+
+### For Airgap/Isolated Networks
+- [ ] Run airgap sync script (auto-detects Git URL)
+  ```bash
+  ./tools/scripts/deploy/auto-sync-airgap.sh
+  ```
+
+- [ ] Verify sync completes and target receives code
+
+## 📊 Verification
+
+- [ ] Workflow execution is ~30 seconds faster than v2.0.4
+- [ ] Develop branch commits trigger deployment automatically
+- [ ] Custom proxy is used when PROXY_SERVER is set
+- [ ] Slack notifications go to custom channel when SLACK_CHANNEL is set
+- [ ] Git URL is auto-detected (no hardcoding needed)
+
+---
+
+**Note**: For detailed information, see `DEPLOYMENT-GUIDE-GITHUB.md`
+
+
 # Deployment Checklist
 
 배포 후 반드시 확인해야 할 체크리스트입니다.
