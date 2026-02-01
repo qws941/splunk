@@ -284,6 +284,6 @@ index=_internal source=*alert_actions.log action_name="slack" earliest=-24h
 
 ## 📞 지원
 
-**Repository**: https://github.com/qws941/splunk.git
+**Repository**: https://github.com/jclee-homelab/splunk.git
 **버전**: v2.0.4 (2025-11-04)
 **문의**: NextTrade Security Team

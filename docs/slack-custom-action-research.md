@@ -373,7 +373,7 @@ tail -100 /opt/splunk/var/log/splunk/alert_actions.log | grep slack
 - Block Kit: https://api.slack.com/block-kit
 
 ### 우리 구현
-- GitHub: https://github.com/qws941/splunk.git
+- GitHub: https://github.com/jclee-homelab/splunk.git
 - Version: v2.0.4
 - Last Updated: 2025-11-04
 

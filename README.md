@@ -188,4 +188,4 @@ security_alert/lookups/
 - Lookup 테이블 수정 (transforms.conf 정리)
 - 15개 알림 활성화
 
-**Repository**: https://github.com/qws941/splunk.git
+**Repository**: https://github.com/jclee-homelab/splunk.git

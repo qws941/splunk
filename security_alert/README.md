@@ -120,4 +120,4 @@ index=_internal source=*alert_actions.log action_name="slack"
 - Slack Block Kit 알림
 - 15개 알림 활성화
 
-**Repository**: https://github.com/qws941/splunk.git
+**Repository**: https://github.com/jclee-homelab/splunk.git

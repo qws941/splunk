@@ -142,5 +142,5 @@ sha256sum security_alert.tar.gz
 ---
 
 **Maintainer**: NextTrade Security Team
-**Repository**: https://github.com/qws941/splunk.git
+**Repository**: https://github.com/jclee-homelab/splunk.git
 **License**: Internal Use Only

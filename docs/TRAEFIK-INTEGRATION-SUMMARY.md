@@ -279,7 +279,7 @@ git push origin master
 2. 로그 확인: `docker logs splunk`, `docker logs traefik`
 3. 네트워크 확인: `docker network inspect traefik-public`
 4. 컨테이너 상태: `docker ps -a`
-5. Git 이슈 보고: https://github.com/qws941/splunk.git
+5. Git 이슈 보고: https://github.com/jclee-homelab/splunk.git
 
 ---
 

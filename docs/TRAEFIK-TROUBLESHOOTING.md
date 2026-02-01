@@ -509,7 +509,7 @@ git commit -m "Rollback to working configuration"
 
 **Traefik Documentation**: https://doc.traefik.io/traefik/
 **Splunk Docker**: https://hub.docker.com/r/splunk/splunk/
-**Project Repository**: https://github.com/qws941/splunk.git
+**Project Repository**: https://github.com/jclee-homelab/splunk.git
 
 ---
 
