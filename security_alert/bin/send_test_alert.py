@@ -9,10 +9,11 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'lib'))
 
-WEBHOOK_URL = os.environ.get(
-    'SLACK_WEBHOOK_URL',
-    'YOUR_WEBHOOK_URL_HERE'
-)
+WEBHOOK_URL = os.environ.get('SLACK_WEBHOOK_URL')
+if not WEBHOOK_URL:
+    print("ERROR: SLACK_WEBHOOK_URL environment variable is required", file=sys.stderr)
+    print("Usage: SLACK_WEBHOOK_URL='https://hooks.slack.com/...' python send_test_alert.py", file=sys.stderr)
+    sys.exit(1)
 
 ALERT_TEMPLATES = {
     '001': {
