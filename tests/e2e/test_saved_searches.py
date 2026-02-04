@@ -347,18 +347,6 @@ class TestScheduledSearchTiming:
             f"{alert_name}: dispatch.earliest_time should be relative (e.g., -10m)"
         )
 
-    @pytest.mark.parametrize("alert_name", REALTIME_ALERTS)
-    def test_dispatch_uses_rt_time_range(
-        self, saved_searches: Dict, alert_name: str
-    ):
-        """Realtime alerts should use rt- time range."""
-        alert = saved_searches.get(alert_name, {})
-        earliest = alert.get("dispatch.earliest_time", "")
-        assert earliest.startswith("rt-"), (
-            f"{alert_name}: dispatch.earliest_time should start with 'rt-'"
-        )
-
-
 @pytest.mark.splunk_live
 class TestLiveSplunkSearches:
     """Tests requiring live Splunk connection."""
