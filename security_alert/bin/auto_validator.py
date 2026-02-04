@@ -30,10 +30,10 @@ class AutoValidator:
 
     def validate_all(self):
         """전체 검증 실행"""
-        print("=" * 60)
-        print("🔍 Security Alert System - Auto Validation")
-        print("=" * 60)
-        print("")
+        sys.stderr.write("=" * 60 + "\n")
+        sys.stderr.write("🔍 Security Alert System - Auto Validation\n")
+        sys.stderr.write("=" * 60 + "\n")
+        sys.stderr.write("\n")
 
         # 1. 룩업 CSV 파일 검증
         self.validate_lookups()
@@ -58,8 +58,8 @@ class AutoValidator:
 
     def validate_lookups(self):
         """룩업 CSV 파일 검증"""
-        print("📚 [1/5] 룩업 CSV 파일 검증")
-        print("-" * 60)
+        sys.stderr.write("📚 [1/5] 룩업 CSV 파일 검증\n")
+        sys.stderr.write("-" * 60 + "\n")
 
         if not self.lookups_dir.exists():
             self.errors.append(f"❌ 룩업 디렉토리 없음: {self.lookups_dir}")
@@ -105,7 +105,7 @@ class AutoValidator:
             else:
                 self.info.append(f"✅ {tracker_file} - 존재")
 
-        print("")
+        sys.stderr.write("\n")
 
     def validate_csv_file(self, csv_path):
         """CSV 파일 구조 검증"""
@@ -141,13 +141,13 @@ class AutoValidator:
 
     def validate_transforms_conf(self):
         """transforms.conf 검증 (룩업 정의)"""
-        print("🔧 [2/5] transforms.conf 검증")
-        print("-" * 60)
+        sys.stderr.write("🔧 [2/5] transforms.conf 검증\n")
+        sys.stderr.write("-" * 60 + "\n")
 
         transforms_path = self.app_dir / 'default' / 'transforms.conf'
         if not transforms_path.exists():
             self.errors.append("❌ transforms.conf 파일이 없습니다")
-            print("")
+            sys.stderr.write("\n")
             return
 
         # 필수 룩업 스탠자
@@ -168,17 +168,17 @@ class AutoValidator:
             else:
                 self.errors.append(f"❌ [{stanza}] - 정의 없음")
 
-        print("")
+        sys.stderr.write("\n")
 
     def validate_props_conf(self):
         """props.conf 검증 (자동 룩업)"""
-        print("⚙️ [3/5] props.conf 검증")
-        print("-" * 60)
+        sys.stderr.write("⚙️ [3/5] props.conf 검증\n")
+        sys.stderr.write("-" * 60 + "\n")
 
         props_path = self.app_dir / 'default' / 'props.conf'
         if not props_path.exists():
             self.errors.append("❌ props.conf 파일이 없습니다")
-            print("")
+            sys.stderr.write("\n")
             return
 
         with open(props_path, 'r', encoding='utf-8') as f:
@@ -197,17 +197,17 @@ class AutoValidator:
             else:
                 self.warnings.append(f"⚠️ {lookup} - 자동 적용 안 됨")
 
-        print("")
+        sys.stderr.write("\n")
 
     def validate_savedsearches_conf(self):
         """savedsearches.conf 검증 (알림 정의)"""
-        print("🚨 [4/5] savedsearches.conf 검증")
-        print("-" * 60)
+        sys.stderr.write("🚨 [4/5] savedsearches.conf 검증\n")
+        sys.stderr.write("-" * 60 + "\n")
 
         savedsearches_path = self.app_dir / 'default' / 'savedsearches.conf'
         if not savedsearches_path.exists():
             self.warnings.append("⚠️ savedsearches.conf 파일이 없습니다 (알림 없음)")
-            print("")
+            sys.stderr.write("\n")
             return
 
         with open(savedsearches_path, 'r', encoding='utf-8') as f:
@@ -231,7 +231,7 @@ class AutoValidator:
                 if not self.validate_cron_schedule(content, alert):
                     self.warnings.append(f"⚠️ {alert}: cron_schedule 미정의")
 
-        print("")
+        sys.stderr.write("\n")
 
     def validate_spl_in_alert(self, content, alert_name):
         """알림 내 SPL 쿼리 기본 검증"""
@@ -294,13 +294,13 @@ class AutoValidator:
 
     def validate_alert_actions_conf(self):
         """alert_actions.conf 검증 (Slack 설정)"""
-        print("💬 [5/5] alert_actions.conf 검증")
-        print("-" * 60)
+        sys.stderr.write("💬 [5/5] alert_actions.conf 검증\n")
+        sys.stderr.write("-" * 60 + "\n")
 
         alert_actions_path = self.app_dir / 'default' / 'alert_actions.conf'
         if not alert_actions_path.exists():
             self.errors.append("❌ alert_actions.conf 파일이 없습니다")
-            print("")
+            sys.stderr.write("\n")
             return
 
         with open(alert_actions_path, 'r', encoding='utf-8') as f:
@@ -330,43 +330,43 @@ class AutoValidator:
         else:
             self.errors.append("❌ python.version 미지정 또는 python2")
 
-        print("")
+        sys.stderr.write("\n")
 
     def print_results(self):
         """검증 결과 출력"""
-        print("=" * 60)
-        print("📊 검증 결과 요약")
-        print("=" * 60)
-        print("")
+        sys.stderr.write("=" * 60 + "\n")
+        sys.stderr.write("📊 검증 결과 요약\n")
+        sys.stderr.write("=" * 60 + "\n")
+        sys.stderr.write("\n")
 
         # 오류
         if self.errors:
-            print(f"❌ 오류 ({len(self.errors)}개):")
+            sys.stderr.write(f"❌ 오류 ({len(self.errors)}개):\n")
             for error in self.errors:
-                print(f"   {error}")
-            print("")
+                sys.stderr.write(f"   {error}\n")
+            sys.stderr.write("\n")
 
         # 경고
         if self.warnings:
-            print(f"⚠️ 경고 ({len(self.warnings)}개):")
+            sys.stderr.write(f"⚠️ 경고 ({len(self.warnings)}개):\n")
             for warning in self.warnings:
-                print(f"   {warning}")
-            print("")
+                sys.stderr.write(f"   {warning}\n")
+            sys.stderr.write("\n")
 
         # 정보
         if self.info:
-            print(f"✅ 정상 ({len(self.info)}개):")
+            sys.stderr.write(f"✅ 정상 ({len(self.info)}개):\n")
             for info_msg in self.info:
-                print(f"   {info_msg}")
-            print("")
+                sys.stderr.write(f"   {info_msg}\n")
+            sys.stderr.write("\n")
 
         # 종합 판정
-        print("=" * 60)
+        sys.stderr.write("=" * 60 + "\n")
         if not self.errors:
-            print("✅ 전체 검증 통과!")
+            sys.stderr.write("✅ 전체 검증 통과!\n")
         else:
-            print(f"❌ 검증 실패 ({len(self.errors)}개 오류)")
-        print("=" * 60)
+            sys.stderr.write(f"❌ 검증 실패 ({len(self.errors)}개 오류)\n")
+        sys.stderr.write("=" * 60 + "\n")
 
 
 def main():

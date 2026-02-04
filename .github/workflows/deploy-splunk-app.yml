@@ -80,7 +80,12 @@ jobs:
         id: package
         run: |
           ARTIFACT_NAME="security_alert-${{ steps.version.outputs.version }}-${{ github.sha }}.tar.gz"
-          tar -czf "$ARTIFACT_NAME" security_alert/
+          tar -czf "$ARTIFACT_NAME" \
+            --exclude='__pycache__' \
+            --exclude='*.pyc' \
+            --exclude='.git' \
+            --exclude='tests/' \
+            security_alert/
           echo "artifact_name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
           ls -lh "$ARTIFACT_NAME"
 
