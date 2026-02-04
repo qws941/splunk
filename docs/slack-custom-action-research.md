@@ -374,8 +374,8 @@ tail -100 /opt/splunk/var/log/splunk/alert_actions.log | grep slack
 
 ### 우리 구현
 - GitHub: https://github.com/jclee-homelab/splunk.git
-- Version: v2.0.4
-- Last Updated: 2025-11-04
+- Version: v4.2.3
+- Last Updated: 2026-02-04
 
 ---
 

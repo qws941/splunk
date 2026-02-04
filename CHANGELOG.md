@@ -1,3 +1,27 @@
+## [4.2.3] - 2026-02-04 (Documentation Modernization)
+
+### 📄 Documentation Modernization
+
+#### Version Unification
+- **pyproject.toml**: 4.2.2 → 4.2.3
+- **README.md**: 2.0.4 → 4.2.3
+- **security_alert/README.md**: 2.0.4 → 4.2.3
+- **splunk.wiki/Home.md**: 2.0.4 → 4.2.3
+- **splunk.wiki/_Footer.md**: 2.0.4 → 4.2.3
+- **docs/INSTALLATION-GUIDE.md**: 2.0.4 → 4.2.3
+- **docs/slack-custom-action-research.md**: 2.0.4 → 4.2.3
+
+#### AGENTS.md Corrections
+- **security_alert/AGENTS.md**: Fixed incorrect counts
+  - "32 saved searches" → "15 saved searches"
+  - "5 bin/*.py files" → "6 bin/*.py files"
+  - "001-032 prefix" → "001-017 prefix"
+
+#### Removed
+- **n8n-integration.md**: Removed incomplete GitLab→GitHub migration file
+
+---
+
 ## [4.2.3] - 2026-02-01 (CI/CD Critical Issues Fixed)
 
 ### 🔧 CI/CD Infrastructure Improvements

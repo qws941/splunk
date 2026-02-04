@@ -1,7 +1,7 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-02-02  
-**Commit:** 4fd89d2  
+**Generated:** 2026-02-04  
+**Commit:** 42a4e7b  
 **Branch:** master
 
 ## OVERVIEW
@@ -171,7 +171,8 @@ FortiGate Syslog → Splunk index=fw
 
 ## SUBDIRECTORY AGENTS
 
-- `scripts/AGENTS.md` - Deployment and validation scripts
 - `security_alert/AGENTS.md` - Splunk app internals
+- `scripts/AGENTS.md` - Deployment and validation scripts
 - `domains/AGENTS.md` - DDD integration layer
+- `frontend/AGENTS.md` - React dashboard (Vite)
 - `splunk.wiki/docs/AGENTS.md` - Documentation system (XWiki format)

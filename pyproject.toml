@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "splunk-app-ci-validation"
-version = "4.2.2"
+version = "4.2.3"
 description = "Splunk Fortigate Security Alert App - CI/CD validation"
 requires-python = ">=3.8"
 dependencies = []

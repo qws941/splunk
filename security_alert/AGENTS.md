@@ -4,7 +4,7 @@
 
 ## OVERVIEW
 
-Splunk app with 32 saved searches, EMS state tracking, and Slack Block Kit notifications. Packaged as tarball for deployment.
+Splunk app with 15 saved searches, EMS state tracking, and Slack Block Kit notifications. Packaged as tarball for deployment.
 
 ## STRUCTURE
 
@@ -16,7 +16,7 @@ security_alert/
 │   ├── deployment_health_check.py # Health check (533 LOC)
 │   └── splunk_feature_checker.py  # Feature detection (727 LOC) ★
 ├── default/             # Splunk configs
-│   ├── savedsearches.conf        # 32 alerts (~800 LOC)
+│   ├── savedsearches.conf        # 15 alerts (~800 LOC)
 │   ├── macros.conf               # SPL parameters (~150 LOC)
 │   ├── transforms.conf           # Field extractions
 │   └── alert_actions.conf        # Slack action config
@@ -37,7 +37,7 @@ security_alert/
 
 ```
 0XX_Alert_Name
-│└─ 3-digit prefix (001-032)
+│└─ 3-digit prefix (001-017)
 └── Underscore separator
 ```
 
@@ -95,5 +95,5 @@ security_alert/
 
 ## VIOLATIONS (KNOWN)
 
-- 5 bin/*.py files use `print()` instead of `sys.stderr.write()`
+- 6 bin/*.py files use `print()` instead of `sys.stderr.write()`
 - Should be fixed to comply with Splunk alert protocol

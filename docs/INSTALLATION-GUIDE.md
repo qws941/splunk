@@ -1,8 +1,8 @@
 # 🚀 Security Alert System - Installation Guide
 
 **Package**: `security_alert.tar.gz` (69KB, 54 files)
-**Version**: 2.0.4
-**Date**: 2025-11-04 14:35:00
+**Version**: 4.2.3
+**Date**: 2026-02-04
 **Status**: ✅ All Splunk stanza errors fixed
 
 ---

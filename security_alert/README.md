@@ -1,4 +1,4 @@
-# Security Alert System v2.0.4
+# Security Alert System v4.2.3
 
 FortiGate 보안 이벤트 모니터링 및 Slack 알림 시스템
 
@@ -115,9 +115,7 @@ index=_internal source=*alert_actions.log action_name="slack"
 
 ## 버전
 
-**v2.0.4** (2025-11-04)
-- EMS 상태 추적 적용
-- Slack Block Kit 알림
-- 15개 알림 활성화
+**v4.2.3** (2026-02-04)
+- 버전 통일 및 문서 현행화
 
 **Repository**: https://github.com/jclee-homelab/splunk.git
