@@ -101,8 +101,11 @@ class TestAutoValidator:
 class TestGenerateTestEvents:
 
     def test_generate_test_events_exists(self):
-        if not (BIN_PATH / "generate_test_events.py").exists():
+        """Check if generate_test_events.py exists (optional utility script)."""
+        script_path = BIN_PATH / "generate_test_events.py"
+        if not script_path.exists():
             pytest.skip("generate_test_events.py not present in this deployment")
+        assert script_path.exists()
 
     def test_has_alerts_dictionary(self):
         script_path = BIN_PATH / "generate_test_events.py"
