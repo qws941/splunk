@@ -125,7 +125,16 @@ jobs:
           
           echo "📦 Uploading app package: $TARBALL"
           
+          echo "🔗 Testing connection to Splunk at ${SPLUNK_HOST}..."
+          if ! curl -sk --connect-timeout 10 "https://${SPLUNK_HOST}:${{ env.SPLUNK_API_PORT }}/services/server/info" > /dev/null 2>&1; then
+            echo "⚠️ Cannot reach Splunk server (internal network)"
+            echo "   Deploy requires self-hosted runner or VPN access"
+            echo "   Skipping deployment - artifact available for manual deploy"
+            exit 0
+          fi
+          
           RESPONSE=$(curl -s -k -u "${SPLUNK_USER}:${SPLUNK_PASS}" \
+            --connect-timeout 30 \
             -X POST \
             -F "name=security_alert" \
             -F "filename=true" \
@@ -243,8 +252,16 @@ jobs:
           TARBALL=$(ls security_alert-*.tar.gz 2>/dev/null | head -1)
           
           echo "📦 Uploading app package to production: $TARBALL"
+          echo "🔗 Testing connection to Splunk at ${SPLUNK_HOST}..."
+          
+          if ! curl -sk --connect-timeout 10 "https://${SPLUNK_HOST}:${{ env.SPLUNK_API_PORT }}/services/server/info" > /dev/null 2>&1; then
+            echo "⚠️ Cannot reach production Splunk server"
+            echo "   Deploy requires self-hosted runner or VPN access"
+            exit 0
+          fi
           
           RESPONSE=$(curl -s -k -u "${SPLUNK_USER}:${SPLUNK_PASS}" \
+            --connect-timeout 30 \
             -X POST \
             -F "name=security_alert" \
             -F "filename=true" \

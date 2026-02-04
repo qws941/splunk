@@ -2,15 +2,12 @@
   <view name="search" default='true' />
 
   <collection label="Dashboards">
-    <view name="data-explorer-dashboard" />
-    <view name="alert-builder" />
-    <view name="alert-management-dashboard" />
-    <view name="easy_alert_builder" />
+    <view name="fortigate_comprehensive_alerts" />
+    <view name="security_dashboard_simple" />
   </collection>
 
   <collection label="Testing">
-    <view name="slack-test-dashboard" />
+    <view name="slack_test_dashboard" />
   </collection>
 
-  <a href="/app/security_alert/setup">Setup</a>
 </nav>

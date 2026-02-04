@@ -1,103 +1,78 @@
 # DOMAINS KNOWLEDGE BASE
 
-**Parent:** [../AGENTS.md](../AGENTS.md)
+**Scope:** DDD integration layer (Node.js)
 
 ## OVERVIEW
 
-DDD (Domain-Driven Design) integration layer. Node.js modules connecting FortiAnalyzer, Splunk, and Slack. Used by backend service for FAZ→Splunk HEC bridge.
+Domain-Driven Design modules connecting FortiAnalyzer → Splunk HEC → Slack. Circuit breaker pattern for fault tolerance. ES modules with async I/O.
 
 ## STRUCTURE
 
 ```
 domains/
-├── defense/              # Resilience patterns
-│   └── circuit-breaker.js    # Failure isolation (1.5KB)
-├── integration/          # External connectors
-│   ├── fortianalyzer-direct-connector.js  # FAZ API client (530 LOC)
-│   ├── splunk-api.js          # Splunk REST client (12KB)
-│   ├── splunk-dashboards.js   # Dashboard management (744 LOC)
-│   ├── splunk-queries.js      # SPL query builder (503 LOC)
-│   └── slack-*.js             # Slack notification (2 files)
-└── security/             # Event processing
-    └── security-event-processor.js  # Core processor (485 LOC)
+├── defense/             # Resilience patterns
+│   └── circuit-breaker.js
+├── integration/         # External connectors
+│   ├── fortianalyzer-direct-connector.js  (530 LOC) ★
+│   ├── splunk-api.js                       (12KB)
+│   ├── splunk-dashboards.js                (744 LOC)
+│   ├── splunk-queries.js                   (503 LOC)
+│   └── slack-*.js
+└── security/            # Event processing
+    └── security-event-processor.js         (485 LOC)
 ```
 
 ## WHERE TO LOOK
 
-| Task | File | Notes |
-|------|------|-------|
-| Add FAZ endpoint | `integration/fortianalyzer-direct-connector.js` | Follow existing API pattern |
-| Add Splunk query | `integration/splunk-queries.js` | SPL builder methods |
-| Modify circuit breaker | `defense/circuit-breaker.js` | Threshold/timeout config |
-| Add event processor | `security/security-event-processor.js` | Chain of responsibility |
+| Task | Location |
+|------|----------|
+| Add FAZ connector | `integration/fortianalyzer-*.js` |
+| Add Splunk integration | `integration/splunk-*.js` |
+| Add Slack notification | `integration/slack-*.js` |
+| Handle failures | `defense/circuit-breaker.js` |
 
-## HIGH-COMPLEXITY FILES
-
-| File | LOC | Complexity | Refactor Notes |
-|------|-----|------------|----------------|
-| `security-event-processor.js` | 485 | 65 | Extract to chain of responsibility |
-| `fortianalyzer-direct-connector.js` | 530 | 51 | Split by API category |
-| `splunk-dashboards.js` | 744 | 3 | Low complexity, keep as-is |
-
-## CIRCUIT BREAKER PATTERN
+## CIRCUIT BREAKER
 
 ```javascript
-// defense/circuit-breaker.js
+// All external calls MUST use circuit breaker
 const breaker = new CircuitBreaker({
-  failureThreshold: 5,      // Failures before opening
-  successThreshold: 2,      // Successes to close
-  timeout: 60000            // Recovery timeout (ms)
+  failureThreshold: 5,
+  successThreshold: 2,
+  timeout: 60000  // 60 seconds
 });
 
-// States: CLOSED → OPEN → HALF_OPEN → CLOSED
+await breaker.execute(() => externalCall());
 ```
+
+## CONVENTIONS
+
+| Rule | Convention |
+|------|------------|
+| Module format | ES modules (`import/export`) |
+| Error handling | `try/catch` + circuit breaker |
+| Logging | Structured JSON |
+| Config | Environment variables only |
+| I/O | Async only (never blocking) |
 
 ## ANTI-PATTERNS
 
 | NEVER | Why |
 |-------|-----|
-| Archive/delete `domains/` | Active DDD modules in use |
-| Direct API calls | Use circuit breaker wrapper |
-| Hardcode credentials | Use environment variables |
-| Sync file I/O in connectors | Use async/await |
+| Archive `domains/` | Active DDD modules, not legacy |
+| Skip circuit breaker | External calls can cascade failure |
+| Hardcode credentials | Use `process.env.*` |
+| Sync I/O | Blocks event loop |
 
-## ENVIRONMENT VARIABLES
+## COMPLEXITY SCORES
 
-```bash
-# FortiAnalyzer
-FAZ_HOST=192.168.1.100
-FAZ_USERNAME=admin
-FAZ_PASSWORD=<from-env>
+| Module | Score | Notes |
+|--------|-------|-------|
+| `security-event-processor.js` | 65 | HIGH |
+| `fortianalyzer-connector.js` | 51 | MEDIUM-HIGH |
+| `splunk-api.js` | 45 | MEDIUM |
 
-# Splunk HEC
-SPLUNK_HEC_HOST=splunk.company.com
-SPLUNK_HEC_TOKEN=<from-env>
-SPLUNK_INDEX_FORTIGATE=fortianalyzer
+## MISSING (TECH DEBT)
 
-# Circuit Breaker
-CIRCUIT_BREAKER_THRESHOLD=5
-CIRCUIT_BREAKER_TIMEOUT=60000
-```
-
-## CONVENTIONS
-
-| Item | Convention |
-|------|------------|
-| Exports | ES modules (`export default`) |
-| Error handling | Try/catch with circuit breaker |
-| Logging | Structured JSON to stdout |
-| Config | Environment variables only |
-
-## MODULE BOUNDARIES
-
-```
-backend/server.js
-      ↓ imports
-domains/integration/*
-      ↓ wraps
-domains/defense/circuit-breaker.js
-      ↓ processes
-domains/security/security-event-processor.js
-      ↓ sends
-External APIs (FAZ, Splunk HEC, Slack)
-```
+- No `index.js` barrel export
+- No TypeScript types
+- No unit tests for connectors

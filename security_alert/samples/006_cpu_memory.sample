@@ -1,0 +1,2 @@
+##TIMESTAMP## devname="##DEVICE##" devid="FG100F0000000001" vd="root" logid="0104043001" type="event" subtype="system" level="warning" eventtime=1706140800 logdesc="##RESOURCE## usage high" msg="##RESOURCE## usage is ##VALUE##% which exceeds threshold"
+##TIMESTAMP## devname="##DEVICE##" devid="FG100F0000000001" vd="root" logid="0104043002" type="event" subtype="system" level="warning" eventtime=1706140800 logdesc="##RESOURCE## usage alert" msg="##RESOURCE## usage ##VALUE##% detected, baseline average is 45%"

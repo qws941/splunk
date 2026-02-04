@@ -1,0 +1,3 @@
+##TIMESTAMP## devname="##DEVICE##" devid="FG100F0000000001" vd="root" logid="0100032002" type="event" subtype="system" level="warning" eventtime=1706140800 logdesc="System reboot" uptime="15d 4h 32m" msg="System reboot initiated, reason: ##REASON##, initiated by system"
+##TIMESTAMP## devname="##DEVICE##" devid="FG100F0000000001" vd="root" logid="0100032003" type="event" subtype="system" level="critical" eventtime=1706140800 logdesc="System crash" uptime="7d 12h 45m" msg="System crash detected, reason: ##REASON##"
+##TIMESTAMP## devname="##DEVICE##" devid="FG100F0000000001" vd="root" logid="0100032004" type="event" subtype="system" level="critical" eventtime=1706140800 logdesc="Kernel panic" uptime="2d 8h 15m" msg="Kernel panic occurred, reason: ##REASON##"

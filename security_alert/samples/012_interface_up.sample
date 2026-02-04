@@ -1,0 +1,2 @@
+##TIMESTAMP## devname="##DEVICE##" devid="FG100F0000000001" vd="root" logid="0100032001" type="event" subtype="system" level="notice" eventtime=1706140800 logdesc="Interface up" interface="##INTERFACE##" port="##INTERFACE##" msg="Interface ##INTERFACE## link up, speed: 1000Mbps, duplex: full"
+##TIMESTAMP## devname="##DEVICE##" devid="FG100F0000000001" vd="root" logid="0100020007" type="event" subtype="system" level="notice" eventtime=1706140800 logdesc="Link monitor restored" interface="##INTERFACE##" msg="Link monitor: interface ##INTERFACE## is up"

@@ -1,0 +1,185 @@
+{
+    "visualizations": {
+        "viz_alert_list": {
+            "type": "splunk.table",
+            "options": {
+                "columnFormat": {
+                    "status": {
+                        "data": "string"
+                    }
+                },
+                "headerVisibility": "fixed"
+            },
+            "dataSources": {
+                "primary": "ds_alert_list"
+            },
+            "title": "사용 가능한 알림 유형"
+        },
+        "viz_test_result": {
+            "type": "splunk.table",
+            "options": {
+                "headerVisibility": "fixed"
+            },
+            "dataSources": {
+                "primary": "ds_test_result"
+            },
+            "title": "테스트 결과"
+        },
+        "viz_single_success": {
+            "type": "splunk.singlevalue",
+            "options": {
+                "majorColor": "#53a051",
+                "backgroundColor": "transparent"
+            },
+            "dataSources": {
+                "primary": "ds_success_count"
+            },
+            "title": "성공"
+        },
+        "viz_single_total": {
+            "type": "splunk.singlevalue",
+            "options": {
+                "majorColor": "#006d9c",
+                "backgroundColor": "transparent"
+            },
+            "dataSources": {
+                "primary": "ds_total_count"
+            },
+            "title": "전체 테스트"
+        },
+        "viz_webhook_status": {
+            "type": "splunk.singlevalue",
+            "options": {
+                "majorColor": "#53a051",
+                "backgroundColor": "transparent"
+            },
+            "dataSources": {
+                "primary": "ds_webhook_status"
+            },
+            "title": "Webhook 상태"
+        }
+    },
+    "dataSources": {
+        "ds_alert_list": {
+            "type": "ds.search",
+            "options": {
+                "query": "| makeresults | eval data=\"001,Config Change,⚙️|002,VPN Tunnel Down,🔴|003,VPN Tunnel Up,🟢|006,CPU/Memory Anomaly,📊|007,Hardware Failure,🔴|008,HA State Change,🔄|010,Resource Limit,⚠️|011,Admin Login Failed,🚫|012,Interface Down,🔴|013,SSL VPN Brute Force,🚨|015,Abnormal Traffic Spike,📈|016,System Reboot,🔄|017,License Expiry Warning,⏰\" | makemv delim=\"|\" data | mvexpand data | rex field=data \"(?<alert_id>[^,]+),(?<alert_name>[^,]+),(?<emoji>.+)\" | table alert_id, emoji, alert_name | rename alert_id as \"알림 ID\", emoji as \"아이콘\", alert_name as \"알림 유형\"",
+                "queryParameters": {
+                    "earliest": "-1m",
+                    "latest": "now"
+                }
+            }
+        },
+        "ds_test_result": {
+            "type": "ds.search",
+            "options": {
+                "query": "| script sendtestalert $alert_type$ | rex field=_raw \"(?<status>[✓✗])\\s+(?<alert_id>\\d+):\\s+(?<result>.+)\" | table status, alert_id, result | rename status as \"상태\", alert_id as \"알림 ID\", result as \"결과\"",
+                "queryParameters": {
+                    "earliest": "-1m",
+                    "latest": "now"
+                }
+            }
+        },
+        "ds_success_count": {
+            "type": "ds.search",
+            "options": {
+                "query": "| script sendtestalert $alert_type$ | search \"✓\" | stats count as success",
+                "queryParameters": {
+                    "earliest": "-1m",
+                    "latest": "now"
+                }
+            }
+        },
+        "ds_total_count": {
+            "type": "ds.search",
+            "options": {
+                "query": "| script sendtestalert $alert_type$ | stats count as total",
+                "queryParameters": {
+                    "earliest": "-1m",
+                    "latest": "now"
+                }
+            }
+        },
+        "ds_webhook_status": {
+            "type": "ds.search",
+            "options": {
+                "query": "| makeresults | eval status=\"Connected ✓\" | table status",
+                "queryParameters": {
+                    "earliest": "-1m",
+                    "latest": "now"
+                }
+            }
+        }
+    },
+    "inputs": {
+        "input_alert_type": {
+            "type": "input.dropdown",
+            "options": {
+                "items": [
+                    {"label": "전체 알림 테스트", "value": "all"},
+                    {"label": "001 - Config Change", "value": "001"},
+                    {"label": "002 - VPN Tunnel Down", "value": "002"},
+                    {"label": "003 - VPN Tunnel Up", "value": "003"},
+                    {"label": "006 - CPU/Memory Anomaly", "value": "006"},
+                    {"label": "007 - Hardware Failure", "value": "007"},
+                    {"label": "008 - HA State Change", "value": "008"},
+                    {"label": "010 - Resource Limit", "value": "010"},
+                    {"label": "011 - Admin Login Failed", "value": "011"},
+                    {"label": "012 - Interface Down", "value": "012"},
+                    {"label": "013 - SSL VPN Brute Force", "value": "013"},
+                    {"label": "015 - Abnormal Traffic Spike", "value": "015"},
+                    {"label": "016 - System Reboot", "value": "016"},
+                    {"label": "017 - License Expiry Warning", "value": "017"}
+                ],
+                "defaultValue": "all",
+                "token": "alert_type"
+            },
+            "title": "알림 유형 선택"
+        },
+        "input_submit": {
+            "type": "input.submit",
+            "options": {},
+            "title": "테스트 실행"
+        }
+    },
+    "layout": {
+        "type": "grid",
+        "globalInputs": ["input_alert_type", "input_submit"],
+        "structure": [
+            {
+                "item": "viz_webhook_status",
+                "position": {"x": 0, "y": 0, "w": 300, "h": 100}
+            },
+            {
+                "item": "viz_single_success",
+                "position": {"x": 300, "y": 0, "w": 300, "h": 100}
+            },
+            {
+                "item": "viz_single_total",
+                "position": {"x": 600, "y": 0, "w": 300, "h": 100}
+            },
+            {
+                "item": "viz_alert_list",
+                "position": {"x": 0, "y": 100, "w": 600, "h": 400}
+            },
+            {
+                "item": "viz_test_result",
+                "position": {"x": 600, "y": 100, "w": 600, "h": 400}
+            }
+        ]
+    },
+    "title": "Slack 알림 테스트",
+    "description": "FortiGate 알림 유형별 Slack 메시지 테스트 대시보드",
+    "defaults": {
+        "dataSources": {
+            "ds.search": {
+                "options": {
+                    "queryParameters": {
+                        "earliest": "-1m",
+                        "latest": "now"
+                    }
+                }
+            }
+        }
+    }
+}

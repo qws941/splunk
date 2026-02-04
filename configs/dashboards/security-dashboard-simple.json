@@ -106,7 +106,7 @@
     "ds_device_list": {
       "type": "ds.search",
       "options": {
-        "query": "index=fortianalyzer devname=* | stats count as event_count, latest(_time) as last_seen, earliest(_time) as first_seen, dc(srcip) as unique_src, dc(dstip) as unique_dst by devname | eval last_seen_time = strftime(last_seen, \"%Y-%m-%d %H:%M:%S\") | eval first_seen_time = strftime(first_seen, \"%Y-%m-%d %H:%M:%S\") | eval status = if((now() - last_seen) < 300, \"🟢 Active\", \"🔴 Inactive\") | sort -last_seen | rename devname AS \"장비명\", status AS \"상태\", event_count AS \"이벤트수\", last_seen_time AS \"마지막로그\", first_seen_time AS \"최초로그\", unique_src AS \"소스IP수\", unique_dst AS \"목적지IP수\"",
+        "query": "index=fw devname=* | stats count as event_count, latest(_time) as last_seen, earliest(_time) as first_seen, dc(srcip) as unique_src, dc(dstip) as unique_dst by devname | eval last_seen_time = strftime(last_seen, \"%Y-%m-%d %H:%M:%S\") | eval first_seen_time = strftime(first_seen, \"%Y-%m-%d %H:%M:%S\") | eval status = if((now() - last_seen) < 300, \"🟢 Active\", \"🔴 Inactive\") | sort -last_seen | rename devname AS \"장비명\", status AS \"상태\", event_count AS \"이벤트수\", last_seen_time AS \"마지막로그\", first_seen_time AS \"최초로그\", unique_src AS \"소스IP수\", unique_dst AS \"목적지IP수\"",
         "queryParameters": {
           "earliest": "$time_token.earliest$",
           "latest": "$time_token.latest$"
@@ -117,7 +117,7 @@
     "ds_critical_logs": {
       "type": "ds.search",
       "options": {
-        "query": "index=fortianalyzer earliest=-24h latest=now (severity=critical OR level=critical) | eval timestamp = strftime(_time, \"%Y-%m-%d %H:%M:%S\") | eval severity_display = coalesce(severity, level, \"critical\") | table timestamp, srcip, dstip, severity_display, msg, logdesc, devname | rename timestamp AS \"시간\", srcip AS \"출발지IP\", dstip AS \"목적지IP\", severity_display AS \"심각도\", msg AS \"메시지\", logdesc AS \"설명\", devname AS \"장비\" | sort -시간 | head 30",
+        "query": "index=fw earliest=-24h latest=now (severity=critical OR level=critical) | eval timestamp = strftime(_time, \"%Y-%m-%d %H:%M:%S\") | eval severity_display = coalesce(severity, level, \"critical\") | table timestamp, srcip, dstip, severity_display, msg, logdesc, devname | rename timestamp AS \"시간\", srcip AS \"출발지IP\", dstip AS \"목적지IP\", severity_display AS \"심각도\", msg AS \"메시지\", logdesc AS \"설명\", devname AS \"장비\" | sort -시간 | head 30",
         "queryParameters": {
           "earliest": "-24h",
           "latest": "now"
@@ -128,7 +128,7 @@
     "ds_config_changes": {
       "type": "ds.search",
       "options": {
-        "query": "index=fortianalyzer (cfgpath=\"firewall.policy\" OR cfgpath=\"firewall.rule\" OR cfgpath=\"firewall.address\" OR cfgpath=\"firewall.addrgrp\" OR cfgpath=\"firewall.service\" OR cfgpath=\"firewall.servicegrp\" OR logid=\"0100044547\" OR logid=\"0100044546\" OR logid=\"0100032001\" OR logid=\"0100032002\") | rex field=_raw \"cfgobj=\\\"(?<policy_obj>[^\\\"]+)\\\"\" | rex field=_raw \"cfgattr=\\\"(?<policy_attr>[^\\\"]+)\\\"\" | rex field=ui \"(?<access>\\w+)\\((?<ip>[^\\)]+)\\)\" | eval config_hash = md5(cfgpath . policy_obj . policy_attr . user . _time) | stats first(_time) as _time, first(devname) as devname, first(user) as user, first(action) as action, first(cfgpath) as cfgpath, first(policy_obj) as policy_obj, first(policy_attr) as policy_attr, first(access) as access, first(ip) as ip by config_hash | eval timestamp = strftime(_time, \"%Y-%m-%d %H:%M:%S\") | eval mgmt_source = case(match(devname, \"FMG|FortiManager\"), \"FortiManager\", match(devname, \"FAZ|FortiAnalyzer\"), \"FortiAnalyzer\", match(devname, \"FG|FortiGate\"), \"FortiGate\", 1=1, devname) | eval change_type = case(match(cfgpath, \"firewall.policy\") OR match(cfgpath, \"firewall.rule\"), \"정책\", match(cfgpath, \"firewall.address\") OR match(cfgpath, \"firewall.addrgrp\"), \"주소\", match(cfgpath, \"firewall.service\") OR match(cfgpath, \"firewall.servicegrp\"), \"서비스\", 1=1, \"기타\") | eval crud_operation = case(action=\"Add\" OR action=\"create\", \"생성\", action=\"Delete\" OR action=\"remove\", \"삭제\", action=\"Edit\" OR action=\"Set\" OR action=\"modify\", \"수정\", 1=1, action) | table timestamp, mgmt_source, change_type, user, crud_operation, policy_obj, access, ip | rename timestamp AS \"시간\", mgmt_source AS \"관리시스템\", change_type AS \"변경유형\", user AS \"관리자\", crud_operation AS \"작업\", policy_obj AS \"설정객체\", access AS \"접속방법\", ip AS \"접속IP\" | sort -시간 | head 20",
+        "query": "index=fw (cfgpath=\"firewall.policy\" OR cfgpath=\"firewall.rule\" OR cfgpath=\"firewall.address\" OR cfgpath=\"firewall.addrgrp\" OR cfgpath=\"firewall.service\" OR cfgpath=\"firewall.servicegrp\" OR logid=\"0100044547\" OR logid=\"0100044546\" OR logid=\"0100032001\" OR logid=\"0100032002\") | rex field=_raw \"cfgobj=\\\"(?<policy_obj>[^\\\"]+)\\\"\" | rex field=_raw \"cfgattr=\\\"(?<policy_attr>[^\\\"]+)\\\"\" | rex field=ui \"(?<access>\\w+)\\((?<ip>[^\\)]+)\\)\" | eval config_hash = md5(cfgpath . policy_obj . policy_attr . user . _time) | stats first(_time) as _time, first(devname) as devname, first(user) as user, first(action) as action, first(cfgpath) as cfgpath, first(policy_obj) as policy_obj, first(policy_attr) as policy_attr, first(access) as access, first(ip) as ip by config_hash | eval timestamp = strftime(_time, \"%Y-%m-%d %H:%M:%S\") | eval mgmt_source = case(match(devname, \"FMG|FortiManager\"), \"FortiManager\", match(devname, \"FAZ|FortiAnalyzer\"), \"FortiAnalyzer\", match(devname, \"FG|FortiGate\"), \"FortiGate\", 1=1, devname) | eval change_type = case(match(cfgpath, \"firewall.policy\") OR match(cfgpath, \"firewall.rule\"), \"정책\", match(cfgpath, \"firewall.address\") OR match(cfgpath, \"firewall.addrgrp\"), \"주소\", match(cfgpath, \"firewall.service\") OR match(cfgpath, \"firewall.servicegrp\"), \"서비스\", 1=1, \"기타\") | eval crud_operation = case(action=\"Add\" OR action=\"create\", \"생성\", action=\"Delete\" OR action=\"remove\", \"삭제\", action=\"Edit\" OR action=\"Set\" OR action=\"modify\", \"수정\", 1=1, action) | table timestamp, mgmt_source, change_type, user, crud_operation, policy_obj, access, ip | rename timestamp AS \"시간\", mgmt_source AS \"관리시스템\", change_type AS \"변경유형\", user AS \"관리자\", crud_operation AS \"작업\", policy_obj AS \"설정객체\", access AS \"접속방법\", ip AS \"접속IP\" | sort -시간 | head 20",
         "queryParameters": {
           "earliest": "$time_token.earliest$",
           "latest": "$time_token.latest$"
@@ -139,7 +139,7 @@
     "ds_policy_traffic": {
       "type": "ds.search",
       "options": {
-        "query": "index=fortianalyzer type=\"traffic\" policyid=* action=$action_filter$ devname=$device_type$ | stats count as hits, sum(sentbyte) as sent, sum(rcvdbyte) as rcvd, dc(srcip) as src_count, dc(dstip) as dst_count, values(action) as actions, values(devname) as devices by policyid, policyname | eval total_gb = round((sent+rcvd)/1073741824, 2) | sort -hits | head 20 | rename policyid AS \"정책ID\", policyname AS \"정책명\", hits AS \"매칭횟수\", total_gb AS \"트래픽(GB)\", src_count AS \"소스IP수\", dst_count AS \"목적지IP수\", actions AS \"동작\", devices AS \"장비\"",
+        "query": "index=fw type=\"traffic\" policyid=* action=$action_filter$ devname=$device_type$ | stats count as hits, sum(sentbyte) as sent, sum(rcvdbyte) as rcvd, dc(srcip) as src_count, dc(dstip) as dst_count, values(action) as actions, values(devname) as devices by policyid, policyname | eval total_gb = round((sent+rcvd)/1073741824, 2) | sort -hits | head 20 | rename policyid AS \"정책ID\", policyname AS \"정책명\", hits AS \"매칭횟수\", total_gb AS \"트래픽(GB)\", src_count AS \"소스IP수\", dst_count AS \"목적지IP수\", actions AS \"동작\", devices AS \"장비\"",
         "queryParameters": {
           "earliest": "$time_token.earliest$",
           "latest": "$time_token.latest$"
@@ -150,7 +150,7 @@
     "ds_blocked_detail": {
       "type": "ds.search",
       "options": {
-        "query": "index=fortianalyzer type=\"traffic\" (action=\"deny\" OR action=\"drop\" OR action=\"blocked\") | eval timestamp = strftime(_time, \"%Y-%m-%d %H:%M:%S\") | eval block_reason = case(match(msg, \"(?i)policy.*denied\"), \"정책 거부\", match(msg, \"(?i)invalid\"), \"유효하지 않은 패킷\", policyid=0, \"정책 없음\", 1=1, \"기타\") | eval service_display = coalesce(service, dstport) | table timestamp, srcip, dstip, dstport, service_display, policyid, block_reason, devname | rename timestamp AS \"시간\", srcip AS \"출발지IP\", dstip AS \"목적지IP\", dstport AS \"포트\", service_display AS \"서비스\", policyid AS \"정책ID\", block_reason AS \"차단사유\", devname AS \"장비\" | sort -시간 | head 30",
+        "query": "index=fw type=\"traffic\" (action=\"deny\" OR action=\"drop\" OR action=\"blocked\") | eval timestamp = strftime(_time, \"%Y-%m-%d %H:%M:%S\") | eval block_reason = case(match(msg, \"(?i)policy.*denied\"), \"정책 거부\", match(msg, \"(?i)invalid\"), \"유효하지 않은 패킷\", policyid=0, \"정책 없음\", 1=1, \"기타\") | eval service_display = coalesce(service, dstport) | table timestamp, srcip, dstip, dstport, service_display, policyid, block_reason, devname | rename timestamp AS \"시간\", srcip AS \"출발지IP\", dstip AS \"목적지IP\", dstport AS \"포트\", service_display AS \"서비스\", policyid AS \"정책ID\", block_reason AS \"차단사유\", devname AS \"장비\" | sort -시간 | head 30",
         "queryParameters": {
           "earliest": "$time_token.earliest$",
           "latest": "$time_token.latest$"
@@ -161,7 +161,7 @@
     "ds_top_src_ip": {
       "type": "ds.search",
       "options": {
-        "query": "index=fortianalyzer type=\"traffic\" action=$action_filter$ devname=$device_type$ | stats count as connections, sum(sentbyte) as sent, dc(dstip) as destinations by srcip | eval sent_gb = round(sent/1073741824, 2) | sort -connections | head 10 | rename srcip AS \"출발지IP\", connections AS \"연결수\", sent_gb AS \"송신(GB)\", destinations AS \"목적지수\"",
+        "query": "index=fw type=\"traffic\" action=$action_filter$ devname=$device_type$ | stats count as connections, sum(sentbyte) as sent, dc(dstip) as destinations by srcip | eval sent_gb = round(sent/1073741824, 2) | sort -connections | head 10 | rename srcip AS \"출발지IP\", connections AS \"연결수\", sent_gb AS \"송신(GB)\", destinations AS \"목적지수\"",
         "queryParameters": {
           "earliest": "$time_token.earliest$",
           "latest": "$time_token.latest$"
@@ -172,7 +172,7 @@
     "ds_top_dst_ip": {
       "type": "ds.search",
       "options": {
-        "query": "index=fortianalyzer type=\"traffic\" action=$action_filter$ devname=$device_type$ | stats count as connections, sum(rcvdbyte) as received, dc(srcip) as sources by dstip | eval received_gb = round(received/1073741824, 2) | sort -connections | head 10 | rename dstip AS \"목적지IP\", connections AS \"연결수\", received_gb AS \"수신(GB)\", sources AS \"출발지수\"",
+        "query": "index=fw type=\"traffic\" action=$action_filter$ devname=$device_type$ | stats count as connections, sum(rcvdbyte) as received, dc(srcip) as sources by dstip | eval received_gb = round(received/1073741824, 2) | sort -connections | head 10 | rename dstip AS \"목적지IP\", connections AS \"연결수\", received_gb AS \"수신(GB)\", sources AS \"출발지수\"",
         "queryParameters": {
           "earliest": "$time_token.earliest$",
           "latest": "$time_token.latest$"
@@ -183,7 +183,7 @@
     "ds_top_services": {
       "type": "ds.search",
       "options": {
-        "query": "index=fortianalyzer type=\"traffic\" action=$action_filter$ devname=$device_type$ | eval port_service = service + \" (\" + dstport + \")\" | stats count as hits, dc(srcip) as unique_src, dc(dstip) as unique_dst by port_service | sort -hits | head 10 | rename port_service AS \"서비스(포트)\", hits AS \"사용횟수\", unique_src AS \"소스수\", unique_dst AS \"목적지수\"",
+        "query": "index=fw type=\"traffic\" action=$action_filter$ devname=$device_type$ | eval port_service = service + \" (\" + dstport + \")\" | stats count as hits, dc(srcip) as unique_src, dc(dstip) as unique_dst by port_service | sort -hits | head 10 | rename port_service AS \"서비스(포트)\", hits AS \"사용횟수\", unique_src AS \"소스수\", unique_dst AS \"목적지수\"",
         "queryParameters": {
           "earliest": "$time_token.earliest$",
           "latest": "$time_token.latest$"

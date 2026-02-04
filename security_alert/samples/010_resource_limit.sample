@@ -1,0 +1,2 @@
+##TIMESTAMP## devname="##DEVICE##" devid="FG100F0000000001" vd="root" logid="0104043003" type="event" subtype="system" level="warning" eventtime=1706140800 logdesc="##RESOURCETYPE## limit reached" msg="##RESOURCETYPE## usage ##USAGE##% limit reached on ##DEVICE##, current 950000, limit 1000000"
+##TIMESTAMP## devname="##DEVICE##" devid="FG100F0000000001" vd="root" logid="0104043004" type="event" subtype="system" level="alert" eventtime=1706140800 logdesc="##RESOURCETYPE## exhaustion" msg="##RESOURCETYPE## usage is ##USAGE##%, approaching exhaustion threshold"

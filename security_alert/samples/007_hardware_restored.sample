@@ -1,0 +1,2 @@
+##TIMESTAMP## devname="##DEVICE##" devid="FG100F0000000001" vd="root" logid="0103040014" type="event" subtype="system" level="notice" eventtime=1706140800 logdesc="Hardware restored" msg="##COMPONENT## restored on device ##DEVICE##"
+##TIMESTAMP## devname="##DEVICE##" devid="FG100F0000000001" vd="root" logid="0103040015" type="event" subtype="system" level="notice" eventtime=1706140800 logdesc="Power supply restored" msg="PSU 1 power restored on ##DEVICE##"
