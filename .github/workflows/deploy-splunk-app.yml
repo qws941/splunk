@@ -93,7 +93,7 @@ jobs:
 
   deploy-dev:
     name: Deploy to Dev (LXC 150)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, internal-network]
     needs: package
     environment:
       name: splunk-dev
@@ -245,7 +245,7 @@ jobs:
 
   deploy-prod:
     name: Deploy to Production
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, internal-network]
     needs: [package, deploy-dev]
     environment:
       name: splunk-prod
