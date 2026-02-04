@@ -23,7 +23,6 @@ on:
 
 env:
   APP_NAME: security_alert
-  SPLUNK_API_PORT: 8089
 
 concurrency:
   group: deploy-splunk-${{ github.ref }}
@@ -114,7 +113,7 @@ jobs:
         with:
           name: splunk-app-package
 
-      - name: Deploy via Splunk REST API
+      - name: Deploy via SSH + Splunk CLI
         env:
           SPLUNK_HOST: ${{ secrets.SPLUNK_HOST_DEV }}
           SPLUNK_USER: ${{ secrets.SPLUNK_USER }}
@@ -122,78 +121,71 @@ jobs:
         run: |
           if [ -z "$SPLUNK_HOST" ]; then
             echo "⚠️ SPLUNK_HOST_DEV secret not configured"
-            echo "Set these secrets: SPLUNK_DEV_HOST, SPLUNK_USER, SPLUNK_PASS"
+            echo "Set these secrets: SPLUNK_HOST_DEV, SPLUNK_USER, SPLUNK_PASS"
             exit 0
           fi
 
           TARBALL=$(ls security_alert-*.tar.gz 2>/dev/null | head -1)
           
-          echo "📦 Uploading app package: $TARBALL"
+          echo "📦 Deploying app package: $TARBALL"
+          echo "🔗 Connecting to Splunk at ${SPLUNK_HOST}..."
           
-          echo "🔗 Testing connection to Splunk at ${SPLUNK_HOST}..."
-          
-          # Test connection - exit gracefully if unreachable (internal network)
-          CURL_EXIT=0
-          curl -sk --connect-timeout 10 "https://${SPLUNK_HOST}:${{ env.SPLUNK_API_PORT }}/services/server/info" > /dev/null 2>&1 || CURL_EXIT=$?
-          
-          if [ $CURL_EXIT -ne 0 ]; then
-            echo "⚠️ Cannot reach Splunk server (curl exit code: $CURL_EXIT)"
-            echo "   This is expected - GitHub runners cannot access internal networks"
-            echo "   Deploy requires self-hosted runner or VPN access"
-            echo "   Skipping deployment - artifact available for manual deploy"
+          # Test SSH connection
+          if ! ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@${SPLUNK_HOST} "echo 'SSH OK'" 2>/dev/null; then
+            echo "⚠️ Cannot SSH to Splunk server"
+            echo "   Deploy requires self-hosted runner with SSH access"
+            echo "   Artifact available for manual deploy"
             echo ""
             echo "📦 Manual deploy instructions:"
-            echo "   1. Download artifact from GitHub Actions"
-            echo "   2. Upload to Splunk: curl -k -u admin:pass -X POST -F 'appfile=@security_alert.tar.gz' https://splunk:8089/services/apps/local"
+            echo "   1. scp ${TARBALL} root@splunk:/tmp/"
+            echo "   2. ssh root@splunk '/opt/splunk/bin/splunk install app /tmp/${TARBALL} -update true -auth admin:pass'"
             exit 0
           fi
           
-          echo "✅ Connection successful, uploading app..."
+          echo "✅ SSH connection successful"
           
-          RESPONSE=$(curl -s -k -u "${SPLUNK_USER}:${SPLUNK_PASS}" \
-            --connect-timeout 30 \
-            -X POST \
-            -F "name=security_alert" \
-            -F "filename=true" \
-            -F "update=true" \
-            -F "appfile=@${TARBALL}" \
-            "https://${SPLUNK_HOST}:${{ env.SPLUNK_API_PORT }}/services/apps/local" \
-            -w "\n%{http_code}" 2>&1) || {
-            echo "⚠️ Upload failed (network error)"
-            echo "   Artifact available for manual deploy"
-            exit 0
-          }
+          # Step 1: Copy tarball to Splunk server
+          echo "📤 Copying tarball to server..."
+          scp -o StrictHostKeyChecking=no "${TARBALL}" root@${SPLUNK_HOST}:/tmp/
           
-          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-          BODY=$(echo "$RESPONSE" | head -n -1)
+          # Step 2: Install app via Splunk CLI
+          echo "📥 Installing app via Splunk CLI..."
+          INSTALL_OUTPUT=$(ssh -o StrictHostKeyChecking=no root@${SPLUNK_HOST} \
+            "/opt/splunk/bin/splunk install app /tmp/${TARBALL} -update true -auth ${SPLUNK_USER}:${SPLUNK_PASS}" 2>&1)
           
-          if [[ "$HTTP_CODE" =~ ^2 ]]; then
-            echo "✅ App uploaded successfully (HTTP $HTTP_CODE)"
+          if echo "$INSTALL_OUTPUT" | grep -q "installed"; then
+            echo "✅ App installed successfully"
+            echo "$INSTALL_OUTPUT"
           else
-            echo "❌ Upload failed (HTTP $HTTP_CODE)"
-            echo "$BODY"
+            echo "❌ Installation failed"
+            echo "$INSTALL_OUTPUT"
             exit 1
           fi
+          
+          # Cleanup
+          ssh -o StrictHostKeyChecking=no root@${SPLUNK_HOST} "rm -f /tmp/${TARBALL}"
 
       - name: Restart Splunk (if requested)
         if: github.event.inputs.force == 'true'
         env:
           SPLUNK_HOST: ${{ secrets.SPLUNK_HOST_DEV }}
-          SPLUNK_USER: ${{ secrets.SPLUNK_USER }}
-          SPLUNK_PASS: ${{ secrets.SPLUNK_PASS }}
         run: |
-          echo "🔄 Restarting Splunk..."
-          curl -s -k -u "${SPLUNK_USER}:${SPLUNK_PASS}" \
-            -X POST \
-            "https://${SPLUNK_HOST}:${{ env.SPLUNK_API_PORT }}/services/server/control/restart" \
-            -d "" || echo "Restart initiated"
+          if [ -z "$SPLUNK_HOST" ]; then
+            echo "⚠️ SPLUNK_HOST_DEV not configured, skipping restart"
+            exit 0
+          fi
+          
+          echo "🔄 Restarting Splunk via SSH..."
+          ssh -o StrictHostKeyChecking=no root@${SPLUNK_HOST} "/opt/splunk/bin/splunk restart" || {
+            echo "⚠️ Restart command sent (may have timed out, this is normal)"
+          }
           
           echo "⏳ Waiting for Splunk to come back online..."
-          sleep 30
+          sleep 45
           
           for i in {1..20}; do
-            if curl -s -k -o /dev/null -w "%{http_code}" \
-              "https://${SPLUNK_HOST}:${{ env.SPLUNK_API_PORT }}/services/server/info" | grep -q "200"; then
+            if ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no root@${SPLUNK_HOST} \
+              "/opt/splunk/bin/splunk status" 2>/dev/null | grep -q "running"; then
               echo "✅ Splunk is back online"
               break
             fi
@@ -204,8 +196,6 @@ jobs:
       - name: Verify deployment
         env:
           SPLUNK_HOST: ${{ secrets.SPLUNK_HOST_DEV }}
-          SPLUNK_USER: ${{ secrets.SPLUNK_USER }}
-          SPLUNK_PASS: ${{ secrets.SPLUNK_PASS }}
         run: |
           if [ -z "$SPLUNK_HOST" ]; then
             echo "⚠️ Skipping verification - no host configured"
@@ -214,28 +204,21 @@ jobs:
           
           echo "🔍 Verifying app installation..."
           
-          RESPONSE=$(curl -s -k -u "${SPLUNK_USER}:${SPLUNK_PASS}" \
-            --connect-timeout 10 \
-            "https://${SPLUNK_HOST}:${{ env.SPLUNK_API_PORT }}/services/apps/local/security_alert?output_mode=json" 2>&1) || {
-            echo "⚠️ Verification skipped - cannot reach server"
-            exit 0
-          }
+          # Check app version from app.conf
+          VERSION=$(ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@${SPLUNK_HOST} \
+            "grep '^version' /opt/splunk/etc/apps/security_alert/default/app.conf 2>/dev/null | cut -d= -f2 | tr -d ' '" 2>/dev/null) || VERSION="unknown"
           
-          if echo "$RESPONSE" | grep -q '"name":"security_alert"'; then
-            VERSION=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['entry'][0]['content'].get('version','unknown'))" 2>/dev/null || echo "unknown")
+          if [ -n "$VERSION" ] && [ "$VERSION" != "unknown" ]; then
             echo "✅ App installed: security_alert v$VERSION"
           else
-            echo "⚠️ App verification inconclusive (may not have deployed)"
-            exit 0
+            echo "⚠️ Could not verify app version"
           fi
           
           echo ""
           echo "📋 Checking saved searches..."
-          SEARCHES=$(curl -s -k -u "${SPLUNK_USER}:${SPLUNK_PASS}" \
-            --connect-timeout 10 \
-            "https://${SPLUNK_HOST}:${{ env.SPLUNK_API_PORT }}/servicesNS/-/security_alert/saved/searches?output_mode=json&count=0" \
-            | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('entry',[])))" 2>/dev/null || echo "0")
-          echo "   Found $SEARCHES saved searches"
+          SEARCHES=$(ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@${SPLUNK_HOST} \
+            "grep -c '^\[' /opt/splunk/etc/apps/security_alert/default/savedsearches.conf 2>/dev/null" 2>/dev/null) || SEARCHES="0"
+          echo "   Found $SEARCHES saved search stanzas"
 
       - name: Post deployment summary
         run: |
@@ -265,7 +248,7 @@ jobs:
         with:
           name: splunk-app-package
 
-      - name: Deploy via Splunk REST API
+      - name: Deploy via SSH + Splunk CLI
         env:
           SPLUNK_HOST: ${{ secrets.SPLUNK_HOST_PROD }}
           SPLUNK_USER: ${{ secrets.SPLUNK_USER }}
@@ -278,42 +261,39 @@ jobs:
 
           TARBALL=$(ls security_alert-*.tar.gz 2>/dev/null | head -1)
           
-          echo "📦 Uploading app package to production: $TARBALL"
-          echo "🔗 Testing connection to Splunk at ${SPLUNK_HOST}..."
+          echo "📦 Deploying app package to production: $TARBALL"
+          echo "🔗 Connecting to Splunk at ${SPLUNK_HOST}..."
           
-          CURL_EXIT=0
-          curl -sk --connect-timeout 10 "https://${SPLUNK_HOST}:${{ env.SPLUNK_API_PORT }}/services/server/info" > /dev/null 2>&1 || CURL_EXIT=$?
-          
-          if [ $CURL_EXIT -ne 0 ]; then
-            echo "⚠️ Cannot reach production Splunk server (curl exit code: $CURL_EXIT)"
-            echo "   Deploy requires self-hosted runner or VPN access"
+          # Test SSH connection
+          if ! ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@${SPLUNK_HOST} "echo 'SSH OK'" 2>/dev/null; then
+            echo "⚠️ Cannot SSH to production Splunk server"
+            echo "   Deploy requires self-hosted runner with SSH access"
             echo "   Artifact available for manual deploy"
             exit 0
           fi
           
-          echo "✅ Connection successful, uploading app..."
+          echo "✅ SSH connection successful"
           
-          RESPONSE=$(curl -s -k -u "${SPLUNK_USER}:${SPLUNK_PASS}" \
-            --connect-timeout 30 \
-            -X POST \
-            -F "name=security_alert" \
-            -F "filename=true" \
-            -F "update=true" \
-            -F "appfile=@${TARBALL}" \
-            "https://${SPLUNK_HOST}:${{ env.SPLUNK_API_PORT }}/services/apps/local" \
-            -w "\n%{http_code}" 2>&1) || {
-            echo "⚠️ Upload failed (network error)"
-            exit 0
-          }
+          # Step 1: Copy tarball to Splunk server
+          echo "📤 Copying tarball to server..."
+          scp -o StrictHostKeyChecking=no "${TARBALL}" root@${SPLUNK_HOST}:/tmp/
           
-          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          # Step 2: Install app via Splunk CLI
+          echo "📥 Installing app via Splunk CLI..."
+          INSTALL_OUTPUT=$(ssh -o StrictHostKeyChecking=no root@${SPLUNK_HOST} \
+            "/opt/splunk/bin/splunk install app /tmp/${TARBALL} -update true -auth ${SPLUNK_USER}:${SPLUNK_PASS}" 2>&1)
           
-          if [[ "$HTTP_CODE" =~ ^2 ]]; then
-            echo "✅ App uploaded to production (HTTP $HTTP_CODE)"
+          if echo "$INSTALL_OUTPUT" | grep -q "installed"; then
+            echo "✅ App installed to production successfully"
+            echo "$INSTALL_OUTPUT"
           else
-            echo "❌ Production upload failed (HTTP $HTTP_CODE)"
+            echo "❌ Production installation failed"
+            echo "$INSTALL_OUTPUT"
             exit 1
           fi
+          
+          # Cleanup
+          ssh -o StrictHostKeyChecking=no root@${SPLUNK_HOST} "rm -f /tmp/${TARBALL}"
 
       - name: Post deployment summary
         run: |
