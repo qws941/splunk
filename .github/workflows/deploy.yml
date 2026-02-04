@@ -8,6 +8,12 @@ name: Deploy
     branches: [master, main, develop]
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+*'
+    paths-ignore:
+      - '**.md'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE/**'
+      - 'LICENSE'
+      - '.gitignore'
   workflow_dispatch:
     inputs:
       environment:
