@@ -95,7 +95,7 @@ jobs:
       - name: Install AppInspect
         run: |
           pip install splunk-appinspect --quiet
-          splunk-appinspect --version
+          splunk-appinspect list checks | head -5 || echo "AppInspect installed"
 
       - name: Run AppInspect
         id: appinspect
