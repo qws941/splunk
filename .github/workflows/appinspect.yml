@@ -166,19 +166,7 @@ jobs:
             if [ "${{ steps.appinspect.outputs.failures }}" != "0" ] || [ "${{ steps.appinspect.outputs.errors }}" != "0" ]; then
               echo "### Issues Found" >> $GITHUB_STEP_SUMMARY
               echo '```' >> $GITHUB_STEP_SUMMARY
-              python3 -c "
-import json
-with open('appinspect-results.json') as f:
-    data = json.load(f)
-    for report in data.get('reports', []):
-        for group in report.get('groups', []):
-            for check in group.get('checks', []):
-                if check.get('result') in ['failure', 'error']:
-                    print(f\"[{check.get('result').upper()}] {check.get('name')}\")
-                    if check.get('messages'):
-                        for msg in check.get('messages', [])[:3]:
-                            print(f\"  - {msg.get('message', '')[:200]}\")
-" 2>/dev/null || echo "Could not parse detailed results"
+              grep -E '"result":\s*"(failure|error)"' appinspect-results.json | head -20 >> $GITHUB_STEP_SUMMARY || echo "See artifact for details" >> $GITHUB_STEP_SUMMARY
               echo '```' >> $GITHUB_STEP_SUMMARY
             fi
           else
