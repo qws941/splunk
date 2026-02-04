@@ -315,22 +315,36 @@ class TestMacroExpansion:
         assert "enrich_with_logid_lookup" in macros
 
 
-class TestRealtimeScheduling:
-    """Test realtime alert scheduling configuration."""
+class TestScheduledSearchTiming:
+    """Tests for scheduled search configuration (Cloud-compliant)."""
 
-    REALTIME_ALERTS = [
+    SCHEDULED_ALERTS = [
         alert for alert in EXPECTED_ALERTS
         if alert not in ["017_License_Expiry_Warning"]
     ]
 
-    @pytest.mark.parametrize("alert_name", REALTIME_ALERTS)
-    def test_realtime_schedule_enabled(
+    @pytest.mark.parametrize("alert_name", SCHEDULED_ALERTS)
+    def test_realtime_schedule_disabled(
         self, saved_searches: Dict, alert_name: str
     ):
-        """Realtime alerts should have realtime_schedule=1."""
+        """Scheduled alerts should have realtime_schedule=0 for Cloud compliance."""
         alert = saved_searches.get(alert_name, {})
-        assert alert.get("realtime_schedule") == "1", (
-            f"{alert_name}: Should have realtime_schedule=1"
+        assert alert.get("realtime_schedule") == "0", (
+            f"{alert_name}: Should have realtime_schedule=0 for Cloud compliance"
+        )
+
+    @pytest.mark.parametrize("alert_name", SCHEDULED_ALERTS)
+    def test_dispatch_uses_relative_time_range(
+        self, saved_searches: Dict, alert_name: str
+    ):
+        """Scheduled alerts should use relative time range (not rt-)."""
+        alert = saved_searches.get(alert_name, {})
+        earliest = alert.get("dispatch.earliest_time", "")
+        assert not earliest.startswith("rt-"), (
+            f"{alert_name}: dispatch.earliest_time should not use real-time (rt-)"
+        )
+        assert earliest.startswith("-"), (
+            f"{alert_name}: dispatch.earliest_time should be relative (e.g., -10m)"
         )
 
     @pytest.mark.parametrize("alert_name", REALTIME_ALERTS)
