@@ -1,13 +1,22 @@
 <nav search_view="search" color="#65A637">
   <view name="search" default='true' />
 
-  <collection label="Dashboards">
+  <collection label="Security Dashboards">
     <view name="fortigate_comprehensive_alerts" />
     <view name="security_dashboard_simple" />
+    <view name="security_alert_monitoring" />
   </collection>
 
-  <collection label="Testing">
+  <collection label="FortiGate Monitoring">
+    <view name="fortigate_monitoring" />
+    <view name="fortigate_alerts_monitoring" />
+    <view name="fortigate_production_alerts_dashboard" />
+  </collection>
+
+  <collection label="Testing & Development">
     <view name="slack_test_dashboard" />
+    <view name="slack_alert_control" />
+    <view name="alert_testing_dashboard" />
   </collection>
 
 </nav>
