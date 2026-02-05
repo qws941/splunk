@@ -5,7 +5,12 @@ Slack Block Kit Alert Action for Splunk
 Sends formatted FortiGate alerts to Slack using Block Kit
 """
 
+import os
 import sys
+
+# Add vendored libraries to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'lib'))
+
 import json
 import requests
 import os

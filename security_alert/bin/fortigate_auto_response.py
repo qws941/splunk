@@ -6,7 +6,12 @@ Integration: Splunk Alert Actions, FortiManager API, Slack API
 Version: 1.0.0
 """
 
+import os
 import sys
+
+# Add vendored libraries to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'lib'))
+
 import json
 import logging
 import requests

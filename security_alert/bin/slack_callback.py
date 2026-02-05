@@ -6,14 +6,16 @@ Handles button callbacks from Slack alerts (Acknowledge, Snooze)
 
 import os
 import sys
+
+# Add vendored libraries to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'lib'))
+
 import json
 import csv
 import hmac
 import hashlib
 import time
 from datetime import datetime
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'lib'))
 
 try:
     import requests
