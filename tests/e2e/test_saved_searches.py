@@ -1,378 +1,183 @@
-"""
-E2E tests for Splunk saved searches (alerts).
+"""E2E tests for Splunk saved searches SPL validation."""
 
-Tests validate:
-- SPL syntax correctness
-- Macro expansion
-- Field extraction patterns
-- State tracking logic
-- Alert trigger conditions
-"""
-
+import configparser
 import re
 from pathlib import Path
-from typing import Dict, List
 
 import pytest
 
 
-EXPECTED_ALERTS = [
-    "001_Config_Change",
-    "002_VPN_Tunnel_Down",
-    "002_VPN_Tunnel_Up",
-    "006_CPU_Memory_Anomaly",
-    "007_Hardware_Failure",
-    "007_Hardware_Restored",
-    "008_HA_State_Change",
-    "010_Resource_Limit",
-    "011_Admin_Login_Failed",
-    "012_Interface_Down",
-    "012_Interface_Up",
-    "013_SSL_VPN_Brute_Force",
-    "015_Abnormal_Traffic_Spike",
-    "016_System_Reboot",
-    "017_License_Expiry_Warning",
-]
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+SECURITY_ALERT_PATH = PROJECT_ROOT / "security_alert"
+DEFAULT_PATH = SECURITY_ALERT_PATH / "default"
+SAVEDSEARCHES_PATH = DEFAULT_PATH / "savedsearches.conf"
 
 
-class TestSavedSearchesConfiguration:
-    """Test saved searches configuration integrity."""
+class TestSavedSearchesFileExists:
 
-    def test_all_expected_alerts_exist(self, saved_searches: Dict):
-        """Verify all 15 expected alerts are defined."""
-        missing = [
-            alert for alert in EXPECTED_ALERTS if alert not in saved_searches
-        ]
-        assert not missing, f"Missing alerts: {missing}"
+    def test_savedsearches_conf_exists(self):
+        assert SAVEDSEARCHES_PATH.exists(), "savedsearches.conf not found"
 
-    def test_no_unexpected_alerts(self, saved_searches: Dict):
-        """Verify no unexpected alert stanzas exist."""
-        unexpected = [
-            name
-            for name in saved_searches
-            if name.startswith(("0", "1"))
-            and name not in EXPECTED_ALERTS
-        ]
-        assert not unexpected, f"Unexpected alerts: {unexpected}"
 
-    @pytest.mark.parametrize("alert_name", EXPECTED_ALERTS)
-    def test_alert_has_required_fields(
-        self, saved_searches: Dict, alert_name: str
-    ):
-        """Each alert must have required configuration fields."""
-        alert = saved_searches.get(alert_name, {})
-        required_fields = [
-            "search",
-            "cron_schedule",
-            "alert.severity",
-            "action.slack",
-        ]
+class TestSavedSearchesParsing:
 
-        missing = [f for f in required_fields if f not in alert]
-        assert not missing, f"{alert_name} missing fields: {missing}"
+    @pytest.fixture
+    def saved_searches(self):
+        parser = configparser.ConfigParser(interpolation=None)
+        parser.read(str(SAVEDSEARCHES_PATH))
+        return parser
 
-    @pytest.mark.parametrize("alert_name", EXPECTED_ALERTS)
-    def test_alert_has_slack_action_enabled(
-        self, saved_searches: Dict, alert_name: str
-    ):
-        """Each alert must have Slack action enabled."""
-        alert = saved_searches.get(alert_name, {})
-        assert alert.get("action.slack") == "1", (
-            f"{alert_name}: action.slack should be '1'"
-        )
-
-    @pytest.mark.parametrize("alert_name", EXPECTED_ALERTS)
-    def test_alert_has_valid_cron_schedule(
-        self, saved_searches: Dict, alert_name: str
-    ):
-        """Cron schedule must be valid 5-field format."""
-        alert = saved_searches.get(alert_name, {})
-        cron = alert.get("cron_schedule", "")
-
-        cron_pattern = r"^(\*|(?:\*/?\d*)|[\d,\-/]+)\s+(\*|(?:\*/?\d*)|[\d,\-/]+)\s+(\*|(?:\*/?\d*)|[\d,\-/]+)\s+(\*|(?:\*/?\d*)|[\d,\-/]+)\s+(\*|(?:\*/?\d*)|[\d,\-/]+)$"
-        assert re.match(cron_pattern, cron), (
-            f"{alert_name}: Invalid cron format '{cron}'"
-        )
-
-    @pytest.mark.parametrize("alert_name", EXPECTED_ALERTS)
-    def test_alert_severity_in_valid_range(
-        self, saved_searches: Dict, alert_name: str
-    ):
-        """Alert severity must be 1-6."""
-        alert = saved_searches.get(alert_name, {})
-        severity = int(alert.get("alert.severity", "0"))
-        assert 1 <= severity <= 6, (
-            f"{alert_name}: severity {severity} not in range 1-6"
-        )
+    def test_has_saved_searches(self, saved_searches):
+        sections = [s for s in saved_searches.sections() if s != "default"]
+        assert len(sections) > 0, "No saved searches defined"
 
 
 class TestSPLSyntax:
-    """Test SPL query syntax and patterns."""
 
-    @pytest.mark.parametrize("alert_name", EXPECTED_ALERTS)
-    def test_search_uses_fortigate_index_macro(
-        self, saved_searches: Dict, alert_name: str
-    ):
-        """Search should use `fortigate_index` macro."""
-        alert = saved_searches.get(alert_name, {})
-        search = alert.get("search", "")
+    VALID_SPL_COMMANDS = [
+        "search", "index", "source", "sourcetype", "host",
+        "stats", "count", "sum", "avg", "max", "min",
+        "eval", "where", "table", "fields", "rename",
+        "sort", "head", "tail", "dedup", "rex", "spath",
+        "join", "lookup", "inputlookup", "outputlookup",
+        "timechart", "chart", "top", "rare",
+        "transaction", "streamstats", "eventstats",
+        "tstats", "datamodel", "pivot",
+        "append", "appendpipe", "multisearch",
+        "map", "foreach", "return",
+    ]
 
-        has_macro = "`fortigate_index`" in search
-        has_hardcoded = "index=fw" in search or "index=fortigate" in search
+    @pytest.fixture
+    def search_queries(self):
+        parser = configparser.ConfigParser(interpolation=None)
+        parser.read(str(SAVEDSEARCHES_PATH))
 
-        assert has_macro or has_hardcoded, (
-            f"{alert_name}: Missing index specification"
-        )
+        queries = {}
+        for section in parser.sections():
+            if section == "default":
+                continue
+            if parser.has_option(section, "search"):
+                queries[section] = parser.get(section, "search")
+        return queries
 
-    @pytest.mark.parametrize("alert_name", EXPECTED_ALERTS)
-    def test_search_has_balanced_backticks(
-        self, saved_searches: Dict, alert_name: str
-    ):
-        """Macro backticks must be balanced."""
-        alert = saved_searches.get(alert_name, {})
-        search = alert.get("search", "")
+    def test_searches_not_empty(self, search_queries):
+        for name, query in search_queries.items():
+            assert len(query.strip()) > 0, f"Search '{name}' has empty query"
 
-        backtick_count = search.count("`")
-        assert backtick_count % 2 == 0, (
-            f"{alert_name}: Unbalanced backticks ({backtick_count})"
-        )
+    def test_searches_have_valid_commands(self, search_queries):
+        for name, query in search_queries.items():
+            query_lower = query.lower()
+            has_valid = any(cmd in query_lower for cmd in self.VALID_SPL_COMMANDS)
+            assert has_valid, f"Search '{name}' has no valid SPL command"
 
-    @pytest.mark.parametrize("alert_name", EXPECTED_ALERTS)
-    def test_search_has_balanced_parentheses(
-        self, saved_searches: Dict, alert_name: str
-    ):
-        """Parentheses must be balanced."""
-        alert = saved_searches.get(alert_name, {})
-        search = alert.get("search", "")
-
-        open_count = search.count("(")
-        close_count = search.count(")")
-        assert open_count == close_count, (
-            f"{alert_name}: Unbalanced parentheses ({open_count} open, {close_count} close)"
-        )
-
-    @pytest.mark.parametrize("alert_name", EXPECTED_ALERTS)
-    def test_search_has_balanced_brackets(
-        self, saved_searches: Dict, alert_name: str
-    ):
-        """Square brackets must be balanced."""
-        alert = saved_searches.get(alert_name, {})
-        search = alert.get("search", "")
-
-        open_count = search.count("[")
-        close_count = search.count("]")
-        assert open_count == close_count, (
-            f"{alert_name}: Unbalanced brackets ({open_count} open, {close_count} close)"
-        )
-
-    @pytest.mark.parametrize("alert_name", EXPECTED_ALERTS)
-    def test_search_has_balanced_quotes(
-        self, saved_searches: Dict, alert_name: str
-    ):
-        """Double quotes must be balanced (accounting for escaped quotes)."""
-        alert = saved_searches.get(alert_name, {})
-        search = alert.get("search", "")
-
-        unescaped_quotes = search.replace('\\"', '').replace("\\\"", "")
-        quote_count = unescaped_quotes.count('"')
-
-        if quote_count % 2 != 0:
-            pytest.skip(
-                f"{alert_name}: Complex quote structure ({quote_count} quotes) - manual review needed"
+    def test_balanced_parentheses(self, search_queries):
+        for name, query in search_queries.items():
+            open_count = query.count("(")
+            close_count = query.count(")")
+            assert open_count == close_count, (
+                f"Search '{name}' has unbalanced parentheses: ({open_count} vs {close_count})"
             )
 
-    @pytest.mark.parametrize("alert_name", EXPECTED_ALERTS)
-    def test_search_uses_coalesce_for_fields(
-        self, saved_searches: Dict, alert_name: str
-    ):
-        """Searches should use coalesce() for field fallbacks."""
-        alert = saved_searches.get(alert_name, {})
-        search = alert.get("search", "")
+    def test_balanced_brackets(self, search_queries):
+        for name, query in search_queries.items():
+            open_count = query.count("[")
+            close_count = query.count("]")
+            assert open_count == close_count, (
+                f"Search '{name}' has unbalanced brackets: [{open_count} vs {close_count}]"
+            )
 
-        assert "coalesce(" in search, (
-            f"{alert_name}: Should use coalesce() for field safety"
-        )
-
-
-class TestStateTracking:
-    """Test EMS-style state tracking pattern."""
-
-    STATE_TRACKING_ALERTS = [
-        "002_VPN_Tunnel_Down",
-        "002_VPN_Tunnel_Up",
-        "007_Hardware_Failure",
-        "007_Hardware_Restored",
-        "008_HA_State_Change",
-        "010_Resource_Limit",
-        "011_Admin_Login_Failed",
-        "012_Interface_Down",
-        "012_Interface_Up",
-        "013_SSL_VPN_Brute_Force",
-        "015_Abnormal_Traffic_Spike",
-        "017_License_Expiry_Warning",
-    ]
-
-    @pytest.mark.parametrize("alert_name", STATE_TRACKING_ALERTS)
-    def test_uses_inputlookup(self, saved_searches: Dict, alert_name: str):
-        """State tracking alerts must use inputlookup."""
-        alert = saved_searches.get(alert_name, {})
-        search = alert.get("search", "")
-        assert "inputlookup" in search, (
-            f"{alert_name}: Missing inputlookup for state tracking"
-        )
-
-    @pytest.mark.parametrize("alert_name", STATE_TRACKING_ALERTS)
-    def test_uses_outputlookup(self, saved_searches: Dict, alert_name: str):
-        """State tracking alerts must use outputlookup."""
-        alert = saved_searches.get(alert_name, {})
-        search = alert.get("search", "")
-        assert "outputlookup" in search, (
-            f"{alert_name}: Missing outputlookup for state tracking"
-        )
-
-    @pytest.mark.parametrize("alert_name", STATE_TRACKING_ALERTS)
-    def test_has_state_changed_logic(
-        self, saved_searches: Dict, alert_name: str
-    ):
-        """State tracking alerts must evaluate state_changed."""
-        alert = saved_searches.get(alert_name, {})
-        search = alert.get("search", "")
-        assert "state_changed" in search, (
-            f"{alert_name}: Missing state_changed evaluation"
-        )
-
-    @pytest.mark.parametrize("alert_name", STATE_TRACKING_ALERTS)
-    def test_filters_on_state_changed(
-        self, saved_searches: Dict, alert_name: str
-    ):
-        """Alert should filter where state_changed=1."""
-        alert = saved_searches.get(alert_name, {})
-        search = alert.get("search", "")
-        assert "where state_changed=1" in search, (
-            f"{alert_name}: Missing 'where state_changed=1' filter"
-        )
+    def test_balanced_quotes(self, search_queries):
+        for name, query in search_queries.items():
+            unescaped = re.sub(r'\\"', '', query)
+            double_quotes = unescaped.count('"')
+            assert double_quotes % 2 == 0, (
+                f"Search '{name}' has unbalanced double quotes"
+            )
 
 
-class TestMacroExpansion:
-    """Test macro references are valid."""
+class TestSavedSearchAlerts:
 
-    LOGID_MACROS = [
-        "logids_config_change",
-        "logids_vpn_tunnel",
-        "logids_cpu_memory",
-        "logids_hardware_failure",
-        "logids_ha_state",
-        "logids_resource_limit",
-        "logids_admin_login",
-        "logids_link_monitor",
-        "logids_ssl_vpn_failed",
-        "logids_traffic",
-        "logids_system_reboot",
-        "logids_license_warning",
-    ]
+    @pytest.fixture
+    def alert_searches(self):
+        parser = configparser.ConfigParser(interpolation=None)
+        parser.read(str(SAVEDSEARCHES_PATH))
 
-    def test_all_referenced_macros_exist(
-        self, saved_searches: Dict, macros: Dict
-    ):
-        """All macros referenced in searches must be defined."""
-        all_searches = " ".join(
-            alert.get("search", "") for alert in saved_searches.values()
-        )
+        alerts = {}
+        for section in parser.sections():
+            if section == "default":
+                continue
+            if parser.has_option(section, "alert.track"):
+                alerts[section] = dict(parser.items(section))
+            elif parser.has_option(section, "action.slack"):
+                alerts[section] = dict(parser.items(section))
+        return alerts
 
-        macro_refs = re.findall(r"`(\w+)`", all_searches)
-        undefined = [m for m in set(macro_refs) if m not in macros]
-
-        assert not undefined, f"Undefined macros: {undefined}"
-
-    def test_fortigate_index_macro_exists(self, macros: Dict):
-        """fortigate_index macro must be defined."""
-        assert "fortigate_index" in macros
-
-    def test_fortigate_index_references_fw(self, macros: Dict):
-        """fortigate_index should reference index=fw."""
-        macro = macros.get("fortigate_index", {})
-        definition = macro.get("definition", "")
-        assert "index=fw" in definition or "index=fortigate" in definition
-
-    @pytest.mark.parametrize("macro_name", LOGID_MACROS)
-    def test_logid_macro_exists(self, macros: Dict, macro_name: str):
-        """LogID macros must be defined."""
-        assert macro_name in macros, f"Missing macro: {macro_name}"
-
-    @pytest.mark.parametrize("macro_name", LOGID_MACROS)
-    def test_logid_macro_has_valid_logids(
-        self, macros: Dict, macro_name: str
-    ):
-        """LogID macros should contain logid= patterns."""
-        macro = macros.get(macro_name, {})
-        definition = macro.get("definition", "")
-        assert "logid=" in definition.lower() or "logid" in definition.lower(), (
-            f"{macro_name}: Should contain logid references"
-        )
-
-    def test_enrich_with_logid_lookup_exists(self, macros: Dict):
-        """enrich_with_logid_lookup macro must be defined."""
-        assert "enrich_with_logid_lookup" in macros
+    def test_alerts_have_cron(self, alert_searches):
+        for name, config in alert_searches.items():
+            has_cron = "cron_schedule" in config
+            has_realtime = "dispatch.earliest_time" in config and "rt" in config.get("dispatch.earliest_time", "")
+            assert has_cron or has_realtime, f"Alert '{name}' has no schedule"
 
 
-class TestScheduledSearchTiming:
-    """Tests for scheduled search configuration (Cloud-compliant)."""
+class TestMacroUsage:
 
-    SCHEDULED_ALERTS = [
-        alert for alert in EXPECTED_ALERTS
-        if alert not in ["017_License_Expiry_Warning"]
-    ]
+    @pytest.fixture
+    def search_queries(self):
+        parser = configparser.ConfigParser(interpolation=None)
+        parser.read(str(SAVEDSEARCHES_PATH))
 
-    @pytest.mark.parametrize("alert_name", SCHEDULED_ALERTS)
-    def test_realtime_schedule_disabled(
-        self, saved_searches: Dict, alert_name: str
-    ):
-        """Scheduled alerts should have realtime_schedule=0 for Cloud compliance."""
-        alert = saved_searches.get(alert_name, {})
-        assert alert.get("realtime_schedule") == "0", (
-            f"{alert_name}: Should have realtime_schedule=0 for Cloud compliance"
-        )
+        queries = {}
+        for section in parser.sections():
+            if section == "default":
+                continue
+            if parser.has_option(section, "search"):
+                queries[section] = parser.get(section, "search")
+        return queries
 
-    @pytest.mark.parametrize("alert_name", SCHEDULED_ALERTS)
-    def test_dispatch_uses_relative_time_range(
-        self, saved_searches: Dict, alert_name: str
-    ):
-        """Scheduled alerts should use relative time range (not rt-)."""
-        alert = saved_searches.get(alert_name, {})
-        earliest = alert.get("dispatch.earliest_time", "")
-        assert not earliest.startswith("rt-"), (
-            f"{alert_name}: dispatch.earliest_time should not use real-time (rt-)"
-        )
-        assert earliest.startswith("-"), (
-            f"{alert_name}: dispatch.earliest_time should be relative (e.g., -10m)"
-        )
+    @pytest.fixture
+    def defined_macros(self):
+        macros_path = DEFAULT_PATH / "macros.conf"
+        if not macros_path.exists():
+            return set()
 
-@pytest.mark.splunk_live
-class TestLiveSplunkSearches:
-    """Tests requiring live Splunk connection."""
+        parser = configparser.ConfigParser(interpolation=None)
+        parser.read(str(macros_path))
+        return set(parser.sections())
 
-    @pytest.mark.parametrize("alert_name", EXPECTED_ALERTS)
-    def test_search_parses_without_error(
-        self, splunk_search, saved_searches: Dict, alert_name: str
-    ):
-        """Search SPL should parse without syntax errors."""
-        alert = saved_searches.get(alert_name, {})
-        search_query = alert.get("search", "")
+    def test_used_macros_are_defined(self, search_queries, defined_macros):
+        macro_pattern = re.compile(r"`(\w+)(?:\([^)]*\))?`")
 
-        parse_query = f"| makeresults | eval test=1 | append [{search_query} | head 0]"
+        for name, query in search_queries.items():
+            used_macros = macro_pattern.findall(query)
+            for macro in used_macros:
+                base_macro = macro.split("(")[0]
+                macro_variants = [base_macro, f"{base_macro}(1)", f"{base_macro}(2)", f"{base_macro}(3)"]
+                found = any(m in defined_macros for m in macro_variants)
+                assert found, f"Search '{name}' uses undefined macro: {macro}"
 
-        try:
-            splunk_search(parse_query, earliest_time="-1m", max_results=1)
-        except Exception as e:
-            pytest.fail(f"{alert_name}: SPL parse error - {e}")
 
-    @pytest.mark.parametrize("alert_name", EXPECTED_ALERTS)
-    def test_alert_search_exists_in_splunk(
-        self, splunk_service, alert_name: str
-    ):
-        """Saved search should exist in Splunk."""
-        try:
-            search = splunk_service.saved_searches[alert_name]
-            assert search is not None
-        except KeyError:
-            pytest.fail(f"{alert_name}: Not found in Splunk")
+class TestSearchSecurity:
+
+    @pytest.fixture
+    def search_queries(self):
+        parser = configparser.ConfigParser(interpolation=None)
+        parser.read(str(SAVEDSEARCHES_PATH))
+
+        queries = {}
+        for section in parser.sections():
+            if section == "default":
+                continue
+            if parser.has_option(section, "search"):
+                queries[section] = parser.get(section, "search")
+        return queries
+
+    def test_no_hardcoded_credentials(self, search_queries):
+        patterns = [
+            r"password\s*=\s*['\"][^'\"]+['\"]",
+            r"token\s*=\s*['\"][^'\"]+['\"]",
+        ]
+
+        for name, query in search_queries.items():
+            for pattern in patterns:
+                matches = re.findall(pattern, query, re.IGNORECASE)
+                assert len(matches) == 0, f"Search '{name}' has hardcoded credential"

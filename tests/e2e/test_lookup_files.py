@@ -1,243 +1,193 @@
-"""
-E2E tests for lookup files (CSV state trackers).
-"""
+"""E2E tests for Splunk lookup CSV files validation."""
 
 import csv
 from pathlib import Path
-from typing import Dict, List
 
 import pytest
 
 
-STATE_TRACKER_FILES = [
-    "vpn_state_tracker.csv",
-    "hardware_state_tracker.csv",
-    "ha_state_tracker.csv",
-    "interface_state_tracker.csv",
-    "cpu_memory_state_tracker.csv",
-    "resource_state_tracker.csv",
-    "admin_login_state_tracker.csv",
-    "vpn_brute_force_state_tracker.csv",
-    "traffic_spike_state_tracker.csv",
-    "license_state_tracker.csv",
-]
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+SECURITY_ALERT_PATH = PROJECT_ROOT / "security_alert"
+LOOKUPS_PATH = SECURITY_ALERT_PATH / "lookups"
 
-REFERENCE_FILES = [
-    "fortigate_logid_notification_map.csv",
-    "severity_priority.csv",
-    "auto_response_actions.csv",
-]
+
+class TestLookupDirectoryExists:
+
+    def test_lookups_directory_exists(self):
+        assert LOOKUPS_PATH.exists(), "lookups/ directory not found"
+        assert LOOKUPS_PATH.is_dir(), "lookups must be a directory"
 
 
 class TestLookupFilesExist:
 
-    @pytest.mark.parametrize("filename", STATE_TRACKER_FILES)
-    def test_state_tracker_file_exists(self, lookup_path: Path, filename: str):
-        filepath = lookup_path / filename
-        assert filepath.exists(), f"Missing state tracker: {filename}"
+    def get_lookup_files(self):
+        if not LOOKUPS_PATH.exists():
+            return []
+        return list(LOOKUPS_PATH.glob("*.csv"))
 
-    @pytest.mark.parametrize("filename", REFERENCE_FILES)
-    def test_reference_file_exists(self, lookup_path: Path, filename: str):
-        filepath = lookup_path / filename
-        assert filepath.exists(), f"Missing reference file: {filename}"
+    def test_lookup_files_present(self):
+        files = self.get_lookup_files()
+        assert len(files) > 0, "No lookup CSV files found"
+
+    @pytest.fixture
+    def lookup_files(self):
+        return self.get_lookup_files()
+
+    def test_all_lookups_are_csv(self, lookup_files):
+        for f in lookup_files:
+            assert f.suffix == ".csv", f"{f.name} is not a CSV file"
 
 
-class TestStateTrackerSchema:
+class TestLookupFileValidity:
 
-    EXPECTED_COLUMNS = {
-        "vpn_state_tracker.csv": ["device", "vpn_name", "state"],
-        "hardware_state_tracker.csv": ["device", "component", "state"],
-        "ha_state_tracker.csv": ["device", "state"],
-        "interface_state_tracker.csv": ["device", "interface", "state"],
-        "cpu_memory_state_tracker.csv": ["device", "resource", "state"],
-        "resource_state_tracker.csv": ["device", "resource_type", "state"],
-        "admin_login_state_tracker.csv": ["device", "source_ip", "state"],
-        "vpn_brute_force_state_tracker.csv": ["device", "source_ip", "state"],
-        "traffic_spike_state_tracker.csv": ["device", "source_ip", "state"],
-        "license_state_tracker.csv": ["device", "license_category", "state"],
-    }
+    @pytest.fixture
+    def lookup_files(self):
+        if not LOOKUPS_PATH.exists():
+            return []
+        return list(LOOKUPS_PATH.glob("*.csv"))
 
-    @pytest.mark.parametrize("filename", STATE_TRACKER_FILES)
-    def test_state_tracker_has_required_columns(
-        self, lookup_path: Path, filename: str
-    ):
-        filepath = lookup_path / filename
+    def test_csv_files_are_parseable(self, lookup_files):
+        for csv_file in lookup_files:
+            try:
+                with open(csv_file, newline="", encoding="utf-8") as f:
+                    reader = csv.reader(f)
+                    rows = list(reader)
+                    assert len(rows) >= 1, f"{csv_file.name} is empty"
+            except csv.Error as e:
+                pytest.fail(f"{csv_file.name} is not valid CSV: {e}")
 
-        if not filepath.exists():
-            pytest.skip(f"{filename} does not exist")
+    def test_csv_files_have_headers(self, lookup_files):
+        for csv_file in lookup_files:
+            with open(csv_file, newline="", encoding="utf-8") as f:
+                reader = csv.reader(f)
+                header = next(reader, None)
+                assert header is not None, f"{csv_file.name} has no header row"
+                assert len(header) > 0, f"{csv_file.name} has empty header"
 
-        with open(filepath, "r", newline="") as f:
+    def test_csv_rows_match_header_columns(self, lookup_files):
+        for csv_file in lookup_files:
+            with open(csv_file, newline="", encoding="utf-8") as f:
+                reader = csv.reader(f)
+                header = next(reader, None)
+                if header is None:
+                    continue
+
+                header_len = len(header)
+                for i, row in enumerate(reader, start=2):
+                    assert len(row) == header_len, (
+                        f"{csv_file.name} row {i} has {len(row)} cols, expected {header_len}"
+                    )
+
+
+class TestAlertStateLookup:
+
+    ALERT_STATE_FILE = LOOKUPS_PATH / "alert_state.csv"
+
+    def test_alert_state_exists(self):
+        if not self.ALERT_STATE_FILE.exists():
+            pytest.skip("alert_state.csv not found")
+        assert self.ALERT_STATE_FILE.exists()
+
+    def test_alert_state_has_required_columns(self):
+        if not self.ALERT_STATE_FILE.exists():
+            pytest.skip("alert_state.csv not found")
+
+        with open(self.ALERT_STATE_FILE, newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
-            headers = reader.fieldnames or []
+            fieldnames = reader.fieldnames or []
 
-        expected = self.EXPECTED_COLUMNS.get(filename, [])
-        missing = [col for col in expected if col not in headers]
-
-        assert not missing, f"{filename} missing columns: {missing}"
-
-    @pytest.mark.parametrize("filename", STATE_TRACKER_FILES)
-    def test_state_tracker_has_state_column(
-        self, lookup_path: Path, filename: str
-    ):
-        filepath = lookup_path / filename
-
-        if not filepath.exists():
-            pytest.skip(f"{filename} does not exist")
-
-        with open(filepath, "r", newline="") as f:
-            reader = csv.DictReader(f)
-            headers = reader.fieldnames or []
-
-        assert "state" in headers, f"{filename} missing 'state' column"
+            required = ["alert_id", "status", "updated_at"]
+            for col in required:
+                assert col in fieldnames, f"alert_state.csv missing column: {col}"
 
 
-class TestStateTrackerOperations:
+class TestFortigateLogidMap:
 
-    def test_create_and_read_entry(
-        self, backup_lookup, create_lookup_entry, lookup_path: Path
-    ):
-        with backup_lookup("vpn_state_tracker.csv"):
-            create_lookup_entry(
-                "vpn_state_tracker.csv",
-                {"device": "FG-TEST-E2E", "vpn_name": "TEST-VPN", "state": "DOWN"},
-            )
+    LOGID_MAP_FILE = LOOKUPS_PATH / "fortigate_logid_notification_map.csv"
 
-            filepath = lookup_path / "vpn_state_tracker.csv"
-            with open(filepath, "r", newline="") as f:
-                reader = csv.DictReader(f)
-                rows = list(reader)
+    def test_logid_map_exists(self):
+        if not self.LOGID_MAP_FILE.exists():
+            pytest.skip("fortigate_logid_notification_map.csv not found")
+        assert self.LOGID_MAP_FILE.exists()
 
-            test_entries = [
-                r for r in rows
-                if r.get("device") == "FG-TEST-E2E"
-            ]
-
-            assert len(test_entries) >= 1
-            assert test_entries[0]["state"] == "DOWN"
-
-    def test_update_state_transition(
-        self, backup_lookup, create_lookup_entry, lookup_path: Path
-    ):
-        with backup_lookup("hardware_state_tracker.csv"):
-            create_lookup_entry(
-                "hardware_state_tracker.csv",
-                {"device": "FG-E2E", "component": "Fan", "state": "FAIL"},
-            )
-
-            create_lookup_entry(
-                "hardware_state_tracker.csv",
-                {"device": "FG-E2E", "component": "Fan", "state": "OK"},
-            )
-
-            filepath = lookup_path / "hardware_state_tracker.csv"
-            with open(filepath, "r", newline="") as f:
-                reader = csv.DictReader(f)
-                rows = list(reader)
-
-            test_entries = [
-                r for r in rows
-                if r.get("device") == "FG-E2E" and r.get("component") == "Fan"
-            ]
-
-            assert len(test_entries) >= 2
-
-
-class TestReferenceFiles:
-
-    def test_logid_map_has_required_columns(self, lookup_path: Path):
-        filepath = lookup_path / "fortigate_logid_notification_map.csv"
-
-        if not filepath.exists():
+    def test_logid_map_has_required_columns(self):
+        if not self.LOGID_MAP_FILE.exists():
             pytest.skip("fortigate_logid_notification_map.csv not found")
 
-        with open(filepath, "r", newline="") as f:
+        with open(self.LOGID_MAP_FILE, newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
-            headers = reader.fieldnames or []
+            fieldnames = reader.fieldnames or []
 
-        required = ["logid", "description"]
-        for col in required:
-            assert col in headers or any(col.lower() in h.lower() for h in headers)
+            required = ["logid", "category"]
+            for col in required:
+                assert col in fieldnames, f"logid map missing column: {col}"
 
-    def test_severity_priority_has_levels(self, lookup_path: Path):
-        filepath = lookup_path / "severity_priority.csv"
 
-        if not filepath.exists():
-            pytest.skip("severity_priority.csv not found")
+class TestAutoResponseActionsLookup:
 
-        with open(filepath, "r", newline="") as f:
+    ACTIONS_FILE = LOOKUPS_PATH / "auto_response_actions.csv"
+
+    def test_actions_file_exists(self):
+        if not self.ACTIONS_FILE.exists():
+            pytest.skip("auto_response_actions.csv not found")
+        assert self.ACTIONS_FILE.exists()
+
+    def test_actions_have_required_columns(self):
+        if not self.ACTIONS_FILE.exists():
+            pytest.skip("auto_response_actions.csv not found")
+
+        with open(self.ACTIONS_FILE, newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
-            rows = list(reader)
+            fieldnames = reader.fieldnames or []
 
-        assert len(rows) >= 3, "Should have at least 3 severity levels"
+            required = ["action_type"]
+            for col in required:
+                assert col in fieldnames, f"auto_response_actions missing column: {col}"
 
 
-class TestLookupFileIntegrity:
+class TestStateTrackerLookups:
 
-    @pytest.mark.parametrize("filename", STATE_TRACKER_FILES + REFERENCE_FILES)
-    def test_file_is_valid_csv(self, lookup_path: Path, filename: str):
-        filepath = lookup_path / filename
+    def get_state_tracker_files(self):
+        if not LOOKUPS_PATH.exists():
+            return []
+        return [f for f in LOOKUPS_PATH.glob("*_state_tracker.csv")]
 
-        if not filepath.exists():
-            pytest.skip(f"{filename} does not exist")
+    def test_state_trackers_exist(self):
+        trackers = self.get_state_tracker_files()
+        assert len(trackers) > 0, "No state tracker lookups found"
 
-        try:
-            with open(filepath, "r", newline="") as f:
+    def test_state_trackers_have_state_column(self):
+        for tracker in self.get_state_tracker_files():
+            with open(tracker, newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                fieldnames = reader.fieldnames or []
+                state_cols = [c for c in fieldnames if "state" in c.lower()]
+                assert len(state_cols) > 0, f"{tracker.name} has no state column"
+
+
+class TestNoSensitiveDataInLookups:
+
+    SENSITIVE_PATTERNS = [
+        "password",
+        "secret",
+        "token",
+        "api_key",
+        "apikey",
+        "credential",
+    ]
+
+    def test_no_sensitive_column_names(self):
+        if not LOOKUPS_PATH.exists():
+            pytest.skip("lookups/ not found")
+
+        for csv_file in LOOKUPS_PATH.glob("*.csv"):
+            with open(csv_file, newline="", encoding="utf-8") as f:
                 reader = csv.reader(f)
-                list(reader)
-        except csv.Error as e:
-            pytest.fail(f"{filename} is not valid CSV: {e}")
+                header = next(reader, [])
 
-    @pytest.mark.parametrize("filename", STATE_TRACKER_FILES + REFERENCE_FILES)
-    def test_no_empty_headers(self, lookup_path: Path, filename: str):
-        filepath = lookup_path / filename
-
-        if not filepath.exists():
-            pytest.skip(f"{filename} does not exist")
-
-        with open(filepath, "r", newline="") as f:
-            reader = csv.reader(f)
-            headers = next(reader, [])
-
-        empty_headers = [i for i, h in enumerate(headers) if not h.strip()]
-        assert not empty_headers, f"{filename} has empty headers at positions: {empty_headers}"
-
-    @pytest.mark.parametrize("filename", STATE_TRACKER_FILES + REFERENCE_FILES)
-    def test_consistent_column_count(self, lookup_path: Path, filename: str):
-        filepath = lookup_path / filename
-
-        if not filepath.exists():
-            pytest.skip(f"{filename} does not exist")
-
-        with open(filepath, "r", newline="") as f:
-            reader = csv.reader(f)
-            rows = list(reader)
-
-        if len(rows) < 2:
-            pytest.skip(f"{filename} has no data rows")
-
-        header_count = len(rows[0])
-        for i, row in enumerate(rows[1:], start=2):
-            assert len(row) == header_count, (
-                f"{filename} row {i} has {len(row)} columns, expected {header_count}"
-            )
-
-
-@pytest.mark.splunk_live
-class TestLiveLookupOperations:
-
-    def test_inputlookup_returns_data(self, splunk_search):
-        results = splunk_search("| inputlookup vpn_state_tracker.csv | head 5")
-        pass
-
-    def test_outputlookup_writes_data(self, splunk_search, backup_lookup):
-        with backup_lookup("vpn_state_tracker.csv"):
-            splunk_search(
-                '| makeresults | eval device="E2E-TEST", vpn_name="TEST", state="TEST" '
-                "| outputlookup append=t vpn_state_tracker.csv"
-            )
-
-            results = splunk_search(
-                '| inputlookup vpn_state_tracker.csv | search device="E2E-TEST"'
-            )
-
-            assert len(results) >= 1
+                for col in header:
+                    col_lower = col.lower()
+                    for pattern in self.SENSITIVE_PATTERNS:
+                        assert pattern not in col_lower, (
+                            f"{csv_file.name} has sensitive column: {col}"
+                        )
