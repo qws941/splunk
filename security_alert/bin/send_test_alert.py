@@ -46,6 +46,12 @@ ALERT_TEMPLATES = {
         'color': '#FF0000',
         'sample': {'devname': 'FGT-DC-01', 'component': 'PSU 2', 'status': 'failed'}
     },
+    '007r': {
+        'name': 'Hardware Restored',
+        'emoji': '🟢',
+        'color': '#00FF00',
+        'sample': {'devname': 'FGT-DC-01', 'component': 'PSU 2', 'status': 'restored'}
+    },
     '008': {
         'name': 'HA State Change',
         'emoji': '🔄',
@@ -69,6 +75,12 @@ ALERT_TEMPLATES = {
         'emoji': '🔴',
         'color': '#FF0000',
         'sample': {'devname': 'FGT-BR-01', 'interface': 'port1', 'reason': 'link down'}
+    },
+    '012r': {
+        'name': 'Interface Up',
+        'emoji': '🟢',
+        'color': '#00FF00',
+        'sample': {'devname': 'FGT-BR-01', 'interface': 'port1', 'status': 'link up'}
     },
     '013': {
         'name': 'SSL VPN Brute Force',
