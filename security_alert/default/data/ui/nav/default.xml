@@ -13,7 +13,7 @@
     <view name="fortigate_production_alerts_dashboard" />
   </collection>
 
-  <collection label="Testing & Development">
+  <collection label="Testing and Development">
     <view name="slack_test_dashboard" />
     <view name="slack_alert_control" />
     <view name="alert_testing_dashboard" />
