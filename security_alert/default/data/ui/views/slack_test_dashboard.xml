@@ -5,16 +5,18 @@
   <fieldset submitButton="true" autoRun="false">
     <input type="dropdown" token="alert_type" searchWhenChanged="false">
       <label>알림 유형 선택</label>
-      <choice value="all">전체 알림 테스트 (13개)</choice>
+      <choice value="all">전체 알림 테스트 (15개)</choice>
       <choice value="001">001 - Config Change ⚙️</choice>
       <choice value="002">002 - VPN Tunnel Down 🔴</choice>
       <choice value="003">003 - VPN Tunnel Up 🟢</choice>
       <choice value="006">006 - CPU/Memory Anomaly 📊</choice>
       <choice value="007">007 - Hardware Failure 🔴</choice>
+      <choice value="007r">007r - Hardware Restored 🟢</choice>
       <choice value="008">008 - HA State Change 🔄</choice>
       <choice value="010">010 - Resource Limit ⚠️</choice>
       <choice value="011">011 - Admin Login Failed 🚫</choice>
       <choice value="012">012 - Interface Down 🔴</choice>
+      <choice value="012r">012r - Interface Up 🟢</choice>
       <choice value="013">013 - SSL VPN Brute Force 🚨</choice>
       <choice value="015">015 - Abnormal Traffic Spike 📈</choice>
       <choice value="016">016 - System Reboot 🔄</choice>
@@ -48,7 +50,7 @@
       <table>
         <search>
           <query>| makeresults 
-| eval alerts="001,Config Change,⚙️,설정 변경 알림|002,VPN Tunnel Down,🔴,VPN 터널 다운|003,VPN Tunnel Up,🟢,VPN 터널 복구|006,CPU/Memory Anomaly,📊,리소스 이상|007,Hardware Failure,🔴,하드웨어 장애|008,HA State Change,🔄,HA 상태 변경|010,Resource Limit,⚠️,리소스 한계|011,Admin Login Failed,🚫,관리자 로그인 실패|012,Interface Down,🔴,인터페이스 다운|013,SSL VPN Brute Force,🚨,SSL VPN 무차별 공격|015,Abnormal Traffic Spike,📈,비정상 트래픽|016,System Reboot,🔄,시스템 재부팅|017,License Expiry Warning,⏰,라이선스 만료 경고"
+| eval alerts="001,Config Change,⚙️,설정 변경 알림|002,VPN Tunnel Down,🔴,VPN 터널 다운|003,VPN Tunnel Up,🟢,VPN 터널 복구|006,CPU/Memory Anomaly,📊,리소스 이상|007,Hardware Failure,🔴,하드웨어 장애|007r,Hardware Restored,🟢,하드웨어 복구|008,HA State Change,🔄,HA 상태 변경|010,Resource Limit,⚠️,리소스 한계|011,Admin Login Failed,🚫,관리자 로그인 실패|012,Interface Down,🔴,인터페이스 다운|012r,Interface Up,🟢,인터페이스 복구|013,SSL VPN Brute Force,🚨,SSL VPN 무차별 공격|015,Abnormal Traffic Spike,📈,비정상 트래픽|016,System Reboot,🔄,시스템 재부팅|017,License Expiry Warning,⏰,라이선스 만료 경고"
 | makemv delim="|" alerts 
 | mvexpand alerts 
 | rex field=alerts "(?&lt;id&gt;[^,]+),(?&lt;name&gt;[^,]+),(?&lt;icon&gt;[^,]+),(?&lt;desc&gt;.+)"
@@ -65,19 +67,16 @@
 
   <row>
     <panel>
-      <title>Webhook 설정 정보</title>
+      <title>Webhook 설정 상태</title>
       <html>
         <style>
           .webhook-info { padding: 15px; background: #1a1a1a; border-radius: 8px; }
           .webhook-info code { background: #333; padding: 2px 6px; border-radius: 4px; }
         </style>
         <div class="webhook-info">
-          <p><strong>Webhook URL:</strong> <code>https://hooks.slack.com/services/T09S.../B0AD.../Qwef...</code> (설정됨)</p>
+          <p><strong>상태:</strong> ✅ 설정 완료</p>
           <p><strong>채널:</strong> <code>#security-firewall-alert</code></p>
-          <p><strong>설정 파일:</strong> <code>/opt/splunk/etc/apps/security_alert/local/alert_actions.conf</code></p>
-          <hr/>
-          <p><strong>CLI 테스트:</strong></p>
-          <pre>python3 /opt/splunk/etc/apps/security_alert/bin/send_test_alert.py 007</pre>
+          <p><strong>사용법:</strong> 위 드롭다운에서 알림 선택 후 <strong>Submit</strong> 버튼 클릭</p>
         </div>
       </html>
     </panel>
