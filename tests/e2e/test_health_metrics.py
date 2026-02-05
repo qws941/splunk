@@ -81,6 +81,16 @@ def legacy_server(project_root: Path):
     if not server_script.exists():
         pytest.skip(f"Legacy server not found: {server_script}")
 
+    # Skip if required environment variables are not set (CI environment)
+    required_env_vars = [
+        "FAZ_HOST", "FAZ_USERNAME", "FAZ_PASSWORD",
+        "SPLUNK_HEC_HOST", "SPLUNK_HEC_PORT", "SPLUNK_HEC_TOKEN",
+        "SPLUNK_INDEX_FORTIGATE"
+    ]
+    missing_vars = [v for v in required_env_vars if not os.environ.get(v)]
+    if missing_vars:
+        pytest.skip(f"Legacy server requires env vars: {', '.join(missing_vars)}")
+
     env = os.environ.copy()
     env["PORT"] = str(LEGACY_PORT)
     env["NODE_ENV"] = "test"
