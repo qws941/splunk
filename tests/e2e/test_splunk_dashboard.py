@@ -8,31 +8,44 @@ Requires: Splunk running at SPLUNK_URL (default: http://192.168.50.150:8000)
 import os
 import pytest
 
+try:
+    from playwright.sync_api import sync_playwright
+    PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    PLAYWRIGHT_AVAILABLE = False
+
 SPLUNK_URL = os.getenv("SPLUNK_URL", "http://192.168.50.150:8000")
 SPLUNK_USER = os.getenv("SPLUNK_USER", "admin")
 SPLUNK_PASS = os.getenv("SPLUNK_PASS", "")
 
 
+pytestmark = pytest.mark.skipif(
+    not PLAYWRIGHT_AVAILABLE,
+    reason="pytest-playwright not installed"
+)
+
+
 @pytest.fixture
-def authenticated_page(playwright):
+def authenticated_page():
     """Create authenticated Splunk browser session."""
-    browser = playwright.chromium.launch(headless=True)
-    context = browser.new_context(ignore_https_errors=True)
-    page = context.new_page()
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(ignore_https_errors=True)
+        page = context.new_page()
 
-    page.goto(f"{SPLUNK_URL}/en-US/account/login")
+        page.goto(f"{SPLUNK_URL}/en-US/account/login")
 
-    if page.query_selector('input[name="username"]'):
-        page.fill('input[name="username"]', SPLUNK_USER)
-        page.fill('input[name="password"]', SPLUNK_PASS)
-        page.click('input[type="submit"]')
+        if page.query_selector('input[name="username"]'):
+            page.fill('input[name="username"]', SPLUNK_USER)
+            page.fill('input[name="password"]', SPLUNK_PASS)
+            page.click('input[type="submit"]')
 
-        page.wait_for_url("**/app/**", timeout=10000)
+            page.wait_for_url("**/app/**", timeout=10000)
 
-    yield page
+        yield page
 
-    context.close()
-    browser.close()
+        context.close()
+        browser.close()
 
 
 @pytest.mark.splunk_live

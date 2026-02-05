@@ -231,8 +231,158 @@ class TestErrorHandling:
             Path(temp_path).unlink(missing_ok=True)
 
 
+@pytest.fixture
+def slack_webhook_url():
+    """Get Slack webhook URL from environment, skip if not set."""
+    url = os.environ.get("SLACK_WEBHOOK_URL")
+    if not url:
+        pytest.skip("SLACK_WEBHOOK_URL not configured")
+    return url
+
+
+@pytest.fixture
+def alert_templates():
+    """Sample alert templates for testing (subset to avoid spam)."""
+    return {
+        "007": {
+            "name": "Hardware Failure",
+            "emoji": "🔴",
+            "color": "#FF0000",
+            "sample": {
+                "devname": "FGT-TEST-01",
+                "component": "PSU 2",
+                "status": "failed",
+            },
+        },
+        "001": {
+            "name": "Config Change",
+            "emoji": "⚙️",
+            "color": "#FFA500",
+            "sample": {
+                "devname": "FGT-TEST-01",
+                "user": "admin",
+                "action": "edit",
+                "path": "firewall policy 101",
+            },
+        },
+    }
+
+
+def build_test_block_kit(alert_id: str, template: Dict) -> List[Dict]:
+    """Build Block Kit message for testing."""
+    from datetime import datetime
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    sample = template["sample"]
+
+    fields = [{"type": "mrkdwn", "text": f"*{k}:*\n{v}"} for k, v in sample.items()]
+
+    blocks = [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": f"{template['emoji']} [{alert_id}] {template['name']} (E2E TEST)",
+                "emoji": True,
+            },
+        },
+        {"type": "section", "fields": fields[:4]},
+    ]
+
+    if len(fields) > 4:
+        blocks.append({"type": "section", "fields": fields[4:8]})
+
+    blocks.append(
+        {
+            "type": "context",
+            "elements": [
+                {
+                    "type": "mrkdwn",
+                    "text": f"🧪 *E2E TEST* | {now} | pytest test_slack_alert_action.py",
+                }
+            ],
+        }
+    )
+
+    return blocks
+
+
+def send_slack_webhook(webhook_url: str, blocks: List[Dict], color: str = "#0066FF") -> Dict[str, Any]:
+    """Send message to Slack webhook and return result."""
+    import requests
+
+    payload = {"blocks": blocks, "attachments": [{"color": color}]}
+
+    try:
+        response = requests.post(webhook_url, json=payload, timeout=10)
+        return {
+            "success": response.status_code == 200 and response.text == "ok",
+            "status_code": response.status_code,
+            "response": response.text,
+        }
+    except requests.exceptions.RequestException as e:
+        return {"success": False, "error": str(e)}
+
+
 @pytest.mark.splunk_live
 class TestLiveSlackIntegration:
+    """Live Slack webhook integration tests.
 
-    def test_trigger_alert_sends_to_slack(self):
-        pytest.skip("Requires live Slack webhook configuration")
+    These tests actually send messages to Slack.
+    Requires SLACK_WEBHOOK_URL environment variable.
+    """
+
+    def test_webhook_url_configured(self, slack_webhook_url):
+        """Verify webhook URL is configured and valid format."""
+        assert slack_webhook_url.startswith("https://hooks.slack.com/"), (
+            "Invalid webhook URL format"
+        )
+
+    def test_send_single_test_alert(self, slack_webhook_url, alert_templates):
+        """Send a single test alert to verify webhook works."""
+        alert_id = "007"
+        template = alert_templates[alert_id]
+        blocks = build_test_block_kit(alert_id, template)
+
+        result = send_slack_webhook(slack_webhook_url, blocks, template["color"])
+
+        assert result["success"], f"Slack send failed: {result}"
+        assert result["status_code"] == 200
+        assert result["response"] == "ok"
+
+    def test_send_config_change_alert(self, slack_webhook_url, alert_templates):
+        """Send config change alert to verify different alert type."""
+        alert_id = "001"
+        template = alert_templates[alert_id]
+        blocks = build_test_block_kit(alert_id, template)
+
+        result = send_slack_webhook(slack_webhook_url, blocks, template["color"])
+
+        assert result["success"], f"Slack send failed: {result}"
+
+    def test_slack_script_with_webhook(self, run_slack_alert_with_file, slack_webhook_url):
+        """Test the actual slack.py script with a real webhook."""
+        results = [
+            {
+                "device": "FGT-E2E-TEST",
+                "event": "E2E Test Alert",
+                "severity": "INFO",
+                "msg": "This is an automated E2E test",
+            }
+        ]
+
+        result = run_slack_alert_with_file(results, webhook_url=slack_webhook_url)
+
+        # Script should succeed with valid webhook
+        assert result["returncode"] == 0, f"Script failed: {result['stderr']}"
+        assert "success" in result["stderr"].lower() or result["returncode"] == 0
+
+    def test_invalid_webhook_returns_error(self, run_slack_alert_with_file):
+        """Test that invalid webhook URL is handled gracefully."""
+        results = [{"device": "FGT-TEST", "event": "Test"}]
+        invalid_url = "https://hooks.slack.com/services/INVALID/URL/HERE"
+
+        result = run_slack_alert_with_file(results, webhook_url=invalid_url)
+
+        # Should fail but not crash
+        assert "traceback" not in result["stderr"].lower()

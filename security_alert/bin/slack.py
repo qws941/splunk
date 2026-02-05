@@ -37,12 +37,9 @@ def get_severity_emoji(alert_name):
         return '🔵'
 
 def format_field_value(key, value):
-    """Format field value with proper emoji and formatting"""
-    # Truncate long values
     if isinstance(value, str) and len(value) > 100:
         value = value[:97] + "..."
 
-    # Add emoji for specific fields
     emoji_map = {
         'device': '🖥️',
         'user': '👤',
@@ -59,13 +56,14 @@ def format_field_value(key, value):
     emoji = emoji_map.get(key, '')
     return f"{emoji} *{key.replace('_', ' ').title()}:* {value}"
 
-def build_block_kit_message(alert_name, search_name, results, view_link=""):
-    """Build Block Kit formatted message"""
+def build_block_kit_message(alert_name, search_name, results, view_link="", alert_id=None):
+    """Build Block Kit formatted message with interactive buttons"""
 
     severity_emoji = get_severity_emoji(alert_name)
     result_count = len(results)
+    
+    alert_id = alert_id or f"{search_name}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
-    # Header block
     blocks = [
         {
             "type": "header",
@@ -101,18 +99,15 @@ def build_block_kit_message(alert_name, search_name, results, view_link=""):
         }
     ]
 
-    # Add result details (limit to first 5 events)
     for i, result in enumerate(results[:5]):
         if i > 0:
             blocks.append({"type": "divider"})
 
-        # Build fields for this event
         fields = []
         important_fields = ['device', 'user', 'source_ip', 'srcip', 'vpn_name',
                            'interface', 'component', 'criticality', 'severity',
                            'logdesc', 'msg', 'details']
 
-        # Add important fields first
         for key in important_fields:
             if key in result and result[key]:
                 fields.append({
@@ -120,7 +115,6 @@ def build_block_kit_message(alert_name, search_name, results, view_link=""):
                     "text": format_field_value(key, result[key])
                 })
 
-        # Add other fields
         for key, value in result.items():
             if key not in important_fields and key not in ['_time', '_raw', 'count'] and value:
                 fields.append({
@@ -128,7 +122,6 @@ def build_block_kit_message(alert_name, search_name, results, view_link=""):
                     "text": format_field_value(key, value)
                 })
 
-        # Limit to 10 fields per event
         if fields:
             blocks.append({
                 "type": "section",
@@ -148,6 +141,43 @@ def build_block_kit_message(alert_name, search_name, results, view_link=""):
         })
 
     if view_link:
+        action_elements = [
+            {
+                "type": "button",
+                "text": {
+                    "type": "plain_text",
+                    "text": "View in Splunk",
+                    "emoji": True
+                },
+                "url": view_link,
+                "style": "primary"
+            },
+            {
+                "type": "button",
+                "text": {
+                    "type": "plain_text",
+                    "text": "✅ Acknowledge",
+                    "emoji": True
+                },
+                "action_id": "ack_alert",
+                "value": alert_id
+            },
+            {
+                "type": "button",
+                "text": {
+                    "type": "plain_text",
+                    "text": "🔇 Snooze 1h",
+                    "emoji": True
+                },
+                "action_id": "snooze_alert_1h",
+                "value": alert_id
+            }
+        ]
+        blocks.append({
+            "type": "actions",
+            "elements": action_elements
+        })
+    else:
         blocks.append({
             "type": "actions",
             "elements": [
@@ -155,19 +185,100 @@ def build_block_kit_message(alert_name, search_name, results, view_link=""):
                     "type": "button",
                     "text": {
                         "type": "plain_text",
-                        "text": "View in Splunk",
+                        "text": "✅ Acknowledge",
                         "emoji": True
                     },
-                    "url": view_link,
+                    "action_id": "ack_alert",
+                    "value": alert_id,
                     "style": "primary"
+                },
+                {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "🔇 Snooze 1h",
+                        "emoji": True
+                    },
+                    "action_id": "snooze_alert_1h",
+                    "value": alert_id
                 }
             ]
         })
 
     return blocks
 
+
+def get_alert_state_path():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(script_dir, '..', 'lookups', 'alert_state.csv')
+
+
+def get_recent_alert_thread_ts(search_name, channel, max_age_minutes=60):
+    """Find recent open alert to thread under. Returns thread_ts or None."""
+    state_file = get_alert_state_path()
+    
+    if not os.path.exists(state_file):
+        return None
+    
+    try:
+        from datetime import timedelta
+        cutoff = datetime.now() - timedelta(minutes=max_age_minutes)
+        
+        with open(state_file, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reversed(list(reader)):
+                if (row.get('search_name') == search_name and 
+                    row.get('channel') == channel and
+                    row.get('status') == 'open'):
+                    
+                    created = datetime.strptime(row.get('created_at', ''), '%Y-%m-%d %H:%M:%S')
+                    if created > cutoff:
+                        return row.get('message_ts')
+    except Exception:
+        pass
+    
+    return None
+
+
+def save_alert_state(search_name, message_ts, channel):
+    state_file = get_alert_state_path()
+    
+    fieldnames = ['alert_id', 'search_name', 'message_ts', 'channel', 'status', 'created_at', 'updated_at', 'acked_by']
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    alert_id = f"{search_name}_{message_ts}"
+    
+    rows = []
+    if os.path.exists(state_file):
+        try:
+            with open(state_file, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                rows = list(reader)
+        except Exception:
+            pass
+    
+    rows.append({
+        'alert_id': alert_id,
+        'search_name': search_name,
+        'message_ts': message_ts,
+        'channel': channel,
+        'status': 'open',
+        'created_at': now,
+        'updated_at': now,
+        'acked_by': ''
+    })
+    
+    try:
+        os.makedirs(os.path.dirname(state_file), exist_ok=True)
+        with open(state_file, 'w', encoding='utf-8', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows[-1000:])
+    except Exception as e:
+        print(f"Error saving alert state: {e}", file=sys.stderr)
+
+
 def send_to_slack(webhook_url, bot_token, channel, blocks, proxies=None):
-    """Send message to Slack via webhook or Bot Token"""
+    """Send message to Slack via webhook or Bot Token. Returns (success, message_ts)"""
 
     payload = {
         "channel": channel,
@@ -177,7 +288,6 @@ def send_to_slack(webhook_url, bot_token, channel, blocks, proxies=None):
     }
 
     try:
-        # Method 1: Bot Token (OAuth) - Preferred
         if bot_token and bot_token.startswith('xoxb-'):
             response = requests.post(
                 'https://slack.com/api/chat.postMessage',
@@ -193,13 +303,13 @@ def send_to_slack(webhook_url, bot_token, channel, blocks, proxies=None):
             result = response.json()
 
             if result.get('ok'):
-                print("Alert sent to Slack successfully (Bot Token)", file=sys.stderr)
-                return True
+                message_ts = result.get('ts', '')
+                print(f"Alert sent to Slack successfully (Bot Token) ts={message_ts}", file=sys.stderr)
+                return True, message_ts
             else:
                 print(f"Slack API error: {result.get('error', 'unknown')}", file=sys.stderr)
-                return False
+                return False, None
 
-        # Method 2: Webhook URL - Fallback
         elif webhook_url and webhook_url.startswith('https://hooks.slack.com'):
             response = requests.post(
                 webhook_url,
@@ -212,21 +322,21 @@ def send_to_slack(webhook_url, bot_token, channel, blocks, proxies=None):
 
             if response.text == 'ok':
                 print("Alert sent to Slack successfully (Webhook)", file=sys.stderr)
-                return True
+                return True, None
             else:
                 print(f"Slack webhook response: {response.text}", file=sys.stderr)
-                return False
+                return False, None
 
         else:
             print("Error: No valid Slack credentials (need bot_token or webhook_url)", file=sys.stderr)
-            return False
+            return False, None
 
     except requests.exceptions.Timeout:
         print("Error: Request to Slack timed out", file=sys.stderr)
-        return False
+        return False, None
     except requests.exceptions.RequestException as e:
         print(f"Error sending to Slack: {e}", file=sys.stderr)
-        return False
+        return False, None
 
 def main():
     """Main execution"""
@@ -240,26 +350,23 @@ def main():
     bot_token = os.environ.get('SLACK_BOT_TOKEN')
     channel = os.environ.get('SLACK_CHANNEL', '#security-firewall-alert')
 
-    # Proxy configuration
     proxies = None
 
-    # Try to read from stdin for configuration (Splunk alert action format)
+    search_name = sys.argv[1] if len(sys.argv) > 1 else 'Manual Alert'
+    view_link = ''
+
     try:
         config_str = sys.stdin.read()
         if config_str:
             config = json.loads(config_str)
             webhook_url = config.get('configuration', {}).get('webhook_url', webhook_url)
-            # Splunk uses 'slack_app_oauth_token' not 'bot_token'
             bot_token = config.get('configuration', {}).get('slack_app_oauth_token', bot_token)
-            # Fallback to bot_token for backward compatibility
             if not bot_token:
                 bot_token = config.get('configuration', {}).get('bot_token', bot_token)
-            # Read channel from config, fallback to environment variable
             channel = config.get('configuration', {}).get('channel', channel)
             search_name = config.get('search_name', 'Unknown Alert')
             view_link = config.get('results_link', '')
 
-            # Read proxy configuration
             proxy_enabled = config.get('configuration', {}).get('proxy_enabled', '0')
             if proxy_enabled == '1' or proxy_enabled is True:
                 proxy_url = config.get('configuration', {}).get('proxy_url', '')
@@ -268,7 +375,6 @@ def main():
                 proxy_password = config.get('configuration', {}).get('proxy_password', '')
 
                 if proxy_url and proxy_port:
-                    # Build proxy URL
                     if proxy_username and proxy_password:
                         proxy_auth = f"{proxy_username}:{proxy_password}@"
                     else:
@@ -281,15 +387,13 @@ def main():
                     }
                     print(f"Using proxy: {proxy_url}:{proxy_port}", file=sys.stderr)
     except:
-        search_name = sys.argv[1] if len(sys.argv) > 1 else 'Manual Alert'
-        view_link = ''
+        pass
 
     if not webhook_url and not bot_token:
         print("Error: Neither SLACK_WEBHOOK_URL nor SLACK_BOT_TOKEN configured", file=sys.stderr)
         print("Configure via: Splunk Web → Apps → Security Alert System → Setup", file=sys.stderr)
         sys.exit(1)
 
-    # Parse results file
     results_file = sys.argv[1] if len(sys.argv) > 1 else None
     if results_file and os.path.exists(results_file):
         results = parse_splunk_results(results_file)
@@ -301,12 +405,13 @@ def main():
         print("No results to send", file=sys.stderr)
         sys.exit(0)
 
-    # Extract alert name from search name
     alert_name = search_name.replace('_', ' ').title()
 
-    # Build and send message
     blocks = build_block_kit_message(alert_name, search_name, results, view_link)
-    success = send_to_slack(webhook_url, bot_token, channel, blocks, proxies)
+    success, message_ts = send_to_slack(webhook_url, bot_token, channel, blocks, proxies)
+    
+    if success and message_ts:
+        save_alert_state(search_name, message_ts, channel)
 
     sys.exit(0 if success else 1)
 
