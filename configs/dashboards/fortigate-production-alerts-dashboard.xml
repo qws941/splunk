@@ -393,7 +393,7 @@ subtype="user"
       <table>
         <search>
           <query>
-index=fw earliest=$time_picker.earliest$ latest=$time_picker.earliest$
+index=fw earliest=$time_picker.earliest$ latest=$time_picker.latest$
 subtype="logdev" devname=".self"
 | eval severity_color=case(
     level="critical", "🔴 CRITICAL",

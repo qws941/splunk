@@ -1,10 +1,21 @@
-# Python dependencies for CI/CD validation
-# Currently minimal - this Splunk app is primarily configuration
-# Add dependencies as needed for validation/deployment tools
+# Python dependencies for development and CI/CD
+# Install with: pip install -r requirements.txt
 
-# Future dependencies (examples):
-# pytest==7.4.0          # Testing
-# black==23.7.0          # Code formatting
-# flake8==6.0.0          # Linting
-# mypy==1.4.1            # Type checking
-# pylint==2.17.4         # Code analysis
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Code Quality
+black>=23.7.0
+flake8>=6.1.0
+isort>=5.12.0
+
+# Type Checking (optional)
+# mypy>=1.4.1
+
+# Splunk Development
+splunk-appinspect>=4.1.0
+# splunk-sdk>=2.0.0  # Uncomment for integration tests
+
+# Pre-commit Hooks
+pre-commit>=3.3.0
