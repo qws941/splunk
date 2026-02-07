@@ -69,24 +69,33 @@ jobs:
           ERRORS=0
           for doc in README.md; do
             if [ ! -f "$doc" ]; then
-              echo "Missing: $doc"
+              echo "❌ Missing: $doc"
               ERRORS=$((ERRORS + 1))
             else
-              echo "Found: $doc"
+              echo "✅ Found: $doc"
             fi
           done
-          if [ ! -d "security_alert" ]; then
-            echo "Missing: security_alert/"
-            ERRORS=$((ERRORS + 1))
-          else
-            echo "Found: security_alert/"
-          fi
+          for dir in security_alert security_alert/default security_alert/bin; do
+            if [ ! -d "$dir" ]; then
+              echo "❌ Missing dir: $dir/"
+              ERRORS=$((ERRORS + 1))
+            else
+              echo "✅ Found dir: $dir/"
+            fi
+          done
+          for cfg in security_alert/default/savedsearches.conf security_alert/default/macros.conf security_alert/default/app.conf; do
+            if [ ! -f "$cfg" ]; then
+              echo "❌ Missing config: $cfg"
+              ERRORS=$((ERRORS + 1))
+            else
+              echo "✅ Found config: $cfg"
+            fi
+          done
           [ $ERRORS -eq 0 ] || exit 1
 
   validate-pre-commit:
     name: Pre-commit Checks
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -98,7 +107,7 @@ jobs:
       - name: Run pre-commit
         run: |
           pip install pre-commit -q
-          pre-commit run --all-files --show-diff-on-failure || true
+          pre-commit run --all-files --show-diff-on-failure
 
   validate-spl:
     name: Validate SPL
@@ -108,16 +117,56 @@ jobs:
 
       - name: Validate SPL queries
         run: |
-          if [ -f "security_alert/default/savedsearches.conf" ]; then
-            echo "savedsearches.conf: $(grep -c '^\[' security_alert/default/savedsearches.conf) stanzas"
+          ERRORS=0
+          
+          # Check savedsearches.conf
+          CONF="security_alert/default/savedsearches.conf"
+          if [ -f "$CONF" ]; then
+            STANZAS=$(grep -c '^\[' "$CONF")
+            echo "✅ savedsearches.conf: $STANZAS stanzas"
+            
+            # Verify all search stanzas have a 'search' key
+            SEARCH_COUNT=$(grep -c '^search\s*=' "$CONF" || echo "0")
+            if [ "$SEARCH_COUNT" -eq 0 ]; then
+              echo "❌ No search= definitions found in savedsearches.conf"
+              ERRORS=$((ERRORS + 1))
+            else
+              echo "✅ Found $SEARCH_COUNT search definitions"
+            fi
+            
+            # Check for alert action references
+            ACTIONS=$(grep -c '^action\.' "$CONF" || echo "0")
+            echo "ℹ️  Found $ACTIONS alert action configurations"
+          else
+            echo "❌ Missing: $CONF"
+            ERRORS=$((ERRORS + 1))
           fi
-          if [ -f "security_alert/default/macros.conf" ]; then
-            echo "macros.conf: $(grep -c '^\[' security_alert/default/macros.conf) stanzas"
+          
+          # Check macros.conf
+          CONF="security_alert/default/macros.conf"
+          if [ -f "$CONF" ]; then
+            STANZAS=$(grep -c '^\[' "$CONF")
+            echo "✅ macros.conf: $STANZAS stanzas"
+            
+            # Verify macros have definitions
+            DEFS=$(grep -c '^definition\s*=' "$CONF" || echo "0")
+            if [ "$DEFS" -eq 0 ]; then
+              echo "❌ No definition= found in macros.conf"
+              ERRORS=$((ERRORS + 1))
+            else
+              echo "✅ Found $DEFS macro definitions"
+            fi
+          else
+            echo "❌ Missing: $CONF"
+            ERRORS=$((ERRORS + 1))
           fi
+          
+          [ $ERRORS -eq 0 ] || exit 1
 
   security-sast:
     name: SAST Scan
     runs-on: ubuntu-latest
+    continue-on-error: true  # Non-blocking: SAST may have false positives
     steps:
       - uses: actions/checkout@v4
 
@@ -132,7 +181,7 @@ jobs:
           semgrep scan --config auto --config p/python \
             --exclude third_party --exclude node_modules --exclude python/lib \
             --exclude extras --exclude .cache \
-            --json --output semgrep-results.json . || true
+            --json --output semgrep-results.json .
           echo "Scan complete"
 
       - name: Upload SAST results
@@ -164,9 +213,13 @@ jobs:
             --exclude-files 'extras/.*' \
             --exclude-files '\.cache/.*' \
             --exclude-files '.*\.json$' \
-            . > secrets-results.json 2>&1 || true
-          SECRETS=$(grep -c '"is_secret": true' secrets-results.json 2>/dev/null || echo "0")
-          echo "Secrets found: $SECRETS"
+            . > secrets-results.json 2>&1
+            SECRETS=$(grep -c '"is_secret": true' secrets-results.json 2>/dev/null || echo "0")
+            echo "Secrets found: $SECRETS"
+            if [ "$SECRETS" -gt 0 ]; then
+              echo "::error::Detected $SECRETS potential secrets in codebase"
+              exit 1
+            fi
 
       - name: Upload secrets results
         uses: actions/upload-artifact@v4
@@ -181,6 +234,7 @@ jobs:
     name: Dependency Audit
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    continue-on-error: true  # Non-blocking: reports dependency vulnerabilities
     steps:
       - uses: actions/checkout@v4
 
@@ -193,7 +247,7 @@ jobs:
         run: |
           pip install pip-audit -q
           if [ -f requirements.txt ]; then
-            pip-audit -r requirements.txt --format json -o pip-audit.json 2>/dev/null || true
+            pip-audit -r requirements.txt --format json -o pip-audit.json
             echo "Vulnerabilities: $(grep -c '"id":' pip-audit.json 2>/dev/null || echo "0")"
           else
             echo "No requirements.txt"
@@ -239,39 +293,8 @@ jobs:
           retention-days: 30
           if-no-files-found: ignore
 
-  test-unit-python:
-    name: Python Unit Tests
-    runs-on: ubuntu-latest
-    needs: validate-syntax
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.9'
-
-      - name: Run pytest
-        run: |
-          pip install pytest pytest-cov -q
-          if [ -d "tests/unit" ]; then
-            pytest tests/unit/ -v --tb=short \
-              --cov=python --cov-report=xml:coverage-python.xml \
-              --cov-report=term 2>&1 | tee pytest-results.txt
-          else
-            echo "No tests/unit directory" | tee pytest-results.txt
-          fi
-
-      - name: Upload coverage
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: python-coverage
-          path: |
-            pytest-results.txt
-            coverage-python.xml
-          retention-days: 7
-          if-no-files-found: ignore
+  # NOTE: test-unit-python job removed — tests/unit/ directory does not exist
+  # TODO: Create tests/unit/ with pytest tests and re-enable this job
 
   test-e2e:
     name: E2E Tests
@@ -308,44 +331,16 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  test-integration:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    needs: test-unit-python
-    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.9'
-
-      - name: Run integration tests
-        env:
-          SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
-        run: |
-          if [ -n "${SPLUNK_HOST:-}" ]; then
-            ./scripts/validate-deployment.sh
-          else
-            echo "Skipping - no SPLUNK_HOST configured"
-          fi
+  # NOTE: test-integration job removed — scripts/validate-deployment.sh does not exist
+  # TODO: Create validate-deployment.sh and re-enable when integration testing is needed
 
   coverage-report:
     name: Coverage Report
     runs-on: ubuntu-latest
-    needs: [test-unit-python, test-e2e]
+    needs: [test-e2e]
     if: always()
     steps:
-      - name: Download unit test coverage
-        uses: actions/download-artifact@v4
-        with:
-          name: python-coverage
-          path: ./unit
-        continue-on-error: true
-
-      - name: Download E2E test coverage
+      - name: Download E2E coverage
         uses: actions/download-artifact@v4
         with:
           name: e2e-test-results
@@ -356,12 +351,6 @@ jobs:
         run: |
           echo "## Test Coverage Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
-          if [ -f unit/coverage-python.xml ]; then
-            echo "✅ Python unit coverage: Available" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "⚠️ Python unit coverage: Not available" >> $GITHUB_STEP_SUMMARY
-          fi
           
           if [ -f e2e/coverage-e2e.xml ]; then
             echo "✅ E2E test coverage: Available" >> $GITHUB_STEP_SUMMARY

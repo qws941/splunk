@@ -26,3 +26,10 @@ repos:
       - id: flake8
         args: [--max-line-length=120, --ignore=E501,W503]
         exclude: ^(vendor/|extras/addons/|bin/lib/)
+
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: [--profile=black]
+        exclude: ^(vendor/|extras/addons/|bin/lib/)

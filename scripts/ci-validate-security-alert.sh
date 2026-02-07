@@ -76,7 +76,7 @@ echo "[4] Python Scripts"
 # Check for Python scripts in either location
 PYTHON_SCRIPTS=(
     "security_alert/bin/fortigate_auto_response.py"
-    "scripts/slack_blockkit_alert.py"
+    "security_alert/bin/slack_blockkit_alert.py"
     "security_alert/bin/auto_validator.py"
 )
 
@@ -97,7 +97,7 @@ echo ""
 echo "[5] Python Syntax Validation"
 PYTHON_FILES=(
     "security_alert/bin/fortigate_auto_response.py"
-    "scripts/slack_blockkit_alert.py"
+    "security_alert/bin/slack_blockkit_alert.py"
 )
 
 for file in "${PYTHON_FILES[@]}"; do

@@ -101,7 +101,7 @@ jobs:
     needs: package
     environment:
       name: splunk-dev
-      url: http://192.168.50.150:8000
+      url: https://splunk-dev.jclee.me
     if: |
       (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'dev') ||
       (github.event_name == 'push')
@@ -138,7 +138,7 @@ jobs:
             echo ""
             echo "📦 Manual deploy instructions:"
             echo "   1. scp ${TARBALL} root@splunk:/tmp/"
-            echo "   2. ssh root@splunk '/opt/splunk/bin/splunk install app /tmp/${TARBALL} -update true -auth admin:pass'"
+            echo "   2. ssh root@splunk '/opt/splunk/bin/splunk install app /tmp/${TARBALL} -update true -auth <user>:<pass>'"
             exit 0
           fi
           
