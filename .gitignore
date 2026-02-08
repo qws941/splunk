@@ -54,6 +54,10 @@ wrangler.toml.bak
 
 # Development tools
 .serena/
+.sisyphus/
+
+# AI/ML databases
+in-memoria-vectors.db/
 
 # Temporary files
 tmp/
