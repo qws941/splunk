@@ -42,10 +42,10 @@ def send_slack_message(message):
 def main():
     """Main execution"""
     # Read alert config from stdin
-    config = {}
+    # Read alert config from stdin (if provided)
     try:
-        config = json.loads(sys.stdin.read())
-    except:
+        json.loads(sys.stdin.read())
+    except Exception:
         pass
 
     # Generate test message

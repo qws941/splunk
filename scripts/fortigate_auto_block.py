@@ -44,7 +44,6 @@ try:
     import requests
 except ImportError:
     # Splunk environment - use built-in http library
-    import urllib.error
     import urllib.request as requests
 
 # Splunk SDK imports

@@ -15,10 +15,9 @@ Features:
 
 import json
 import os
-import re
 import sys
 from datetime import datetime
-from urllib import error, parse, request
+from urllib import error, request
 
 # =============================================================================
 # Configuration
@@ -344,7 +343,7 @@ def main():
         elif SLACK_WEBHOOK_URL:
             # Fallback: Webhook (no interactive buttons)
             result = send_via_webhook(message)
-            print(f"SUCCESS: Message sent via Webhook (no interactive buttons)")
+            print("SUCCESS: Message sent via Webhook (no interactive buttons)")
         else:
             print(
                 "ERROR: Neither SLACK_BOT_TOKEN nor SLACK_WEBHOOK_URL configured",

@@ -5,7 +5,6 @@ Usage: ./check-stanza.py [conf_file]
 """
 
 import configparser
-import os
 import sys
 from pathlib import Path
 

@@ -7,7 +7,6 @@ Method: Direct file placement (REST API doesn't support Dashboard Studio JSON)
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -82,9 +81,7 @@ def deploy_to_splunk(json_file, dashboard_name):
         # Copy JSON file
         target_path = f"{SPLUNK_VIEWS_DIR}/{dashboard_name}.json"
         cmd_copy = f"docker cp {temp_file} {SPLUNK_CONTAINER}:{target_path}"
-        result = subprocess.run(
-            cmd_copy, shell=True, check=True, capture_output=True, text=True
-        )
+        subprocess.run(cmd_copy, shell=True, check=True, capture_output=True, text=True)
 
         print(f"   ✅ Copied to: {target_path}")
 

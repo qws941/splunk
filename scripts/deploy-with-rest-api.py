@@ -8,7 +8,6 @@ Usage: python3 scripts/deploy-with-rest-api.py
 import json
 import ssl
 import sys
-import time
 import urllib.error
 import urllib.parse
 import urllib.request
