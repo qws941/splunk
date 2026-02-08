@@ -16,14 +16,15 @@ Usage (by Splunk):
 Phase 3.2 - Automated Response Actions
 """
 
-import sys
 import json
-import subprocess
 import os
+import subprocess
+import sys
 
 # Path to main auto-block script
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-AUTO_BLOCK_SCRIPT = os.path.join(SCRIPT_DIR, 'fortigate_auto_block.py')
+AUTO_BLOCK_SCRIPT = os.path.join(SCRIPT_DIR, "fortigate_auto_block.py")
+
 
 def read_alert_data():
     """Read alert data from Splunk stdin"""
@@ -37,28 +38,44 @@ def read_alert_data():
         print(f"ERROR: Failed to read alert data: {e}", file=sys.stderr)
         return None
 
+
 def extract_ip_and_reason(alert_data):
     """Extract IP address and reason from alert data"""
-    result = alert_data.get('result', {})
+    result = alert_data.get("result", {})
 
     # Try common field names for IP address
-    ip_address = result.get('srcip') or result.get('src_ip') or result.get('ip') or result.get('source_ip')
+    ip_address = (
+        result.get("srcip")
+        or result.get("src_ip")
+        or result.get("ip")
+        or result.get("source_ip")
+    )
 
     # Try common field names for reason
-    reason = result.get('reason') or result.get('description') or result.get('message') or 'Malicious activity detected'
+    reason = (
+        result.get("reason")
+        or result.get("description")
+        or result.get("message")
+        or "Malicious activity detected"
+    )
 
     return ip_address, reason
+
 
 def call_auto_block(ip_address, reason):
     """Call fortigate_auto_block.py to block the IP"""
     try:
         cmd = [
-            'python3',
+            "python3",
             AUTO_BLOCK_SCRIPT,
-            '--action', 'block',
-            '--ip', ip_address,
-            '--reason', reason,
-            '--source', 'splunk'
+            "--action",
+            "block",
+            "--ip",
+            ip_address,
+            "--reason",
+            reason,
+            "--source",
+            "splunk",
         ]
 
         # Note: approval_required is set to False for automated alerts
@@ -79,6 +96,7 @@ def call_auto_block(ip_address, reason):
         print(f"ERROR: Failed to call auto-block script: {e}", file=sys.stderr)
         return False
 
+
 def main():
     """Main execution"""
     print(f"INFO: Splunk Auto-Block Wrapper started", file=sys.stderr)
@@ -96,7 +114,10 @@ def main():
 
     if not ip_address:
         print(f"ERROR: No IP address found in alert data", file=sys.stderr)
-        print(f"   Available fields: {list(alert_data.get('result', {}).keys())}", file=sys.stderr)
+        print(
+            f"   Available fields: {list(alert_data.get('result', {}).keys())}",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     print(f"INFO: IP to block: {ip_address}", file=sys.stderr)
@@ -112,5 +133,6 @@ def main():
         print(f"ERROR: Failed to block IP {ip_address}", file=sys.stderr)
         sys.exit(1)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

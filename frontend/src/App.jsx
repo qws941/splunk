@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, Component } from 'react';
 import Layout from './components/Layout/Layout';
 import Dashboard from './pages/Dashboard';
 import SecurityOverview from './pages/SecurityOverview';
@@ -9,6 +9,36 @@ import ThreatIntelligence from './pages/ThreatIntelligence';
 import SystemHealth from './pages/SystemHealth';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useStore } from './store/store';
+
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('React Error Boundary caught:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '2rem', textAlign: 'center' }}>
+          <h2>Something went wrong</h2>
+          <p>{this.state.error?.message}</p>
+          <button type="button" onClick={() => this.setState({ hasError: false, error: null })}>
+            Try Again
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function App() {
   const { connect, disconnect } = useWebSocket();
@@ -33,6 +63,7 @@ function App() {
   }, [connect, disconnect, fetchStats]);
 
   return (
+    <ErrorBoundary>
     <Router>
       <Layout>
         <Routes>
@@ -46,6 +77,7 @@ function App() {
         </Routes>
       </Layout>
     </Router>
+    </ErrorBoundary>
   );
 }
 

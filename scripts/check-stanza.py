@@ -5,41 +5,47 @@ Usage: ./check-stanza.py [conf_file]
 """
 
 import configparser
-import sys
 import os
+import sys
 from pathlib import Path
 
 APP_DIR = Path("/home/jclee/app/splunk/security_alert")
 
 # Stanza 검증 규칙
 STANZA_RULES = {
-    'alert_actions.conf': {
-        'slack': {
-            'required': ['is_custom', 'python.version', 'label'],
-            'params': [
-                'param.slack_app_oauth_token',
-                'param.webhook_url',
-                'param.proxy_enabled',
-                'param.proxy_url',
-                'param.proxy_port',
-                'param.proxy_username',
-                'param.proxy_password'
-            ]
+    "alert_actions.conf": {
+        "slack": {
+            "required": ["is_custom", "python.version", "label"],
+            "params": [
+                "param.slack_app_oauth_token",
+                "param.webhook_url",
+                "param.proxy_enabled",
+                "param.proxy_url",
+                "param.proxy_port",
+                "param.proxy_username",
+                "param.proxy_password",
+            ],
         }
     },
-    'savedsearches.conf': {
-        'alert': {  # 001_, 002_ 등으로 시작하는 모든 alert
-            'required': ['search', 'cron_schedule', 'dispatch.earliest_time'],
-            'optional': ['enableSched', 'alert.track', 'alert.severity', 'action.slack']
+    "savedsearches.conf": {
+        "alert": {  # 001_, 002_ 등으로 시작하는 모든 alert
+            "required": ["search", "cron_schedule", "dispatch.earliest_time"],
+            "optional": [
+                "enableSched",
+                "alert.track",
+                "alert.severity",
+                "action.slack",
+            ],
         }
     },
-    'transforms.conf': {
-        'lookup': {  # _lookup으로 끝나는 모든 stanza
-            'required': ['filename'],
-            'optional': ['case_sensitive_match']
+    "transforms.conf": {
+        "lookup": {  # _lookup으로 끝나는 모든 stanza
+            "required": ["filename"],
+            "optional": ["case_sensitive_match"],
         }
-    }
+    },
 }
+
 
 def check_alert_actions(conf_file):
     """alert_actions.conf 검사"""
@@ -52,20 +58,20 @@ def check_alert_actions(conf_file):
     errors = []
     warnings = []
 
-    if 'slack' not in config:
+    if "slack" not in config:
         errors.append("❌ [slack] stanza not found")
         return errors, warnings
 
-    slack = config['slack']
-    rules = STANZA_RULES['alert_actions.conf']['slack']
+    slack = config["slack"]
+    rules = STANZA_RULES["alert_actions.conf"]["slack"]
 
     # Required fields
-    for field in rules['required']:
+    for field in rules["required"]:
         if field not in slack:
             errors.append(f"❌ [slack] missing required field: {field}")
 
     # Parameters
-    for param in rules['params']:
+    for param in rules["params"]:
         if param not in slack:
             errors.append(f"❌ [slack] missing parameter: {param}")
 
@@ -77,6 +83,7 @@ def check_alert_actions(conf_file):
 
     return errors, warnings
 
+
 def check_savedsearches(conf_file):
     """savedsearches.conf 검사"""
     print("\n🔍 Checking savedsearches.conf")
@@ -86,46 +93,48 @@ def check_savedsearches(conf_file):
     config.read(conf_file)
 
     import re
-    alerts = [s for s in config.sections() if re.match(r'^\d{3}_', s)]
+
+    alerts = [s for s in config.sections() if re.match(r"^\d{3}_", s)]
 
     print(f"Found {len(alerts)} alerts")
     print()
 
     errors = []
     warnings = []
-    rules = STANZA_RULES['savedsearches.conf']['alert']
+    rules = STANZA_RULES["savedsearches.conf"]["alert"]
 
     for alert in alerts:
         alert_errors = []
         alert_config = config[alert]
 
         # Required fields
-        for field in rules['required']:
+        for field in rules["required"]:
             if field not in alert_config:
                 alert_errors.append(f"missing {field}")
 
         # Cron format check
-        if 'cron_schedule' in alert_config:
-            cron = alert_config['cron_schedule']
+        if "cron_schedule" in alert_config:
+            cron = alert_config["cron_schedule"]
             fields = cron.split()
             if len(fields) != 5:
                 alert_errors.append(f"invalid cron (has {len(fields)} fields, need 5)")
 
         # Display result
         if alert_errors:
-            enabled = alert_config.get('enableSched', '1')
-            status = "🟢" if enabled == '1' else "⚪"
+            enabled = alert_config.get("enableSched", "1")
+            status = "🟢" if enabled == "1" else "⚪"
             print(f"{status} ❌ [{alert}]")
             for err in alert_errors:
                 print(f"      → {err}")
                 errors.append(f"[{alert}] {err}")
         else:
-            enabled = alert_config.get('enableSched', '1')
-            status = "🟢" if enabled == '1' else "⚪"
-            slack = "📱" if alert_config.get('action.slack') == '1' else "  "
+            enabled = alert_config.get("enableSched", "1")
+            status = "🟢" if enabled == "1" else "⚪"
+            slack = "📱" if alert_config.get("action.slack") == "1" else "  "
             print(f"{status} {slack} [{alert}] OK")
 
     return errors, warnings
+
 
 def check_transforms(conf_file):
     """transforms.conf 검사"""
@@ -147,12 +156,12 @@ def check_transforms(conf_file):
     for stanza in stanzas:
         stanza_config = config[stanza]
 
-        if 'filename' not in stanza_config:
+        if "filename" not in stanza_config:
             print(f"❌ [{stanza}] missing filename")
             errors.append(f"[{stanza}] missing filename")
             continue
 
-        csv_file = lookups_dir / stanza_config['filename']
+        csv_file = lookups_dir / stanza_config["filename"]
         if not csv_file.exists():
             print(f"❌ [{stanza}] → {stanza_config['filename']} (file not found)")
             errors.append(f"[{stanza}] CSV file not found: {stanza_config['filename']}")
@@ -166,6 +175,7 @@ def check_transforms(conf_file):
 
     return errors, warnings
 
+
 def main():
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     print("🔍 STANZA ERROR CHECKER")
@@ -175,26 +185,26 @@ def main():
         conf_name = sys.argv[1]
     else:
         # Check all
-        conf_name = 'all'
+        conf_name = "all"
 
     all_errors = []
     all_warnings = []
 
-    if conf_name in ['all', 'alert_actions', 'alert_actions.conf']:
+    if conf_name in ["all", "alert_actions", "alert_actions.conf"]:
         conf_file = APP_DIR / "default/alert_actions.conf"
         if conf_file.exists():
             errors, warnings = check_alert_actions(conf_file)
             all_errors.extend(errors)
             all_warnings.extend(warnings)
 
-    if conf_name in ['all', 'savedsearches', 'savedsearches.conf']:
+    if conf_name in ["all", "savedsearches", "savedsearches.conf"]:
         conf_file = APP_DIR / "default/savedsearches.conf"
         if conf_file.exists():
             errors, warnings = check_savedsearches(conf_file)
             all_errors.extend(errors)
             all_warnings.extend(warnings)
 
-    if conf_name in ['all', 'transforms', 'transforms.conf']:
+    if conf_name in ["all", "transforms", "transforms.conf"]:
         conf_file = APP_DIR / "default/transforms.conf"
         if conf_file.exists():
             errors, warnings = check_transforms(conf_file)
@@ -221,6 +231,7 @@ def main():
 
     print()
     sys.exit(1 if all_errors else 0)
+
 
 if __name__ == "__main__":
     main()

@@ -50,6 +50,7 @@ frontend/
 npm run dev       # Dev server (Vite)
 npm run build     # Production build
 npm run lint      # ESLint check
+npm test          # Vitest unit tests
 npm run preview   # Preview production build
 ```
 
@@ -62,8 +63,25 @@ npm run preview   # Preview production build
 | Add new chart library | Recharts handles all charts |
 | Skip ESLint | `--max-warnings 0` enforced |
 
+## KEY PAGES
+
+| Page | File | Purpose |
+|------|------|---------|
+| SecurityOverview | `pages/SecurityOverview.jsx` | Main dashboard view |
+| SystemHealth | `pages/SystemHealth.jsx` | System metrics display |
+| ThreatIntelligence | `pages/ThreatIntelligence.jsx` | Threat data visualization |
+| CorrelationAnalysis | `pages/CorrelationAnalysis.jsx` | Cross-data correlation |
+
+## TESTING
+
+```bash
+npm test                  # Vitest unit tests
+```
+
+Config: `vitest.config.js`, setup: `test/setup.js`
+
 ## DEPENDENCIES
 
 **Runtime:** react, react-dom, react-router-dom, zustand, recharts, date-fns
 
-**Dev:** vite, eslint, @vitejs/plugin-react
+**Dev:** vite, vitest, eslint, @vitejs/plugin-react

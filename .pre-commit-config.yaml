@@ -3,9 +3,9 @@ repos:
     rev: v4.5.0
     hooks:
       - id: trailing-whitespace
-        exclude: ^(vendor/|extras/addons/|bin/lib/)
+        exclude: ^(vendor/|extras/addons/)|bin/lib/
       - id: end-of-file-fixer
-        exclude: ^(vendor/|extras/addons/|bin/lib/)
+        exclude: ^(vendor/|extras/addons/)|bin/lib/
       - id: check-yaml
         args: [--allow-multiple-documents]
         exclude: ^(vendor/|extras/addons/)
@@ -17,19 +17,18 @@ repos:
     rev: 24.3.0
     hooks:
       - id: black
-        language_version: python3.9
-        exclude: ^(vendor/|extras/addons/|bin/lib/)
+        exclude: ^(vendor/|extras/addons/)|bin/lib/
 
   - repo: https://github.com/PyCQA/flake8
     rev: 7.0.0
     hooks:
       - id: flake8
-        args: [--max-line-length=120, --ignore=E501,W503]
-        exclude: ^(vendor/|extras/addons/|bin/lib/)
+        args: [--max-line-length=120, "--ignore=E501,W503,E402,E226,E231,W504"]
+        exclude: ^(vendor/|extras/addons/)|bin/lib/
 
   - repo: https://github.com/PyCQA/isort
     rev: 5.13.2
     hooks:
       - id: isort
         args: [--profile=black]
-        exclude: ^(vendor/|extras/addons/|bin/lib/)
+        exclude: ^(vendor/|extras/addons/)|bin/lib/

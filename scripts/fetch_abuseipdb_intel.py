@@ -18,21 +18,22 @@ Usage:
 Phase 3.1 - External Threat Intelligence Integration
 """
 
+import argparse
+import csv
+import json
 import os
 import sys
-import json
-import csv
-import argparse
 from datetime import datetime, timedelta
-from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 # Configuration
 ABUSEIPDB_API_URL = "https://api.abuseipdb.com/api/v2/check"
 ABUSEIPDB_BULK_URL = "https://api.abuseipdb.com/api/v2/check-block"
-API_KEY = os.environ.get('ABUSEIPDB_API_KEY', '')
-LOOKUP_FILE = os.path.join(os.path.dirname(__file__), '../lookups/abuseipdb_lookup.csv')
+API_KEY = os.environ.get("ABUSEIPDB_API_KEY", "")
+LOOKUP_FILE = os.path.join(os.path.dirname(__file__), "../lookups/abuseipdb_lookup.csv")
 MAX_AGE_DAYS = 90  # Look back 90 days for abuse reports
+
 
 def check_ip(ip_address, api_key=None):
     """
@@ -57,31 +58,30 @@ def check_ip(ip_address, api_key=None):
         params = f"ipAddress={ip_address}&maxAgeInDays={MAX_AGE_DAYS}&verbose"
         url = f"{ABUSEIPDB_API_URL}?{params}"
 
-        headers = {
-            'Key': api_key,
-            'Accept': 'application/json'
-        }
+        headers = {"Key": api_key, "Accept": "application/json"}
 
         req = Request(url, headers=headers)
 
         # Make API call
         with urlopen(req, timeout=10) as response:
-            data = json.loads(response.read().decode('utf-8'))
+            data = json.loads(response.read().decode("utf-8"))
 
         # Extract relevant fields
-        ip_data = data.get('data', {})
+        ip_data = data.get("data", {})
 
         return {
-            'ip': ip_address,
-            'abuse_score': ip_data.get('abuseConfidenceScore', 0),
-            'country': ip_data.get('countryCode', 'Unknown'),
-            'isp': ip_data.get('isp', 'Unknown'),
-            'usage_type': ip_data.get('usageType', 'Unknown'),
-            'domain': ip_data.get('domain', ''),
-            'is_whitelisted': 'true' if ip_data.get('isWhitelisted', False) else 'false',
-            'total_reports': ip_data.get('totalReports', 0),
-            'last_reported': ip_data.get('lastReportedAt', ''),
-            'confidence_score': ip_data.get('abuseConfidenceScore', 0)
+            "ip": ip_address,
+            "abuse_score": ip_data.get("abuseConfidenceScore", 0),
+            "country": ip_data.get("countryCode", "Unknown"),
+            "isp": ip_data.get("isp", "Unknown"),
+            "usage_type": ip_data.get("usageType", "Unknown"),
+            "domain": ip_data.get("domain", ""),
+            "is_whitelisted": (
+                "true" if ip_data.get("isWhitelisted", False) else "false"
+            ),
+            "total_reports": ip_data.get("totalReports", 0),
+            "last_reported": ip_data.get("lastReportedAt", ""),
+            "confidence_score": ip_data.get("abuseConfidenceScore", 0),
         }
 
     except HTTPError as e:
@@ -93,6 +93,7 @@ def check_ip(ip_address, api_key=None):
     except Exception as e:
         print(f"ERROR: Failed to check IP {ip_address}: {e}", file=sys.stderr)
         return None
+
 
 def fetch_from_splunk():
     """
@@ -115,6 +116,7 @@ def fetch_from_splunk():
         print(f"ERROR: Failed to fetch from Splunk: {e}", file=sys.stderr)
         return []
 
+
 def update_lookup_table(ip_data_list):
     """
     Update AbuseIPDB lookup table CSV
@@ -133,47 +135,67 @@ def update_lookup_table(ip_data_list):
         # Read existing lookup data
         existing_data = {}
         if os.path.exists(LOOKUP_FILE):
-            with open(LOOKUP_FILE, 'r') as f:
+            with open(LOOKUP_FILE, "r") as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    if row.get('ip') and not row['ip'].startswith('#'):
-                        existing_data[row['ip']] = row
+                    if row.get("ip") and not row["ip"].startswith("#"):
+                        existing_data[row["ip"]] = row
 
         # Merge new data (new data takes precedence)
         for ip_data in ip_data_list:
-            existing_data[ip_data['ip']] = ip_data
+            existing_data[ip_data["ip"]] = ip_data
 
         # Write updated lookup table
-        fieldnames = ['ip', 'abuse_score', 'country', 'isp', 'usage_type', 'domain',
-                      'is_whitelisted', 'total_reports', 'last_reported', 'confidence_score']
+        fieldnames = [
+            "ip",
+            "abuse_score",
+            "country",
+            "isp",
+            "usage_type",
+            "domain",
+            "is_whitelisted",
+            "total_reports",
+            "last_reported",
+            "confidence_score",
+        ]
 
-        with open(LOOKUP_FILE, 'w', newline='') as f:
+        with open(LOOKUP_FILE, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
 
             # Sort by abuse score (highest first)
-            sorted_data = sorted(existing_data.values(),
-                               key=lambda x: int(x.get('abuse_score', 0)),
-                               reverse=True)
+            sorted_data = sorted(
+                existing_data.values(),
+                key=lambda x: int(x.get("abuse_score", 0)),
+                reverse=True,
+            )
 
             for row in sorted_data:
                 writer.writerow(row)
 
-        print(f"SUCCESS: Updated {LOOKUP_FILE} with {len(existing_data)} IPs", file=sys.stderr)
+        print(
+            f"SUCCESS: Updated {LOOKUP_FILE} with {len(existing_data)} IPs",
+            file=sys.stderr,
+        )
         return True
 
     except Exception as e:
         print(f"ERROR: Failed to update lookup table: {e}", file=sys.stderr)
         return False
 
+
 def main():
     """Main execution"""
-    parser = argparse.ArgumentParser(description='Fetch AbuseIPDB threat intelligence')
-    parser.add_argument('--source', choices=['splunk', 'file', 'cli'], default='cli',
-                       help='Source of IP addresses')
-    parser.add_argument('--ips', help='Comma-separated list of IP addresses')
-    parser.add_argument('--batch', help='File containing IP addresses (one per line)')
-    parser.add_argument('--api-key', help='AbuseIPDB API key (or use env var)')
+    parser = argparse.ArgumentParser(description="Fetch AbuseIPDB threat intelligence")
+    parser.add_argument(
+        "--source",
+        choices=["splunk", "file", "cli"],
+        default="cli",
+        help="Source of IP addresses",
+    )
+    parser.add_argument("--ips", help="Comma-separated list of IP addresses")
+    parser.add_argument("--batch", help="File containing IP addresses (one per line)")
+    parser.add_argument("--api-key", help="AbuseIPDB API key (or use env var)")
 
     args = parser.parse_args()
 
@@ -187,13 +209,15 @@ def main():
     ip_data_list = []
 
     # Fetch IPs from source
-    if args.source == 'splunk':
+    if args.source == "splunk":
         ips = fetch_from_splunk()
-    elif args.source == 'file' and args.batch:
-        with open(args.batch, 'r') as f:
-            ips = [line.strip() for line in f if line.strip() and not line.startswith('#')]
-    elif args.source == 'cli' and args.ips:
-        ips = [ip.strip() for ip in args.ips.split(',')]
+    elif args.source == "file" and args.batch:
+        with open(args.batch, "r") as f:
+            ips = [
+                line.strip() for line in f if line.strip() and not line.startswith("#")
+            ]
+    elif args.source == "cli" and args.ips:
+        ips = [ip.strip() for ip in args.ips.split(",")]
     else:
         print("ERROR: No IP source provided", file=sys.stderr)
         parser.print_help()
@@ -220,5 +244,6 @@ def main():
         print("ERROR: No IP data retrieved", file=sys.stderr)
         sys.exit(1)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

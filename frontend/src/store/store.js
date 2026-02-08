@@ -9,7 +9,8 @@ export const useStore = create((set, get) => ({
   correlation: null,
   threats: null,
   wsConnected: false,
-  loading: false,
+  loadingEvents: false,
+  loadingCorrelation: false,
   error: null,
 
   // Actions
@@ -26,13 +27,13 @@ export const useStore = create((set, get) => ({
   },
 
   fetchEvents: async (params = {}) => {
-    set({ loading: true });
+    set({ loadingEvents: true });
     try {
       const data = await api.getEvents(params);
-      set({ events: data.events, loading: false, error: null });
+      set({ events: data.events, loadingEvents: false, error: null });
     } catch (error) {
       console.error('Failed to fetch events:', error);
-      set({ loading: false, error: error.message });
+      set({ loadingEvents: false, error: error.message });
     }
   },
 
@@ -58,13 +59,13 @@ export const useStore = create((set, get) => ({
   },
 
   fetchCorrelation: async (timeRange = '-24h') => {
-    set({ loading: true });
+    set({ loadingCorrelation: true });
     try {
       const data = await api.getCorrelation(timeRange);
-      set({ correlation: data, loading: false, error: null });
+      set({ correlation: data, loadingCorrelation: false, error: null });
     } catch (error) {
       console.error('Failed to fetch correlation:', error);
-      set({ loading: false, error: error.message });
+      set({ loadingCorrelation: false, error: error.message });
     }
   },
 

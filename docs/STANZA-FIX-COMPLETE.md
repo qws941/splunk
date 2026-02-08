@@ -162,7 +162,7 @@ git push origin master
 
 2. ✅ Alert 실행 테스트
    ```spl
-   | makeresults | eval device="test" 
+   | makeresults | eval device="test"
    | sendalert slack param.channel="#security-firewall-alert"
    ```
 

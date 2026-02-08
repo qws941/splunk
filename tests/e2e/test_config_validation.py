@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 SECURITY_ALERT_PATH = PROJECT_ROOT / "security_alert"
 DEFAULT_PATH = SECURITY_ALERT_PATH / "default"
@@ -64,7 +63,9 @@ class TestAppConf:
             if parser.has_option(section, "version"):
                 version_found = True
                 version = parser.get(section, "version")
-                assert re.match(r"^\d+\.\d+\.\d+", version), f"Invalid version: {version}"
+                assert re.match(
+                    r"^\d+\.\d+\.\d+", version
+                ), f"Invalid version: {version}"
         assert version_found, "No version found in app.conf"
 
     def test_app_conf_has_label(self):
@@ -120,14 +121,18 @@ class TestSavedSearchesConf:
         for section in parser.sections():
             if section == "default":
                 continue
-            assert parser.has_option(section, "search"), f"Search {section} has no 'search' field"
+            assert parser.has_option(
+                section, "search"
+            ), f"Search {section} has no 'search' field"
 
     def test_saved_searches_have_valid_cron(self):
         config_path = DEFAULT_PATH / "savedsearches.conf"
         parser = configparser.ConfigParser(interpolation=None)
         parser.read(str(config_path))
 
-        cron_pattern = re.compile(r"^[\d\*\-\/,]+\s+[\d\*\-\/,]+\s+[\d\*\-\/,]+\s+[\d\*\-\/,]+\s+[\d\*\-\/,]+$")
+        cron_pattern = re.compile(
+            r"^[\d\*\-\/,]+\s+[\d\*\-\/,]+\s+[\d\*\-\/,]+\s+[\d\*\-\/,]+\s+[\d\*\-\/,]+$"
+        )
 
         for section in parser.sections():
             if section == "default":
@@ -151,7 +156,9 @@ class TestMacrosConf:
         for section in parser.sections():
             if section == "default":
                 continue
-            assert parser.has_option(section, "definition"), f"Macro {section} has no 'definition'"
+            assert parser.has_option(
+                section, "definition"
+            ), f"Macro {section} has no 'definition'"
 
 
 class TestTransformsConf:
@@ -222,5 +229,9 @@ class TestNoHardcodedCredentials:
 
         for pattern in self.SENSITIVE_PATTERNS:
             matches = re.findall(pattern, content, re.IGNORECASE)
-            filtered = [m for m in matches if "$" not in m and "{{" not in m and "##" not in m]
-            assert len(filtered) == 0, f"Hardcoded credential in {config_file}: {filtered}"
+            filtered = [
+                m for m in matches if "$" not in m and "{{" not in m and "##" not in m
+            ]
+            assert (
+                len(filtered) == 0
+            ), f"Hardcoded credential in {config_file}: {filtered}"

@@ -51,9 +51,19 @@ export class APIRouter {
   }
 
   async parseBody(req) {
+    const MAX_BODY_SIZE = 1024 * 1024; // 1MB
     return new Promise((resolve, reject) => {
       let body = '';
-      req.on('data', chunk => body += chunk);
+      let size = 0;
+      req.on('data', chunk => {
+        size += chunk.length;
+        if (size > MAX_BODY_SIZE) {
+          req.destroy();
+          reject(new Error('Request body too large'));
+          return;
+        }
+        body += chunk;
+      });
       req.on('end', () => {
         try {
           resolve(body ? JSON.parse(body) : {});

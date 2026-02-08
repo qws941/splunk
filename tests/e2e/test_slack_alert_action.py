@@ -4,15 +4,15 @@ E2E tests for Slack alert action (slack.py).
 slack.py expects a gzipped CSV file path as argument (Splunk alert action protocol).
 """
 
-import json
-import sys
-import gzip
 import csv
-import tempfile
-import subprocess
+import gzip
+import json
 import os
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 import pytest
 
@@ -111,7 +111,10 @@ class TestSlackAlertPayloadParsing:
         result = run_slack_alert_with_file([])
 
         is_ok = result["returncode"] == 0
-        handles_empty = "no results" in result["stderr"].lower() or "empty" in result["stderr"].lower()
+        handles_empty = (
+            "no results" in result["stderr"].lower()
+            or "empty" in result["stderr"].lower()
+        )
         assert is_ok or handles_empty or result["returncode"] != 0
 
     def test_handle_missing_fields(self, run_slack_alert_with_file):
@@ -307,7 +310,9 @@ def build_test_block_kit(alert_id: str, template: Dict) -> List[Dict]:
     return blocks
 
 
-def send_slack_webhook(webhook_url: str, blocks: List[Dict], color: str = "#0066FF") -> Dict[str, Any]:
+def send_slack_webhook(
+    webhook_url: str, blocks: List[Dict], color: str = "#0066FF"
+) -> Dict[str, Any]:
     """Send message to Slack webhook and return result."""
     import requests
 
@@ -334,9 +339,9 @@ class TestLiveSlackIntegration:
 
     def test_webhook_url_configured(self, slack_webhook_url):
         """Verify webhook URL is configured and valid format."""
-        assert slack_webhook_url.startswith("https://hooks.slack.com/"), (
-            "Invalid webhook URL format"
-        )
+        assert slack_webhook_url.startswith(
+            "https://hooks.slack.com/"
+        ), "Invalid webhook URL format"
 
     def test_send_single_test_alert(self, slack_webhook_url, alert_templates):
         """Send a single test alert to verify webhook works."""
@@ -360,7 +365,9 @@ class TestLiveSlackIntegration:
 
         assert result["success"], f"Slack send failed: {result}"
 
-    def test_slack_script_with_webhook(self, run_slack_alert_with_file, slack_webhook_url):
+    def test_slack_script_with_webhook(
+        self, run_slack_alert_with_file, slack_webhook_url
+    ):
         """Test the actual slack.py script with a real webhook."""
         results = [
             {

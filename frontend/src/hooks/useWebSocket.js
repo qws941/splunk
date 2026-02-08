@@ -1,9 +1,13 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../store/store';
 
+const MAX_RECONNECT_DELAY = 30000;
+const INITIAL_RECONNECT_DELAY = 1000;
+
 export const useWebSocket = () => {
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
+  const reconnectDelayRef = useRef(INITIAL_RECONNECT_DELAY);
   const { setWsConnected, addRealtimeEvent, updateRealtimeStats } = useStore();
 
   const connect = useCallback(() => {
@@ -21,6 +25,7 @@ export const useWebSocket = () => {
     ws.onopen = () => {
       console.log('✅ WebSocket connected');
       setWsConnected(true);
+      reconnectDelayRef.current = INITIAL_RECONNECT_DELAY;
 
       // Subscribe to all channels
       ws.send(JSON.stringify({
@@ -75,11 +80,16 @@ export const useWebSocket = () => {
       console.log('🔌 WebSocket disconnected');
       setWsConnected(false);
 
-      // Attempt to reconnect after 5 seconds
+      // Exponential backoff reconnect
+      const delay = reconnectDelayRef.current;
       reconnectTimeoutRef.current = setTimeout(() => {
-        console.log('Attempting to reconnect...');
+        console.log(`Attempting to reconnect (delay: ${delay}ms)...`);
         connect();
-      }, 5000);
+      }, delay);
+      reconnectDelayRef.current = Math.min(
+        delay * 2,
+        MAX_RECONNECT_DELAY
+      );
     };
 
     wsRef.current = ws;

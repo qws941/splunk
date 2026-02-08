@@ -86,7 +86,7 @@ function SystemHealth() {
           {serviceList.map(({ key, name, icon: Icon }) => {
             const service = services[key] || { connected: false };
             const isConnected = service.connected || service.status === 'active';
-            
+
             return (
               <div key={key} className={`service-card ${isConnected ? 'connected' : 'disconnected'}`}>
                 <div className="service-icon">
@@ -130,9 +130,9 @@ function SystemHealth() {
           <div className="metric-card">
             <span className="metric-label">Event Queue</span>
             <div className="metric-bar">
-              <div 
-                className="metric-fill" 
-                style={{ width: `${Math.min(100, (health?.queue?.size || 0) / 10)}%` }} 
+              <div
+                className="metric-fill"
+                style={{ width: `${Math.min(100, (health?.queue?.size || 0) / 10)}%` }}
               />
             </div>
             <span className="metric-value">{health?.queue?.size || 0}</span>

@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 SECURITY_ALERT_PATH = PROJECT_ROOT / "security_alert"
 DEFAULT_PATH = SECURITY_ALERT_PATH / "default"
@@ -35,16 +34,48 @@ class TestSavedSearchesParsing:
 class TestSPLSyntax:
 
     VALID_SPL_COMMANDS = [
-        "search", "index", "source", "sourcetype", "host",
-        "stats", "count", "sum", "avg", "max", "min",
-        "eval", "where", "table", "fields", "rename",
-        "sort", "head", "tail", "dedup", "rex", "spath",
-        "join", "lookup", "inputlookup", "outputlookup",
-        "timechart", "chart", "top", "rare",
-        "transaction", "streamstats", "eventstats",
-        "tstats", "datamodel", "pivot",
-        "append", "appendpipe", "multisearch",
-        "map", "foreach", "return",
+        "search",
+        "index",
+        "source",
+        "sourcetype",
+        "host",
+        "stats",
+        "count",
+        "sum",
+        "avg",
+        "max",
+        "min",
+        "eval",
+        "where",
+        "table",
+        "fields",
+        "rename",
+        "sort",
+        "head",
+        "tail",
+        "dedup",
+        "rex",
+        "spath",
+        "join",
+        "lookup",
+        "inputlookup",
+        "outputlookup",
+        "timechart",
+        "chart",
+        "top",
+        "rare",
+        "transaction",
+        "streamstats",
+        "eventstats",
+        "tstats",
+        "datamodel",
+        "pivot",
+        "append",
+        "appendpipe",
+        "multisearch",
+        "map",
+        "foreach",
+        "return",
     ]
 
     @pytest.fixture
@@ -74,25 +105,25 @@ class TestSPLSyntax:
         for name, query in search_queries.items():
             open_count = query.count("(")
             close_count = query.count(")")
-            assert open_count == close_count, (
-                f"Search '{name}' has unbalanced parentheses: ({open_count} vs {close_count})"
-            )
+            assert (
+                open_count == close_count
+            ), f"Search '{name}' has unbalanced parentheses: ({open_count} vs {close_count})"
 
     def test_balanced_brackets(self, search_queries):
         for name, query in search_queries.items():
             open_count = query.count("[")
             close_count = query.count("]")
-            assert open_count == close_count, (
-                f"Search '{name}' has unbalanced brackets: [{open_count} vs {close_count}]"
-            )
+            assert (
+                open_count == close_count
+            ), f"Search '{name}' has unbalanced brackets: [{open_count} vs {close_count}]"
 
     def test_balanced_quotes(self, search_queries):
         for name, query in search_queries.items():
-            unescaped = re.sub(r'\\"', '', query)
+            unescaped = re.sub(r'\\"', "", query)
             double_quotes = unescaped.count('"')
-            assert double_quotes % 2 == 0, (
-                f"Search '{name}' has unbalanced double quotes"
-            )
+            assert (
+                double_quotes % 2 == 0
+            ), f"Search '{name}' has unbalanced double quotes"
 
 
 class TestSavedSearchAlerts:
@@ -115,7 +146,9 @@ class TestSavedSearchAlerts:
     def test_alerts_have_cron(self, alert_searches):
         for name, config in alert_searches.items():
             has_cron = "cron_schedule" in config
-            has_realtime = "dispatch.earliest_time" in config and "rt" in config.get("dispatch.earliest_time", "")
+            has_realtime = "dispatch.earliest_time" in config and "rt" in config.get(
+                "dispatch.earliest_time", ""
+            )
             assert has_cron or has_realtime, f"Alert '{name}' has no schedule"
 
 
@@ -151,7 +184,12 @@ class TestMacroUsage:
             used_macros = macro_pattern.findall(query)
             for macro in used_macros:
                 base_macro = macro.split("(")[0]
-                macro_variants = [base_macro, f"{base_macro}(1)", f"{base_macro}(2)", f"{base_macro}(3)"]
+                macro_variants = [
+                    base_macro,
+                    f"{base_macro}(1)",
+                    f"{base_macro}(2)",
+                    f"{base_macro}(3)",
+                ]
                 found = any(m in defined_macros for m in macro_variants)
                 assert found, f"Search '{name}' uses undefined macro: {macro}"
 

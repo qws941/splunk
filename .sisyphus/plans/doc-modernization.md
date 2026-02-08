@@ -3,13 +3,13 @@
 ## TL;DR
 
 > **Quick Summary**: Splunk 프로젝트 문서를 GitHub 기준으로 현행화. CHANGELOG 날짜 수정, Wiki n8n 문서 GitLab→GitHub 웹훅 변경, 중복 파일 삭제.
-> 
+>
 > **Deliverables**:
 > - CHANGELOG.md 날짜 수정 (2025-01-XX → 2026-02-01)
 > - n8n-integration.md GitLab CI 웹훅 → GitHub Actions 웹훅 변경
 > - docs/PROJECT_STRUCTURE.md(언더스코어) 삭제
 > - 2개 커밋 생성 (Wiki + 메인 레포 분리)
-> 
+>
 > **Estimated Effort**: Quick
 > **Parallel Execution**: NO - 순차 실행 (Wiki 먼저, 메인 레포 후)
 > **Critical Path**: Task 1 → Task 2 → Task 3 → Task 4
@@ -60,7 +60,7 @@ Splunk 프로젝트 문서를 GitHub 기준으로 현행화하여 모든 활성 
 
 ### Definition of Done
 - [ ] `grep "2025-01-XX" CHANGELOG.md` → 0 matches
-- [ ] `grep "gitlab-ci-webhook" splunk.wiki/docs/guides/05-integrations/n8n-integration.md` → 0 matches  
+- [ ] `grep "gitlab-ci-webhook" splunk.wiki/docs/guides/05-integrations/n8n-integration.md` → 0 matches
 - [ ] `ls docs/PROJECT_STRUCTURE.md` → "No such file or directory"
 - [ ] `ls docs/PROJECT-STRUCTURE.md` → File exists
 - [ ] `git -C splunk.wiki log -1 --oneline` → 관련 커밋 존재

@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 BIN_PATH = PROJECT_ROOT / "security_alert" / "bin"
 LIB_PATH = BIN_PATH / "lib"
@@ -62,6 +61,7 @@ class TestFortigateAutoResponseFunctions:
     def get_defined_functions(self):
         content = SCRIPT_PATH.read_text()
         import re
+
         return re.findall(r"^def (\w+)\(", content, re.MULTILINE)
 
     def test_has_functions(self):
@@ -70,7 +70,9 @@ class TestFortigateAutoResponseFunctions:
 
     def test_has_response_functions(self):
         functions = self.get_defined_functions()
-        response_funcs = [f for f in functions if "response" in f.lower() or "action" in f.lower()]
+        response_funcs = [
+            f for f in functions if "response" in f.lower() or "action" in f.lower()
+        ]
         assert len(response_funcs) >= 0
 
 
@@ -79,6 +81,7 @@ class TestFortigateAutoResponseClasses:
     def get_defined_classes(self):
         content = SCRIPT_PATH.read_text()
         import re
+
         return re.findall(r"^class (\w+)", content, re.MULTILINE)
 
     def test_classes_defined(self):
@@ -90,6 +93,7 @@ class TestFortigateAutoResponseSecurity:
 
     def test_no_hardcoded_ips(self):
         import re
+
         content = SCRIPT_PATH.read_text()
 
         ip_pattern = r"\b(?:\d{1,3}\.){3}\d{1,3}\b"
@@ -102,6 +106,7 @@ class TestFortigateAutoResponseSecurity:
 
     def test_no_hardcoded_credentials(self):
         import re
+
         content = SCRIPT_PATH.read_text()
 
         patterns = [

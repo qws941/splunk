@@ -145,6 +145,8 @@ export default class SplunkRestClient {
     return new Promise((resolve, reject) => {
       const auth = Buffer.from(`${this.username}:${this.password}`).toString('base64');
 
+      const verifySsl = (process.env.SPLUNK_VERIFY_SSL || 'false').toLowerCase() !== 'false';
+
       const options = {
         hostname: this.host,
         port: this.port,
@@ -154,7 +156,7 @@ export default class SplunkRestClient {
           'Authorization': `Basic ${auth}`,
           'Content-Type': 'application/x-www-form-urlencoded'
         },
-        rejectUnauthorized: false // Accept self-signed certificates
+        rejectUnauthorized: verifySsl
       };
 
       if (body && method !== 'GET') {

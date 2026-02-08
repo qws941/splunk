@@ -29,33 +29,33 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 deploy_dashboard() {
     local json_file="$1"
     local dashboard_name=$(basename "$json_file" .json | tr '-' '_')
-    
+
     if [[ ! -f "$json_file" ]]; then
         log_error "File not found: $json_file"
         return 1
     fi
-    
+
     # Read JSON content
     local json_content
     json_content=$(cat "$json_file")
-    
+
     # Extract title from JSON for display
     local title
     title=$(echo "$json_content" | python3 -c "import sys,json; print(json.load(sys.stdin).get('title', 'Unknown'))" 2>/dev/null || echo "Unknown")
-    
+
     log_info "Deploying: $title ($dashboard_name)"
-    
+
     # Check if dashboard exists (app-level, not user-level)
     local exists_check
     exists_check=$(curl -s -k -u "${SPLUNK_USER}:${SPLUNK_PASS}" \
         "https://${SPLUNK_HOST}:${SPLUNK_PORT}/servicesNS/nobody/${APP_NAME}/data/ui/views/${dashboard_name}?output_mode=json" 2>/dev/null || echo '{"entry":[]}')
-    
+
     if echo "$exists_check" | grep -q "\"name\":\"${dashboard_name}\""; then
         log_info "  Dashboard exists, updating..."
     else
         log_info "  Creating new dashboard..."
     fi
-    
+
     # Create XML wrapper for Dashboard Studio JSON
     # Note: Splunk REST API requires XML wrapper even for Dashboard Studio dashboards
     local xml_payload
@@ -66,10 +66,10 @@ deploy_dashboard() {
 </dashboard>
 EOF
 )
-    
+
     local response
     local base_url="https://${SPLUNK_HOST}:${SPLUNK_PORT}/servicesNS/nobody/${APP_NAME}/data/ui/views"
-    
+
     if echo "$exists_check" | grep -q "\"name\":\"${dashboard_name}\""; then
         response=$(curl -s -k -u "${SPLUNK_USER}:${SPLUNK_PASS}" \
             -X POST \
@@ -84,7 +84,7 @@ EOF
             "${base_url}" \
             -o /dev/null -w "%{http_code}" 2>/dev/null || echo "000")
     fi
-    
+
     if [[ "$response" == "200" || "$response" == "201" ]]; then
         log_info "  Setting app-level sharing..."
         curl -s -k -u "${SPLUNK_USER}:${SPLUNK_PASS}" \
@@ -94,7 +94,7 @@ EOF
             "${base_url}/${dashboard_name}/acl" \
             -o /dev/null 2>/dev/null || true
     fi
-    
+
     if [[ "$response" == "200" || "$response" == "201" ]]; then
         log_info "  ✓ Deployed successfully (HTTP $response)"
         return 0
@@ -108,30 +108,30 @@ EOF
 deploy_xml_dashboard() {
     local xml_file="$1"
     local dashboard_name=$(basename "$xml_file" .xml | tr '-' '_')
-    
+
     if [[ ! -f "$xml_file" ]]; then
         log_error "File not found: $xml_file"
         return 1
     fi
-    
+
     # Read XML content
     local xml_payload
     xml_payload=$(cat "$xml_file")
-    
+
     # Try to extract label/title for logging
     local title
     title=$(grep -oP "(?<=<label>).*?(?=</label>)" "$xml_file" | head -1 || echo "$dashboard_name")
-    
+
     log_info "Deploying XML: $title ($dashboard_name)"
-    
+
     # Check if dashboard exists
     local exists_check
     exists_check=$(curl -s -k -u "${SPLUNK_USER}:${SPLUNK_PASS}" \
         "https://${SPLUNK_HOST}:${SPLUNK_PORT}/servicesNS/nobody/${APP_NAME}/data/ui/views/${dashboard_name}?output_mode=json" 2>/dev/null || echo '{"entry":[]}')
-    
+
     local response
     local base_url="https://${SPLUNK_HOST}:${SPLUNK_PORT}/servicesNS/nobody/${APP_NAME}/data/ui/views"
-    
+
     if echo "$exists_check" | grep -q "\"name\":\"${dashboard_name}\""; then
         log_info "  Dashboard exists, updating..."
         response=$(curl -s -k -u "${SPLUNK_USER}:${SPLUNK_PASS}" \
@@ -148,7 +148,7 @@ deploy_xml_dashboard() {
             "${base_url}" \
             -o /dev/null -w "%{http_code}" 2>/dev/null || echo "000")
     fi
-    
+
     if [[ "$response" == "200" || "$response" == "201" ]]; then
         log_info "  Setting app-level sharing..."
         curl -s -k -u "${SPLUNK_USER}:${SPLUNK_PASS}" \
@@ -171,7 +171,7 @@ main() {
     log_info "Target: https://${SPLUNK_HOST}:${SPLUNK_PORT}"
     log_info "App: ${APP_NAME}"
     echo ""
-    
+
     # Check connectivity
     log_info "Checking Splunk connectivity..."
     if ! curl -s -k -u "${SPLUNK_USER}:${SPLUNK_PASS}" \
@@ -182,11 +182,11 @@ main() {
     fi
     log_info "✓ Connected to Splunk"
     echo ""
-    
+
     # Deploy each dashboard
     local success=0
     local failed=0
-    
+
     for json_file in "$DASHBOARD_DIR"/*.json; do
         if [[ -f "$json_file" ]]; then
             if deploy_dashboard "$json_file"; then
@@ -197,7 +197,7 @@ main() {
             echo ""
         fi
     done
-    
+
     # Deploy XML dashboards
     for xml_file in "$DASHBOARD_DIR"/*.xml; do
         if [[ -f "$xml_file" ]]; then
@@ -209,7 +209,7 @@ main() {
             echo ""
         fi
     done
-    
+
     # Summary
     echo "================================"
     log_info "Deployment Summary"
@@ -220,7 +220,7 @@ main() {
     else
         log_info "  Failed: 0"
     fi
-    
+
     echo ""
     log_info "Dashboards available at:"
     log_info "  http://${SPLUNK_HOST}:8000/en-US/app/${APP_NAME}/"

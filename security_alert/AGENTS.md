@@ -10,11 +10,13 @@ Splunk app with 15 saved searches, EMS state tracking, and Slack Block Kit notif
 
 ```
 security_alert/
-├── bin/                 # Python alert handlers
+├── bin/                 # Python alert handlers (8 scripts)
 │   ├── slack_blockkit_alert.py   # Main Slack notifier (283 LOC)
+│   ├── slack_callback.py         # Ack/Snooze REST handler (166 LOC) ★
+│   ├── send_test_alert.py        # Test alert sender CLI (254 LOC)
 │   ├── auto_validator.py         # Config integrity (390 LOC)
 │   ├── deployment_health_check.py # Health check (533 LOC)
-│   └── splunk_feature_checker.py  # Feature detection (727 LOC) ★
+│   └── splunk_feature_checker.py  # Feature detection (727 LOC)
 ├── default/             # Splunk configs
 │   ├── savedsearches.conf        # 15 alerts (~800 LOC)
 │   ├── macros.conf               # SPL parameters (~150 LOC)
@@ -52,7 +54,7 @@ security_alert/
 
 ```spl
 | eval current_state = ...
-| join type=left device 
+| join type=left device
     [| inputlookup {tracker}.csv]
 | eval changed = if(current_state != previous_state, 1, 0)
 | where changed = 1
@@ -80,20 +82,9 @@ security_alert/
 
 ## LOOKUPS
 
-| File | Tracks |
-|------|--------|
-| `vpn_state_tracker.csv` | VPN connection states |
-| `admin_login_tracker.csv` | Admin login events |
-| `threat_state_tracker.csv` | Threat detection states |
+13 CSVs in `lookups/`. Key trackers: `vpn_state_tracker.csv`, `hardware_state_tracker.csv`, `interface_state_tracker.csv`, `cpu_memory_state_tracker.csv`, `resource_state_tracker.csv`.
 
-## REFACTOR CANDIDATES
+## KNOWN ISSUES
 
-| File | LOC | Issue |
-|------|-----|-------|
-| `splunk_feature_checker.py` | 727 | HIGH complexity, split needed |
-| `deployment_health_check.py` | 533 | MEDIUM-HIGH, modularize |
-
-## VIOLATIONS (KNOWN)
-
+- `splunk_feature_checker.py` (727 LOC) — HIGH complexity, split needed
 - 6 bin/*.py files use `print()` instead of `sys.stderr.write()`
-- Should be fixed to comply with Splunk alert protocol

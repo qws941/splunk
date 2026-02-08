@@ -54,7 +54,7 @@ if [[ -n $(git status --porcelain 2>/dev/null) ]]; then
     echo -e "${YELLOW}📝 Committing changes...${NC}"
     git add -A
     git commit -m "chore(wiki): auto-sync from CI [$(date +%Y-%m-%d\ %H:%M:%S)]" || true
-    
+
     # Try to push
     echo -e "${YELLOW}🚀 Pushing to origin/master...${NC}"
     if git push origin master 2>/dev/null; then

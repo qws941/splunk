@@ -37,6 +37,13 @@ export class WebSocketServer {
   }
 
   handleUpgrade(req, socket, head) {
+    const MAX_CONNECTIONS = parseInt(process.env.WS_MAX_CONNECTIONS || '100', 10);
+    if (this.clients.size >= MAX_CONNECTIONS) {
+      console.warn(`⚠️ Max WebSocket connections reached (${MAX_CONNECTIONS})`);
+      socket.destroy();
+      return;
+    }
+
     const key = req.headers['sec-websocket-key'];
     const acceptKey = this.generateAcceptKey(key);
 
@@ -236,7 +243,7 @@ export class WebSocketServer {
     for (const client of this.clients) {
       if (!client.isAlive) {
         console.log(`💀 Terminating dead connection: ${client.id}`);
-        client.socket.terminate();
+        client.socket.destroy();
         this.clients.delete(client);
         continue;
       }

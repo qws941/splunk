@@ -11,13 +11,14 @@ Credentials: Set via environment or use defaults below
     SPLUNK_PASSWORD=admin123
 """
 
-import os
-import pytest
-import time
 import csv
 import io
 import json
+import os
+import time
 from datetime import datetime, timedelta
+
+import pytest
 
 SPLUNK_HOST = os.getenv("SPLUNK_HOST", "192.168.50.150")
 SPLUNK_PORT = int(os.getenv("SPLUNK_PORT", "8089"))
@@ -81,7 +82,9 @@ def security_alert_app(splunk_service):
     return splunk_service.apps["security_alert"]
 
 
-def run_splunk_search(service, search_query, earliest="-24h", latest="now", max_results=100):
+def run_splunk_search(
+    service, search_query, earliest="-24h", latest="now", max_results=100
+):
     """Execute a Splunk search and return results as list of dicts."""
     import splunklib.results as results
 
@@ -160,9 +163,15 @@ class TestSavedSearchesLive:
         assert "search" in content, f"{alert_name}: missing search"
 
         actual_severity = int(content.get("alert.severity", 0))
-        assert actual_severity >= 1 and actual_severity <= 6, f"{alert_name}: invalid severity {actual_severity}"
+        assert (
+            actual_severity >= 1 and actual_severity <= 6
+        ), f"{alert_name}: invalid severity {actual_severity}"
 
-        assert content.get("action.slack") in ["1", "true", True], f"{alert_name}: Slack action not enabled"
+        assert content.get("action.slack") in [
+            "1",
+            "true",
+            True,
+        ], f"{alert_name}: Slack action not enabled"
 
     @pytest.mark.splunk_live
     @pytest.mark.slow
@@ -186,14 +195,16 @@ class TestSavedSearchesLive:
                 parse_search,
                 earliest="-5m",
                 latest="now",
-                max_results=1
+                max_results=1,
             )
         except Exception as e:
             error_str = str(e).lower()
             if "no matching events" in error_str or "empty" in error_str:
                 pass
             elif "unknown search command 'index'" in error_str:
-                pytest.skip(f"{alert_name}: search starts with index=, needs 'search' prefix")
+                pytest.skip(
+                    f"{alert_name}: search starts with index=, needs 'search' prefix"
+                )
             else:
                 pytest.fail(f"{alert_name}: SPL syntax error - {e}")
 
@@ -214,11 +225,13 @@ class TestSavedSearchesLive:
                     skipped_realtime.append(alert_name)
                     results_summary[alert_name] = {
                         "status": "SKIPPED",
-                        "reason": "real-time search"
+                        "reason": "real-time search",
                     }
                     continue
 
-                if search_query.strip().startswith("index") or search_query.strip().startswith("`"):
+                if search_query.strip().startswith(
+                    "index"
+                ) or search_query.strip().startswith("`"):
                     limited_search = f"search {search_query} | head 5"
                 else:
                     limited_search = f"{search_query} | head 5"
@@ -229,14 +242,14 @@ class TestSavedSearchesLive:
                     limited_search,
                     earliest="-24h",
                     latest="now",
-                    max_results=5
+                    max_results=5,
                 )
                 elapsed = time.time() - start_time
 
                 results_summary[alert_name] = {
                     "status": "OK",
                     "result_count": len(results),
-                    "elapsed_seconds": round(elapsed, 2)
+                    "elapsed_seconds": round(elapsed, 2),
                 }
 
             except KeyError:
@@ -248,7 +261,9 @@ class TestSavedSearchesLive:
         for name, info in results_summary.items():
             print(f"  {name}: {info}")
 
-        failed = [name for name, info in results_summary.items() if info["status"] == "ERROR"]
+        failed = [
+            name for name, info in results_summary.items() if info["status"] == "ERROR"
+        ]
         assert not failed, f"Alerts failed to execute: {failed}"
 
 
@@ -312,7 +327,9 @@ class TestStateTrackersLive:
 
         try:
             results = run_splunk_search(splunk_service, test_search, max_results=10)
-            assert len(results) >= 2, f"Expected at least 2 state changes, got {len(results)}"
+            assert (
+                len(results) >= 2
+            ), f"Expected at least 2 state changes, got {len(results)}"
         except Exception as e:
             pytest.fail(f"EMS pattern test failed: {e}")
 
@@ -340,7 +357,9 @@ class TestStateTrackersLive:
 
         finally:
             try:
-                delete_search = f"| makeresults | fields - _time | outputlookup {test_tracker}"
+                delete_search = (
+                    f"| makeresults | fields - _time | outputlookup {test_tracker}"
+                )
                 run_splunk_search(splunk_service, delete_search)
             except Exception:
                 pass
@@ -370,17 +389,17 @@ class TestSlackIntegrationLive:
                 has_webhook = bool(config.get("param.webhook_url"))
                 has_token = bool(config.get("param.bot_token"))
 
-                assert has_webhook or has_token, (
-                    "Slack alert action missing webhook_url or bot_token configuration"
-                )
+                assert (
+                    has_webhook or has_token
+                ), "Slack alert action missing webhook_url or bot_token configuration"
         except Exception as e:
             pytest.skip(f"Cannot read Slack configuration: {e}")
 
     @pytest.mark.splunk_live
-    @pytest.mark.parametrize("alert_name", [
-        name for name, config in ALERT_DEFINITIONS.items()
-        if config["severity"] >= 4
-    ])
+    @pytest.mark.parametrize(
+        "alert_name",
+        [name for name, config in ALERT_DEFINITIONS.items() if config["severity"] >= 4],
+    )
     def test_high_severity_alerts_have_slack_channel(self, splunk_service, alert_name):
         """Verify high severity alerts have Slack channel configured."""
         try:
@@ -389,9 +408,9 @@ class TestSlackIntegrationLive:
 
             channel = content.get("action.slack.param.channel")
             assert channel, f"{alert_name}: No Slack channel configured"
-            assert channel.startswith("#") or channel.startswith("@"), (
-                f"{alert_name}: Invalid channel format: {channel}"
-            )
+            assert channel.startswith("#") or channel.startswith(
+                "@"
+            ), f"{alert_name}: Invalid channel format: {channel}"
         except KeyError:
             pytest.skip(f"Alert {alert_name} not found")
 
@@ -462,7 +481,9 @@ class TestEndToEndAlertFlow:
             print(f"Injected test event with ID: TEST-{test_id}")
             time.sleep(2)
 
-            verify_search = f'search index=fw source="e2e_test" "TEST-{test_id}" | head 1'
+            verify_search = (
+                f'search index=fw source="e2e_test" "TEST-{test_id}" | head 1'
+            )
             results = run_splunk_search(splunk_service, verify_search, earliest="-5m")
 
             if results:
@@ -516,14 +537,21 @@ class TestPerformance:
                 performance_results[alert_name] = f"ERROR: {e}"
 
         print("\n=== Alert Search Performance (1h range, head 10) ===")
-        for name, elapsed in sorted(performance_results.items(), key=lambda x: x[1] if isinstance(x[1], float) else 999):
+        for name, elapsed in sorted(
+            performance_results.items(),
+            key=lambda x: x[1] if isinstance(x[1], float) else 999,
+        ):
             if isinstance(elapsed, float):
                 status = "SLOW" if elapsed > 30 else "OK"
                 print(f"  {name}: {elapsed:.2f}s [{status}]")
             else:
                 print(f"  {name}: {elapsed}")
 
-        slow_alerts = [name for name, t in performance_results.items() if isinstance(t, float) and t > 30]
+        slow_alerts = [
+            name
+            for name, t in performance_results.items()
+            if isinstance(t, float) and t > 30
+        ]
         if slow_alerts:
             print(f"\nWARNING: Slow alerts (>30s): {slow_alerts}")
 

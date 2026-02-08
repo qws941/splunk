@@ -5,18 +5,17 @@ Tests FAZ, Splunk HEC, and Slack connectors via the backend API.
 Uses mock servers to avoid requiring live external services.
 """
 
-import os
 import json
-import time
+import os
 import subprocess
 import threading
+import time
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 import pytest
 import requests
-
 
 BACKEND_PORT = 3103
 MOCK_SLACK_PORT = 9003

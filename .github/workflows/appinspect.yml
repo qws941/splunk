@@ -25,6 +25,9 @@ on:
           - precert
           - cloud
 
+permissions:
+  contents: read
+
 env:
   APP_NAME: security_alert
   SPLUNK_VERSION: '9.3'
@@ -42,6 +45,8 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: false
 
       - name: Extract version from app.conf
         id: version
@@ -80,6 +85,8 @@ jobs:
     needs: package
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: false
 
       - name: Download tarball
         uses: actions/download-artifact@v4
@@ -102,10 +109,10 @@ jobs:
         run: |
           MODE=${{ github.event.inputs.mode || 'precert' }}
           TARBALL="${{ needs.package.outputs.tarball }}"
-          
+
           echo "Running AppInspect in ${MODE} mode..."
           echo "Tarball: ${TARBALL}"
-          
+
           # Run AppInspect with appropriate checks
           set +e
           if [ "${MODE}" = "cloud" ]; then
@@ -124,9 +131,9 @@ jobs:
           fi
           RESULT=$?
           set -e
-          
+
           echo "exit_code=${RESULT}" >> $GITHUB_OUTPUT
-          
+
           # Parse results
           if [ -f appinspect-results.json ]; then
             FAILURES=$(python3 -c "import json; d=json.load(open('appinspect-results.json')); print(d.get('summary',{}).get('failure',0))" 2>/dev/null || echo "0")
@@ -134,7 +141,7 @@ jobs:
             WARNINGS=$(python3 -c "import json; d=json.load(open('appinspect-results.json')); print(d.get('summary',{}).get('warning',0))" 2>/dev/null || echo "0")
             SKIPPED=$(python3 -c "import json; d=json.load(open('appinspect-results.json')); print(d.get('summary',{}).get('skipped',0))" 2>/dev/null || echo "0")
             PASSED=$(python3 -c "import json; d=json.load(open('appinspect-results.json')); print(d.get('summary',{}).get('success',0))" 2>/dev/null || echo "0")
-            
+
             echo "failures=${FAILURES}" >> $GITHUB_OUTPUT
             echo "errors=${ERRORS}" >> $GITHUB_OUTPUT
             echo "warnings=${WARNINGS}" >> $GITHUB_OUTPUT
@@ -150,7 +157,7 @@ jobs:
           echo "**App**: ${{ env.APP_NAME }} v${{ needs.package.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "**Mode**: ${{ github.event.inputs.mode || 'precert' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ -f appinspect-results.json ]; then
             echo "### Summary" >> $GITHUB_STEP_SUMMARY
             echo "| Status | Count |" >> $GITHUB_STEP_SUMMARY
@@ -161,7 +168,7 @@ jobs:
             echo "| :boom: Errors | ${{ steps.appinspect.outputs.errors }} |" >> $GITHUB_STEP_SUMMARY
             echo "| :fast_forward: Skipped | ${{ steps.appinspect.outputs.skipped }} |" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            
+
             # Show failures and errors if any
             if [ "${{ steps.appinspect.outputs.failures }}" != "0" ] || [ "${{ steps.appinspect.outputs.errors }}" != "0" ]; then
               echo "### Issues Found" >> $GITHUB_STEP_SUMMARY
@@ -189,12 +196,12 @@ jobs:
         run: |
           FAILURES=${{ steps.appinspect.outputs.failures || '0' }}
           ERRORS=${{ steps.appinspect.outputs.errors || '0' }}
-          
+
           if [ "${FAILURES}" != "0" ] || [ "${ERRORS}" != "0" ]; then
             echo "::error::AppInspect found ${FAILURES} failures and ${ERRORS} errors"
             exit 1
           fi
-          
+
           echo "AppInspect validation passed!"
 
   appinspect-api:
@@ -215,35 +222,35 @@ jobs:
           SPLUNK_PASS: ${{ secrets.SPLUNK_APPINSPECT_API_PASS }}
         run: |
           TARBALL="${{ needs.package.outputs.tarball }}"
-          
+
           echo "Note: AppInspect API validation requires Splunk.com credentials"
           echo "Set SPLUNK_APPINSPECT_API_USER variable and SPLUNK_APPINSPECT_API_PASS secret"
-          
+
           if [ -z "${SPLUNK_USER}" ] || [ -z "${SPLUNK_PASS}" ]; then
             echo "Skipping API validation - credentials not configured"
             exit 0
           fi
-          
+
           # Get auth token
           TOKEN=$(curl -s -X GET \
             -u "${SPLUNK_USER}:${SPLUNK_PASS}" \
             --url "https://api.splunk.com/2.0/rest/login/splunk" \
             | jq -r '.data.token')
-          
+
           if [ -z "${TOKEN}" ] || [ "${TOKEN}" = "null" ]; then
             echo "Failed to authenticate with Splunk API"
             exit 1
           fi
-          
+
           # Submit app for validation
           RESPONSE=$(curl -s -X POST \
             -H "Authorization: bearer ${TOKEN}" \
             -F "app_package=@${TARBALL}" \
             --url "https://appinspect.splunk.com/v1/app/validate")
-          
+
           REQUEST_ID=$(echo "${RESPONSE}" | jq -r '.request_id')
           echo "Request ID: ${REQUEST_ID}"
-          
+
           # Poll for results (max 5 minutes)
           for i in $(seq 1 30); do
             sleep 10
@@ -251,18 +258,18 @@ jobs:
               -H "Authorization: bearer ${TOKEN}" \
               --url "https://appinspect.splunk.com/v1/app/validate/status/${REQUEST_ID}" \
               | jq -r '.status')
-            
+
             echo "Status: ${STATUS}"
-            
+
             if [ "${STATUS}" = "SUCCESS" ] || [ "${STATUS}" = "FAILURE" ]; then
               break
             fi
           done
-          
+
           # Get final report
           curl -s -X GET \
             -H "Authorization: bearer ${TOKEN}" \
             --url "https://appinspect.splunk.com/v1/app/report/${REQUEST_ID}" \
             -o appinspect-api-report.json
-          
+
           echo "API validation complete"

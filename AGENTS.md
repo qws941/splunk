@@ -1,19 +1,19 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-02-04  
-**Commit:** 42a4e7b  
+**Generated:** 2026-02-08
+**Commit:** be5e4e5
 **Branch:** master
 
 ## OVERVIEW
 
-Splunk Security Alert System for FortiGate monitoring. Hybrid monorepo: Splunk app (Python), Node.js DDD integration, React frontend, 80+ deployment scripts. Dual-server architecture (legacy `index.js` vs modern `backend/server.js`).
+Splunk Security Alert System for FortiGate monitoring. Hybrid monorepo: Splunk app (Python), Node.js DDD integration, React frontend, 80+ deployment scripts. Dual-server architecture (legacy `index.js` vs modern `backend/server.js`). Slack interactive callbacks (Ack/Snooze) via custom REST handler.
 
 ## STRUCTURE
 
 ```
 splunk/
 ├── security_alert/      # Core Splunk app (tarball deployment)
-│   ├── bin/             # Python alert handlers (5 scripts)
+│   ├── bin/             # Python alert handlers (8 scripts)
 │   ├── default/         # Configs (15 alerts, macros, transforms)
 │   └── lookups/         # CSV state trackers (13 files)
 ├── domains/             # DDD integration layer (Node.js)
@@ -23,6 +23,7 @@ splunk/
 ├── scripts/             # Deployment & validation (80+ files)
 ├── backend/             # Express server (FAZ→Splunk HEC)
 ├── frontend/            # React dashboard (Vite)
+├── tests/               # E2E test suite (pytest, 13 test files)
 ├── splunk.wiki/         # Documentation (XWiki submodule)
 └── configs/             # Docker, dashboards, provisioning
 ```
@@ -36,6 +37,7 @@ splunk/
 | Legacy | `index.js` | Deprecated monolithic entry |
 | Frontend | `frontend/src/main.jsx` | React dashboard |
 | Scripts | `scripts/deploy-*.sh` | Deployment automation |
+| Tests | `pytest tests/e2e -v` | E2E test suite |
 
 ## WHERE TO LOOK
 
@@ -44,6 +46,8 @@ splunk/
 | Add new alert | `security_alert/default/savedsearches.conf` | Follow 0XX_ naming |
 | Add LogID mapping | `security_alert/default/macros.conf` | `[logids_*]` stanzas |
 | Modify Slack format | `security_alert/bin/slack_blockkit_alert.py` | Block Kit structure |
+| Add Slack callback | `security_alert/bin/slack_callback.py` | Ack/Snooze buttons |
+| Send test alert | `security_alert/bin/send_test_alert.py` | CLI test tool |
 | Add FAZ connector | `domains/integration/` | Follow DDD pattern |
 | Deploy to Synology | `scripts/deploy-secmon-only.sh` | Uses Docker context |
 | Validate configs | `scripts/check-stanza.py` | Run before deploy |
@@ -84,59 +88,23 @@ splunk/
 
 ## DEPLOYMENT
 
-**Hybrid Pattern:** Source on Rocky Linux, execution on Synology NAS.
+**Pattern:** Rocky Linux (dev) → tarball → Synology NAS (Docker)
 
 ```bash
-# Development (Rocky Linux)
-cd /home/jclee/dev/splunk
-vim security_alert/default/savedsearches.conf
-./scripts/check-stanza.py          # Local validation
-
-# Package
-tar -czf security_alert.tar.gz security_alert/
-
-# Deploy (Synology Docker)
-docker context use synology
-docker compose up -d --build
+./scripts/check-stanza.py                        # Validate configs
+tar -czf security_alert.tar.gz security_alert/   # Package
+docker context use synology && docker compose up -d --build  # Deploy
 ```
 
-**Environment:**
-```bash
-SPLUNK_HOST=192.168.50.215
-SPLUNK_PORT=1111            # SSH port for Synology
-DOCKER_CONTEXT=synology
-SPLUNK_CONTAINER=splunk
-```
+**Env:** `SPLUNK_HOST=192.168.50.215`, `SPLUNK_PORT=1111`, `DOCKER_CONTEXT=synology`
 
 ## TESTING
 
 ```bash
-# Local validation (no Splunk required)
-./scripts/check-stanza.py                    # Config syntax
-python3 -m py_compile security_alert/bin/*.py  # Python syntax
-
-# E2E tests (no Splunk required)
-pip install pytest requests
-pytest tests/e2e -v -m "not splunk_live"
-
-# Pre-commit hooks
-pre-commit run --all-files
-
-# On Splunk server
-/opt/splunk/etc/apps/security_alert/bin/auto_validator.py
-/opt/splunk/etc/apps/security_alert/bin/deployment_health_check.py
+./scripts/check-stanza.py                    # Config syntax (local)
+pytest tests/e2e -v -m "not splunk_live"     # E2E tests (local)
+pre-commit run --all-files                   # Hooks
 ```
-
-## CRITICAL FILES
-
-| File | Purpose | LOC |
-|------|---------|-----|
-| `savedsearches.conf` | 15 alert definitions | ~800 |
-| `macros.conf` | Centralized SPL params | ~150 |
-| `slack_blockkit_alert.py` | Slack Block Kit formatter | 283 |
-| `deployment_health_check.py` | 10-point health check | 533 |
-| `auto_validator.py` | Config integrity validator | 390 |
-| `splunk_feature_checker.py` | Feature detection | 727 |
 
 ## DATA FLOW
 
@@ -150,6 +118,10 @@ FortiGate Syslog → Splunk index=fw
               State Changed? → slack_blockkit_alert.py
                         ↓
               Slack #security-firewall-alert
+                        ↓
+              Ack/Snooze buttons → slack_callback.py
+                        ↓
+              Update alert_state.csv
 ```
 
 ## CI/CD
@@ -175,4 +147,6 @@ FortiGate Syslog → Splunk index=fw
 - `scripts/AGENTS.md` - Deployment and validation scripts
 - `domains/AGENTS.md` - DDD integration layer
 - `frontend/AGENTS.md` - React dashboard (Vite)
+- `backend/AGENTS.md` - Zero-dep API server (Node.js)
+- `tests/AGENTS.md` - E2E test suite (pytest)
 - `splunk.wiki/docs/AGENTS.md` - Documentation system (XWiki format)

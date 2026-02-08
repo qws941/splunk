@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pytest
 
-
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 SECURITY_ALERT_PATH = PROJECT_ROOT / "security_alert"
 LOOKUPS_PATH = SECURITY_ALERT_PATH / "lookups"
@@ -74,9 +73,9 @@ class TestLookupFileValidity:
 
                 header_len = len(header)
                 for i, row in enumerate(reader, start=2):
-                    assert len(row) == header_len, (
-                        f"{csv_file.name} row {i} has {len(row)} cols, expected {header_len}"
-                    )
+                    assert (
+                        len(row) == header_len
+                    ), f"{csv_file.name} row {i} has {len(row)} cols, expected {header_len}"
 
 
 class TestAlertStateLookup:
@@ -188,6 +187,6 @@ class TestNoSensitiveDataInLookups:
                 for col in header:
                     col_lower = col.lower()
                     for pattern in self.SENSITIVE_PATTERNS:
-                        assert pattern not in col_lower, (
-                            f"{csv_file.name} has sensitive column: {col}"
-                        )
+                        assert (
+                            pattern not in col_lower
+                        ), f"{csv_file.name} has sensitive column: {col}"

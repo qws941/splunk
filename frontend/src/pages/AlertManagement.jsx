@@ -34,7 +34,7 @@ function AlertManagement() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ alertId, acknowledgedBy: 'user' })
       });
-      setAlerts(prev => prev.map(a => 
+      setAlerts(prev => prev.map(a =>
         a.id === alertId ? { ...a, status: 'acknowledged' } : a
       ));
     } catch (err) {
@@ -42,8 +42,8 @@ function AlertManagement() {
     }
   };
 
-  const filteredAlerts = filter === 'all' 
-    ? alerts 
+  const filteredAlerts = filter === 'all'
+    ? alerts
     : alerts.filter(a => a.status === filter);
 
   const getSeverityIcon = (severity) => {
@@ -89,7 +89,7 @@ function AlertManagement() {
                   {alert.status}
                 </span>
               </div>
-              
+
               <div className="alert-body">
                 <div className="alert-rule">{alert.rule}</div>
                 <div className="alert-details">
@@ -98,13 +98,13 @@ function AlertManagement() {
                   <span>Action: {alert.action}</span>
                 </div>
               </div>
-              
+
               <div className="alert-footer">
                 <span className="alert-time">
                   {new Date(alert.timestamp).toLocaleString()}
                 </span>
                 {alert.status === 'active' && (
-                  <button 
+                  <button
                     className="ack-button"
                     onClick={() => handleAcknowledge(alert.id)}
                   >

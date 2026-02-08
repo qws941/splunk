@@ -8,13 +8,12 @@ Tests the domains/ module structure and behavior via API endpoints.
 """
 
 import os
-import time
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
 import requests
-
 
 BACKEND_PORT = 3104
 STARTUP_TIMEOUT = 15
@@ -101,7 +100,9 @@ class TestDomainStructure:
         assert circuit_breaker.exists(), "circuit-breaker.js should exist"
 
     def test_faz_connector_file_exists(self, domains_path):
-        faz_connector = domains_path / "integration" / "fortianalyzer-direct-connector.js"
+        faz_connector = (
+            domains_path / "integration" / "fortianalyzer-direct-connector.js"
+        )
         assert faz_connector.exists(), "fortianalyzer-direct-connector.js should exist"
 
     def test_slack_connector_file_exists(self, domains_path):

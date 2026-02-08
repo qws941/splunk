@@ -16,11 +16,12 @@ Requires: pip install pytest
 Does NOT require: playwright, running frontend server
 """
 
-import pytest
 import json
-import re
 import os
+import re
 from pathlib import Path
+
+import pytest
 
 # Frontend paths
 FRONTEND_DIR = Path(__file__).parent.parent.parent / "frontend"
@@ -41,7 +42,7 @@ def package_json(frontend_exists):
     pkg_path = FRONTEND_DIR / "package.json"
     if not pkg_path.exists():
         pytest.skip("package.json not found")
-    with open(pkg_path, 'r') as f:
+    with open(pkg_path, "r") as f:
         return json.load(f)
 
 
@@ -58,19 +59,29 @@ def app_jsx_content(frontend_exists):
 # Test: Package Configuration
 # ============================================================================
 
+
 class TestPackageConfiguration:
     """Verify package.json configuration is correct."""
 
     def test_package_name_is_correct(self, package_json):
         """Package name should match project."""
         assert "name" in package_json
-        assert "splunk" in package_json["name"].lower() or "fortianalyzer" in package_json["name"].lower()
+        assert (
+            "splunk" in package_json["name"].lower()
+            or "fortianalyzer" in package_json["name"].lower()
+        )
 
     def test_required_dependencies_present(self, package_json):
         """Core dependencies should be present."""
-        required_deps = ["react", "react-dom", "react-router-dom", "zustand", "recharts"]
+        required_deps = [
+            "react",
+            "react-dom",
+            "react-router-dom",
+            "zustand",
+            "recharts",
+        ]
         deps = package_json.get("dependencies", {})
-        
+
         for dep in required_deps:
             assert dep in deps, f"Missing required dependency: {dep}"
 
@@ -90,7 +101,7 @@ class TestPackageConfiguration:
         """Required npm scripts should be defined."""
         scripts = package_json.get("scripts", {})
         required_scripts = ["dev", "build", "lint"]
-        
+
         for script in required_scripts:
             assert script in scripts, f"Missing script: {script}"
 
@@ -104,6 +115,7 @@ class TestPackageConfiguration:
 # ============================================================================
 # Test: Routing Configuration
 # ============================================================================
+
 
 class TestRoutingConfiguration:
     """Verify React Router routes are correctly configured."""
@@ -126,12 +138,16 @@ class TestRoutingConfiguration:
         """All expected routes should be defined."""
         for route in self.EXPECTED_ROUTES:
             pattern = rf'path=["\']{re.escape(route)}["\']'
-            assert re.search(pattern, app_jsx_content), f"Route {route} not found in App.jsx"
+            assert re.search(
+                pattern, app_jsx_content
+            ), f"Route {route} not found in App.jsx"
 
     def test_root_redirects_to_dashboard(self, app_jsx_content):
         """Root path should redirect to /dashboard."""
-        assert 'Navigate to="/dashboard"' in app_jsx_content or \
-               "Navigate to='/dashboard'" in app_jsx_content
+        assert (
+            'Navigate to="/dashboard"' in app_jsx_content
+            or "Navigate to='/dashboard'" in app_jsx_content
+        )
 
     def test_layout_component_used(self, app_jsx_content):
         """Layout component should wrap routes."""
@@ -146,6 +162,7 @@ class TestRoutingConfiguration:
 # ============================================================================
 # Test: Page Components
 # ============================================================================
+
 
 class TestPageComponents:
     """Verify all page components exist and have correct structure."""
@@ -162,20 +179,22 @@ class TestPageComponents:
     def test_all_page_files_exist(self, frontend_exists):
         """All page component files should exist."""
         pages_dir = SRC_DIR / "pages"
-        
+
         for page_name, _ in self.PAGES:
             page_path = pages_dir / page_name
             assert page_path.exists(), f"Page component missing: {page_name}"
 
     @pytest.mark.parametrize("page_name,expected_components", PAGES)
-    def test_page_imports_required_components(self, frontend_exists, page_name, expected_components):
+    def test_page_imports_required_components(
+        self, frontend_exists, page_name, expected_components
+    ):
         """Pages should import their required components."""
         page_path = SRC_DIR / "pages" / page_name
         if not page_path.exists():
             pytest.skip(f"{page_name} not found")
-        
+
         content = page_path.read_text()
-        
+
         for component in expected_components:
             assert component in content, f"{page_name} should import {component}"
 
@@ -183,22 +202,22 @@ class TestPageComponents:
         """Dashboard should use Zustand store."""
         dashboard = SRC_DIR / "pages" / "Dashboard.jsx"
         content = dashboard.read_text()
-        
+
         assert "useStore" in content, "Dashboard should use useStore hook"
-        assert "from '../store/store'" in content or "from \"../store/store\"" in content
+        assert "from '../store/store'" in content or 'from "../store/store"' in content
 
     def test_dashboard_has_stats_grid(self, frontend_exists):
         """Dashboard should render stats-grid."""
         dashboard = SRC_DIR / "pages" / "Dashboard.jsx"
         content = dashboard.read_text()
-        
+
         assert "stats-grid" in content, "Dashboard should have stats-grid class"
 
     def test_dashboard_fetches_data_on_mount(self, frontend_exists):
         """Dashboard should fetch data in useEffect."""
         dashboard = SRC_DIR / "pages" / "Dashboard.jsx"
         content = dashboard.read_text()
-        
+
         assert "useEffect" in content
         assert "fetchEvents" in content or "fetchAlerts" in content
 
@@ -207,26 +226,38 @@ class TestPageComponents:
 # Test: UI Components
 # ============================================================================
 
+
 class TestUIComponents:
     """Verify UI component structure and exports."""
 
     COMPONENTS = [
         ("components/Layout/Layout.jsx", ["function Layout", "export default Layout"]),
-        ("components/Cards/StatsCard.jsx", ["function StatsCard", "export default StatsCard"]),
-        ("components/Charts/EventsChart.jsx", ["function EventsChart", "export default EventsChart"]),
-        ("components/Tables/AlertsTable.jsx", ["function AlertsTable", "export default AlertsTable"]),
+        (
+            "components/Cards/StatsCard.jsx",
+            ["function StatsCard", "export default StatsCard"],
+        ),
+        (
+            "components/Charts/EventsChart.jsx",
+            ["function EventsChart", "export default EventsChart"],
+        ),
+        (
+            "components/Tables/AlertsTable.jsx",
+            ["function AlertsTable", "export default AlertsTable"],
+        ),
     ]
 
     @pytest.mark.parametrize("component_path,patterns", COMPONENTS)
-    def test_component_exists_and_has_correct_structure(self, frontend_exists, component_path, patterns):
+    def test_component_exists_and_has_correct_structure(
+        self, frontend_exists, component_path, patterns
+    ):
         """Components should exist and have correct function/export structure."""
         full_path = SRC_DIR / component_path
-        
+
         if not full_path.exists():
             pytest.skip(f"Component not found: {component_path}")
-        
+
         content = full_path.read_text()
-        
+
         for pattern in patterns:
             assert pattern in content, f"{component_path} should contain: {pattern}"
 
@@ -235,9 +266,9 @@ class TestUIComponents:
         chart_path = SRC_DIR / "components/Charts/EventsChart.jsx"
         if not chart_path.exists():
             pytest.skip("EventsChart not found")
-        
+
         content = chart_path.read_text()
-        
+
         assert "recharts" in content
         assert "LineChart" in content or "BarChart" in content or "AreaChart" in content
 
@@ -246,20 +277,24 @@ class TestUIComponents:
         table_path = SRC_DIR / "components/Tables/AlertsTable.jsx"
         if not table_path.exists():
             pytest.skip("AlertsTable not found")
-        
+
         content = table_path.read_text()
-        
+
         # Should check for empty/null alerts
-        assert "!alerts" in content or "alerts.length === 0" in content or "alerts?.length" in content
+        assert (
+            "!alerts" in content
+            or "alerts.length === 0" in content
+            or "alerts?.length" in content
+        )
 
     def test_stats_card_accepts_required_props(self, frontend_exists):
         """StatsCard should accept title, value, trend props."""
         card_path = SRC_DIR / "components/Cards/StatsCard.jsx"
         if not card_path.exists():
             pytest.skip("StatsCard not found")
-        
+
         content = card_path.read_text()
-        
+
         # Check for prop destructuring or usage
         assert "title" in content
         assert "value" in content
@@ -268,6 +303,7 @@ class TestUIComponents:
 # ============================================================================
 # Test: API Service
 # ============================================================================
+
 
 class TestAPIService:
     """Verify API service configuration and endpoints."""
@@ -289,7 +325,7 @@ class TestAPIService:
         """API should use fetch for HTTP requests."""
         api_path = SRC_DIR / "services/api.js"
         content = api_path.read_text()
-        
+
         assert "fetch" in content, "API should use fetch"
 
     @pytest.mark.parametrize("method_name,endpoint", EXPECTED_ENDPOINTS)
@@ -297,7 +333,7 @@ class TestAPIService:
         """API should define all required endpoints."""
         api_path = SRC_DIR / "services/api.js"
         content = api_path.read_text()
-        
+
         assert method_name in content, f"API should define {method_name}"
         assert endpoint in content, f"API should use endpoint {endpoint}"
 
@@ -305,20 +341,21 @@ class TestAPIService:
         """API should handle HTTP errors."""
         api_path = SRC_DIR / "services/api.js"
         content = api_path.read_text()
-        
+
         assert "catch" in content or "try" in content, "API should handle errors"
 
     def test_api_exports_object(self, frontend_exists):
         """API should export api object."""
         api_path = SRC_DIR / "services/api.js"
         content = api_path.read_text()
-        
+
         assert "export" in content and "api" in content
 
 
 # ============================================================================
 # Test: Zustand Store
 # ============================================================================
+
 
 class TestZustandStore:
     """Verify Zustand store configuration and actions."""
@@ -335,7 +372,7 @@ class TestZustandStore:
         """Store should use Zustand create function."""
         store_path = SRC_DIR / "store/store.js"
         content = store_path.read_text()
-        
+
         assert "zustand" in content
         assert "create" in content
 
@@ -343,7 +380,7 @@ class TestZustandStore:
         """Store should export useStore hook."""
         store_path = SRC_DIR / "store/store.js"
         content = store_path.read_text()
-        
+
         assert "export" in content and "useStore" in content
 
     @pytest.mark.parametrize("state_key", EXPECTED_STATE)
@@ -351,7 +388,7 @@ class TestZustandStore:
         """Store should have all required state keys."""
         store_path = SRC_DIR / "store/store.js"
         content = store_path.read_text()
-        
+
         assert state_key in content, f"Store should have state: {state_key}"
 
     @pytest.mark.parametrize("action_name", EXPECTED_ACTIONS)
@@ -359,14 +396,14 @@ class TestZustandStore:
         """Store should have all required actions."""
         store_path = SRC_DIR / "store/store.js"
         content = store_path.read_text()
-        
+
         assert action_name in content, f"Store should have action: {action_name}"
 
     def test_store_actions_are_async(self, frontend_exists):
         """Fetch actions should be async."""
         store_path = SRC_DIR / "store/store.js"
         content = store_path.read_text()
-        
+
         # Check for async/await pattern
         assert "async" in content
         assert "await" in content
@@ -375,14 +412,18 @@ class TestZustandStore:
         """Store should set loading state during fetches."""
         store_path = SRC_DIR / "store/store.js"
         content = store_path.read_text()
-        
-        assert "loading: true" in content or "loading:true" in content or \
-               "set({ loading: true" in content
+
+        assert (
+            "loading: true" in content
+            or "loading:true" in content
+            or "set({ loading: true" in content
+        )
 
 
 # ============================================================================
 # Test: WebSocket Hook
 # ============================================================================
+
 
 class TestWebSocketHook:
     """Verify WebSocket hook implementation."""
@@ -396,14 +437,14 @@ class TestWebSocketHook:
         """Should export useWebSocket hook."""
         hook_path = SRC_DIR / "hooks/useWebSocket.js"
         content = hook_path.read_text()
-        
+
         assert "export" in content and "useWebSocket" in content
 
     def test_websocket_has_connect_disconnect(self, frontend_exists):
         """Hook should provide connect and disconnect functions."""
         hook_path = SRC_DIR / "hooks/useWebSocket.js"
         content = hook_path.read_text()
-        
+
         assert "connect" in content
         assert "disconnect" in content
 
@@ -415,6 +456,7 @@ class TestWebSocketHook:
 # ============================================================================
 # Test: CSS and Styling
 # ============================================================================
+
 
 class TestCSSAndStyling:
     """Verify CSS files exist and follow conventions."""
@@ -429,9 +471,9 @@ class TestCSSAndStyling:
         css_path = SRC_DIR / "pages/Dashboard.css"
         if not css_path.exists():
             pytest.skip("Dashboard.css not found")
-        
+
         content = css_path.read_text()
-        
+
         required_classes = ["dashboard-page", "stats-grid", "page-header"]
         for cls in required_classes:
             assert cls in content, f"CSS should define .{cls}"
@@ -446,6 +488,7 @@ class TestCSSAndStyling:
 # Test: Data Transformation Logic
 # ============================================================================
 
+
 class TestDataTransformation:
     """Test data transformation patterns used in components."""
 
@@ -454,9 +497,9 @@ class TestDataTransformation:
         chart_path = SRC_DIR / "components/Charts/EventsChart.jsx"
         if not chart_path.exists():
             pytest.skip("EventsChart not found")
-        
+
         content = chart_path.read_text()
-        
+
         # Should have time bucketing logic
         assert "reduce" in content or "group" in content.lower()
         assert "timestamp" in content or "time" in content
@@ -466,9 +509,9 @@ class TestDataTransformation:
         table_path = SRC_DIR / "components/Tables/AlertsTable.jsx"
         if not table_path.exists():
             pytest.skip("AlertsTable not found")
-        
+
         content = table_path.read_text()
-        
+
         # Should map severity to colors
         assert "critical" in content
         assert "high" in content
@@ -478,6 +521,7 @@ class TestDataTransformation:
 # ============================================================================
 # Test: File Organization
 # ============================================================================
+
 
 class TestFileOrganization:
     """Verify frontend file organization follows conventions."""
@@ -515,6 +559,7 @@ class TestFileOrganization:
 # Test: Integration Patterns
 # ============================================================================
 
+
 class TestIntegrationPatterns:
     """Verify frontend integrates correctly with backend."""
 
@@ -522,7 +567,7 @@ class TestIntegrationPatterns:
         """API base URL should be configurable via environment."""
         api_path = SRC_DIR / "services/api.js"
         content = api_path.read_text()
-        
+
         # Should use Vite env variable
         assert "VITE_" in content or "import.meta.env" in content
 

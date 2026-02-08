@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 BIN_PATH = PROJECT_ROOT / "security_alert" / "bin"
 FEATURE_CHECKER_PATH = BIN_PATH / "splunk_feature_checker.py"
@@ -55,6 +54,7 @@ class TestFeatureCheckerFunctions:
     def get_defined_functions(self):
         content = FEATURE_CHECKER_PATH.read_text()
         import re
+
         return re.findall(r"^def (\w+)\(", content, re.MULTILINE)
 
     def test_has_main_functions(self):
@@ -65,12 +65,14 @@ class TestFeatureCheckerFunctions:
         """Feature checker may use classes or functions for validation."""
         content = FEATURE_CHECKER_PATH.read_text()
         # Accept: check functions, validator classes, or main entry point
-        has_check_funcs = any("check" in f.lower() for f in self.get_defined_functions())
+        has_check_funcs = any(
+            "check" in f.lower() for f in self.get_defined_functions()
+        )
         has_validator_classes = "Validator" in content or "Checker" in content
         has_main = "def main(" in content or "if __name__" in content
-        assert has_check_funcs or has_validator_classes or has_main, (
-            "No validation logic found (check functions, Validator classes, or main)"
-        )
+        assert (
+            has_check_funcs or has_validator_classes or has_main
+        ), "No validation logic found (check functions, Validator classes, or main)"
 
 
 class TestFeatureCheckerClasses:
@@ -78,6 +80,7 @@ class TestFeatureCheckerClasses:
     def get_defined_classes(self):
         content = FEATURE_CHECKER_PATH.read_text()
         import re
+
         return re.findall(r"^class (\w+)", content, re.MULTILINE)
 
     def test_has_classes(self):
@@ -96,6 +99,7 @@ class TestFeatureCheckerNoHardcodedSecrets:
 
     def test_no_hardcoded_secrets(self):
         import re
+
         content = FEATURE_CHECKER_PATH.read_text()
 
         for pattern in self.SENSITIVE_PATTERNS:

@@ -1,6 +1,6 @@
 <form version="1.1">
   <label>Slack 알림 조건 ON/OFF</label>
-  
+
   <!-- 조건 입력 -->
   <fieldset submitButton="true" autoRun="false">
     <input type="dropdown" token="alert_name">
@@ -10,14 +10,14 @@
       <choice value="FMG_Policy_Install">FMG_Policy_Install</choice>
       <default>Syslog_Alert</default>
     </input>
-    
+
     <input type="dropdown" token="action">
       <label>동작</label>
       <choice value="enable">켜기 (Enable)</choice>
       <choice value="disable">끄기 (Disable)</choice>
       <default>enable</default>
     </input>
-    
+
     <input type="text" token="condition">
       <label>조건 (선택사항)</label>
       <default>severity=critical</default>

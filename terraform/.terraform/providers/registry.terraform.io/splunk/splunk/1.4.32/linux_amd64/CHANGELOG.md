@@ -11,7 +11,7 @@
 * Support ':' and '/' characters in configs_conf stanza name
 * Fix: Add retry mechanism to configs_conf acl endpoint
 
-## 1.4.28 
+## 1.4.28
 * Support for lookup definition
 
 ## 1.4.27

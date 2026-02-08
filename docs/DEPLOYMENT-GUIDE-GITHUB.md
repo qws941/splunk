@@ -679,7 +679,7 @@ A: The script outputs configuration at startup.
 A: Yes, use environment variables (as shown above).
 
 **Q: How often should I deploy?**
-A: 
+A:
 - **Develop branch**: After each feature merge (~daily)
 - **Production**: As needed for patches/releases (~weekly or on-demand)
 
@@ -717,6 +717,6 @@ A: Check the Slack notification for error details, then see Troubleshooting sect
 
 ---
 
-**Last Updated**: 2025-02-01  
-**Version**: 2.0.5+  
+**Last Updated**: 2025-02-01
+**Version**: 2.0.5+
 **Status**: Current

@@ -8,19 +8,19 @@ This module provides:
 - Mock Slack server for alert action testing
 """
 
-import os
-import sys
-import json
-import time
 import csv
 import gzip
+import json
+import os
+import sys
 import tempfile
-from pathlib import Path
-from datetime import datetime, timedelta
-from typing import Generator, Dict, Any, List, Optional
-from unittest.mock import MagicMock, patch
-from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
+import time
+from datetime import datetime, timedelta
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
+from typing import Any, Dict, Generator, List, Optional
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -52,7 +52,7 @@ def splunk_config() -> Dict[str, Any]:
         "host": os.getenv("SPLUNK_HOST", "192.168.50.150"),
         "port": int(os.getenv("SPLUNK_PORT", "8089")),
         "username": os.getenv("SPLUNK_USERNAME", "admin"),
-        "password": os.getenv("SPLUNK_PASSWORD", "Splunk@150!"),
+        "password": os.getenv("SPLUNK_PASSWORD", ""),
         "app": os.getenv("SPLUNK_APP", "security_alert"),
         "owner": os.getenv("SPLUNK_OWNER", "admin"),
     }
@@ -308,9 +308,7 @@ def alert_event_generator():
         events = alert_event_generator("011_Admin_Login_Failed", count=5)
     """
 
-    def _generate(
-        alert_name: str, count: int = 1, **overrides
-    ) -> List[Dict[str, Any]]:
+    def _generate(alert_name: str, count: int = 1, **overrides) -> List[Dict[str, Any]]:
         """Generate test events for a specific alert."""
         if alert_name not in ALERT_TEMPLATES:
             raise ValueError(f"Unknown alert: {alert_name}")
@@ -320,9 +318,7 @@ def alert_event_generator():
 
         for i in range(count):
             event = template.copy()
-            event["_time"] = (
-                datetime.now() - timedelta(seconds=i * 10)
-            ).isoformat()
+            event["_time"] = (datetime.now() - timedelta(seconds=i * 10)).isoformat()
             event.update(overrides)
             events.append(event)
 
@@ -399,8 +395,8 @@ def backup_lookup(lookup_path: Path):
             ...
         # File is restored after test
     """
-    from contextlib import contextmanager
     import shutil
+    from contextlib import contextmanager
 
     @contextmanager
     def _backup(filename: str):
@@ -708,9 +704,7 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "splunk_live: mark test as requiring live Splunk connection"
     )
-    config.addinivalue_line(
-        "markers", "slow: mark test as slow running"
-    )
+    config.addinivalue_line("markers", "slow: mark test as slow running")
     config.addinivalue_line(
         "markers", "alert: mark test as alert-specific (parametrize with alert name)"
     )

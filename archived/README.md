@@ -21,4 +21,3 @@ cp -r archived/folder_name ./
 ## Deletion Schedule
 
 These folders can be safely deleted after 2025-12-31 if not needed.
-

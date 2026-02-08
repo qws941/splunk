@@ -123,8 +123,8 @@ function ThreatIntelligence() {
                   <span className="geo-count">{geo.count} events</span>
                 </div>
                 <div className="geo-bar">
-                  <div 
-                    className="geo-fill" 
+                  <div
+                    className="geo-fill"
                     style={{ width: `${Math.min(100, (geo.count / (geoData[0]?.count || 1)) * 100)}%` }}
                   />
                 </div>

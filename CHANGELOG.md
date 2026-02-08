@@ -79,7 +79,7 @@
   PROXY_SERVER="${PROXY_SERVER:-http://172.16.4.217:5001}"
   SLACK_CHANNEL="${SLACK_CHANNEL:-일반}"
   ```
-- **Impact**: 
+- **Impact**:
   - Configuration customizable without editing script
   - Can override at deployment time via environment variables
   - Backward compatible with default values
@@ -121,7 +121,7 @@
   - `/-/blob/` → `/blob/`
   - `/-/tree/` → `/tree/`
   - `/-/raw/` → `/raw/`
-- **Impact**: 
+- **Impact**:
   - Wiki links now functional
   - Documentation fully GitHub-compatible
   - Reduced broken link issues
@@ -183,11 +183,11 @@
 #### How to Deploy These Changes
 
 1. **Automatic**: Changes are already merged to master branch
-2. **Manual Verification**: 
+2. **Manual Verification**:
    ```bash
    git log --oneline -7
    # Should show: 6d7b1ec Merge branch 'fix/ci-cd-critical-issues'
-   
+
    # Verify no issues
    git status
    # Should show: nothing to commit, working tree clean
@@ -199,7 +199,7 @@
    git checkout develop
    git push origin develop
    # Watch GitHub Actions for deploy-dev job
-   
+
    # Test production with custom config
    export PROXY_SERVER="http://test:5001"
    ./infra/deploy/production/deploy.sh --dry-run

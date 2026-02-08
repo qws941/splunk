@@ -5,30 +5,18 @@ name: Deploy
 
 "on":
   push:
-    branches: [master, main, develop]
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+*'
-    paths-ignore:
-      - '**.md'
-      - '.github/ISSUE_TEMPLATE/**'
-      - '.github/PULL_REQUEST_TEMPLATE/**'
-      - 'LICENSE'
-      - '.gitignore'
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Target environment'
-        required: true
-        default: 'dev'
-        type: choice
-        options:
-          - dev
-          - prod
       deploy_wiki:
         description: 'Sync wiki documentation'
         required: false
         default: false
         type: boolean
+
+permissions:
+  contents: write
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -42,13 +30,12 @@ jobs:
   deploy-wiki:
     name: Deploy Wiki
     runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_wiki == 'true') ||
-      (github.event_name == 'push' && contains(github.event.head_commit.modified, 'docs/wiki/'))
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_wiki == 'true'
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          submodules: false
 
       - name: Sync wiki documentation
         run: |
@@ -57,70 +44,36 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
 
-  deploy-dev:
-    name: Deploy to Development
+  # ============================================================
+  # STAGE: release (on version tags)
+  # ============================================================
+
+  release:
+    name: Create Release
     runs-on: ubuntu-latest
-    environment:
-      name: development
-      url: https://splunk-dev.example.com
-    if: |
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'dev') ||
-      (github.ref == 'refs/heads/develop')
+    if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: false
 
-      - name: Deploy to dev
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create tarball
         run: |
-          if [ -n "${{ secrets.SPLUNK_HOST }}" ]; then
-            chmod +x ./scripts/deploy.sh
-            ./scripts/deploy.sh dev
-          else
-            echo "⚠️ Set SPLUNK_HOST secret to enable deployment"
-            exit 0
-          fi
+          tar -czf security_alert-${{ steps.version.outputs.version }}.tar.gz \
+            --exclude='__pycache__' \
+            --exclude='*.pyc' \
+            --exclude='.git' \
+            --exclude='tests/' \
+            security_alert/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844
+        with:
+          files: security_alert-${{ steps.version.outputs.version }}.tar.gz
+          generate_release_notes: true
         env:
-          SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
-          SPLUNK_USER: ${{ secrets.SPLUNK_USER }}
-          SPLUNK_PASS: ${{ secrets.SPLUNK_PASS }}
-
-  deploy-prod:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: https://splunk.jclee.me
-    needs: [deploy-dev]
-    if: |
-      needs.deploy-dev.result == 'success' && (
-        (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod') ||
-        (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
-      )
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Deploy to production
-        run: |
-          if [ -n "${{ secrets.SPLUNK_HOST }}" ]; then
-            chmod +x ./scripts/deploy.sh
-            ./scripts/deploy.sh prod
-          else
-            echo "⚠️ Set SPLUNK_HOST secret to enable deployment"
-            exit 0
-          fi
-        env:
-          SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
-          SPLUNK_USER: ${{ secrets.SPLUNK_USER }}
-          SPLUNK_PASS: ${{ secrets.SPLUNK_PASS }}
-
-  # ============================================================
-  # STAGE: release
-  # ============================================================
-
-# NOTE: release-changelog job removed — cliff.toml does not exist in this repo
-# TODO: Add cliff.toml config and re-enable when changelog generation is needed
-
-  # ============================================================
-  # STAGE: package
-  # ============================================================
-
-# NOTE: package-airgap job removed — go/ directory does not exist in this repo
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

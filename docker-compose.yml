@@ -41,6 +41,7 @@ services:
       - TZ=Asia/Seoul
       - SERVICE_NAME=faz-splunk-integration
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      - API_PORT=8080
 
       # FortiAnalyzer
       - FAZ_HOST=${FAZ_HOST}
@@ -234,4 +235,3 @@ networks:
 
   traefik-public:
     external: true
-

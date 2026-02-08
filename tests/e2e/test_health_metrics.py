@@ -8,13 +8,12 @@ Tests /health and /metrics (Prometheus format) for both:
 
 import os
 import re
-import time
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
 import requests
-
 
 BACKEND_PORT = 3102
 LEGACY_PORT = 8082
@@ -83,9 +82,13 @@ def legacy_server(project_root: Path):
 
     # Skip if required environment variables are not set (CI environment)
     required_env_vars = [
-        "FAZ_HOST", "FAZ_USERNAME", "FAZ_PASSWORD",
-        "SPLUNK_HEC_HOST", "SPLUNK_HEC_PORT", "SPLUNK_HEC_TOKEN",
-        "SPLUNK_INDEX_FORTIGATE"
+        "FAZ_HOST",
+        "FAZ_USERNAME",
+        "FAZ_PASSWORD",
+        "SPLUNK_HEC_HOST",
+        "SPLUNK_HEC_PORT",
+        "SPLUNK_HEC_TOKEN",
+        "SPLUNK_INDEX_FORTIGATE",
     ]
     missing_vars = [v for v in required_env_vars if not os.environ.get(v)]
     if missing_vars:

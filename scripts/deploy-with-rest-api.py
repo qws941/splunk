@@ -6,12 +6,12 @@ Usage: python3 scripts/deploy-with-rest-api.py
 """
 
 import json
-import urllib.request
-import urllib.parse
-import urllib.error
 import ssl
 import sys
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import datetime
 
 # ============================================================================
@@ -44,7 +44,7 @@ ALERTS = [
     "Details: " + details
 | table alert_message""",
         "suppress_fields": "user,cfgpath",
-        "description": "FortiGate configuration changes via CLI or GUI"
+        "description": "FortiGate configuration changes via CLI or GUI",
     },
     {
         "name": "FortiGate_Critical_Event_Alert",
@@ -57,7 +57,7 @@ ALERTS = [
     "Description: " + msg
 | table alert_message""",
         "suppress_fields": "devname",
-        "description": "Critical system events (memory, CPU, crashes)"
+        "description": "Critical system events (memory, CPU, crashes)",
     },
     {
         "name": "FortiGate_HA_Event_Alert",
@@ -73,8 +73,8 @@ ALERTS = [
     "Description: " + msg
 | table alert_message""",
         "suppress_fields": "devname",
-        "description": "High Availability failover and sync events"
-    }
+        "description": "High Availability failover and sync events",
+    },
 ]
 
 # ============================================================================
@@ -83,6 +83,7 @@ ALERTS = [
 
 # SSL context for self-signed certificates
 ssl_context = ssl._create_unverified_context()
+
 
 def make_request(endpoint, method="GET", data=None, parse_json=True):
     """Make authenticated request to Splunk REST API"""
@@ -94,22 +95,24 @@ def make_request(endpoint, method="GET", data=None, parse_json=True):
 
     # Create auth handler
     auth_handler = urllib.request.HTTPBasicAuthHandler(password_mgr)
-    opener = urllib.request.build_opener(auth_handler, urllib.request.HTTPSHandler(context=ssl_context))
+    opener = urllib.request.build_opener(
+        auth_handler, urllib.request.HTTPSHandler(context=ssl_context)
+    )
 
     # Prepare request
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
     if data:
         if isinstance(data, dict):
-            data = urllib.parse.urlencode(data).encode('utf-8')
+            data = urllib.parse.urlencode(data).encode("utf-8")
         elif isinstance(data, str):
-            data = data.encode('utf-8')
+            data = data.encode("utf-8")
 
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
 
     try:
         response = opener.open(req)
-        content = response.read().decode('utf-8')
+        content = response.read().decode("utf-8")
 
         if parse_json and content:
             try:
@@ -119,22 +122,25 @@ def make_request(endpoint, method="GET", data=None, parse_json=True):
         return content
     except urllib.error.HTTPError as e:
         if e.code in [200, 201, 409]:  # 409 = already exists (OK)
-            return e.read().decode('utf-8')
+            return e.read().decode("utf-8")
         print(f"❌ HTTP Error {e.code}: {e.read().decode('utf-8')}")
         raise
     except Exception as e:
         print(f"❌ Request failed: {e}")
         raise
 
+
 def print_step(step_num, total, message):
     """Print formatted step message"""
     print(f"\n{'='*60}")
     print(f"[{step_num}/{total}] {message}")
-    print('='*60)
+    print("=" * 60)
+
 
 # ============================================================================
 # Deployment Steps
 # ============================================================================
+
 
 def step1_verify_splunk():
     """Verify Splunk is accessible"""
@@ -146,6 +152,7 @@ def step1_verify_splunk():
             print("✅ Splunk REST API accessible")
             # Extract version
             import re
+
             version_match = re.search(r'<s:key name="version">([^<]+)</s:key>', result)
             if version_match:
                 print(f"   Splunk version: {version_match.group(1)}")
@@ -154,19 +161,20 @@ def step1_verify_splunk():
         print(f"❌ Cannot connect to Splunk: {e}")
         return False
 
+
 def step2_enable_hec():
     """Enable HEC globally"""
     print_step(2, 6, "Enabling HTTP Event Collector (HEC)")
 
-    data = {
-        "disabled": "0",
-        "enableSSL": "1",
-        "port": HEC_PORT
-    }
+    data = {"disabled": "0", "enableSSL": "1", "port": HEC_PORT}
 
     try:
-        make_request("/servicesNS/nobody/splunk_httpinput/data/inputs/http/http",
-                     method="POST", data=data, parse_json=False)
+        make_request(
+            "/servicesNS/nobody/splunk_httpinput/data/inputs/http/http",
+            method="POST",
+            data=data,
+            parse_json=False,
+        )
         print("✅ HEC enabled globally")
         print(f"   Port: {HEC_PORT}")
         return True
@@ -176,6 +184,7 @@ def step2_enable_hec():
             return True
         print(f"❌ Failed to enable HEC: {e}")
         return False
+
 
 def step3_create_hec_token():
     """Create HEC token for FortiGate events"""
@@ -189,15 +198,20 @@ def step3_create_hec_token():
         "source": "fortigate:hec",
         "sourcetype": "fortigate:event",
         "disabled": "0",
-        "useACK": "0"
+        "useACK": "0",
     }
 
     try:
-        result = make_request("/servicesNS/nobody/splunk_httpinput/data/inputs/http",
-                              method="POST", data=data, parse_json=False)
+        result = make_request(
+            "/servicesNS/nobody/splunk_httpinput/data/inputs/http",
+            method="POST",
+            data=data,
+            parse_json=False,
+        )
 
         # Extract token from response
         import re
+
         token_match = re.search(r'<s:key name="token">([^<]+)</s:key>', result)
 
         if token_match:
@@ -208,8 +222,10 @@ def step3_create_hec_token():
         else:
             print("⚠️  Token created but couldn't extract value")
             # Try to get existing token
-            get_result = make_request(f"/servicesNS/nobody/splunk_httpinput/data/inputs/http/{token_name}",
-                                      parse_json=False)
+            get_result = make_request(
+                f"/servicesNS/nobody/splunk_httpinput/data/inputs/http/{token_name}",
+                parse_json=False,
+            )
             token_match = re.search(r'<s:key name="token">([^<]+)</s:key>', get_result)
             if token_match:
                 token = token_match.group(1)
@@ -220,9 +236,12 @@ def step3_create_hec_token():
         if "409" in str(e):
             print("⚠️  HEC token already exists, retrieving...")
             # Get existing token
-            get_result = make_request(f"/servicesNS/nobody/splunk_httpinput/data/inputs/http/{token_name}",
-                                      parse_json=False)
+            get_result = make_request(
+                f"/servicesNS/nobody/splunk_httpinput/data/inputs/http/{token_name}",
+                parse_json=False,
+            )
             import re
+
             token_match = re.search(r'<s:key name="token">([^<]+)</s:key>', get_result)
             if token_match:
                 token = token_match.group(1)
@@ -230,6 +249,7 @@ def step3_create_hec_token():
                 return token
         print(f"❌ Failed to create HEC token: {e}")
         return None
+
 
 def step4_create_index():
     """Create fortianalyzer index"""
@@ -239,12 +259,16 @@ def step4_create_index():
         "name": INDEX_NAME,
         "datatype": "event",
         "maxTotalDataSizeMB": "500000",
-        "frozenTimePeriodInSecs": "188697600"  # 6 years
+        "frozenTimePeriodInSecs": "188697600",  # 6 years
     }
 
     try:
-        make_request("/servicesNS/nobody/system/data/indexes",
-                     method="POST", data=data, parse_json=False)
+        make_request(
+            "/servicesNS/nobody/system/data/indexes",
+            method="POST",
+            data=data,
+            parse_json=False,
+        )
         print(f"✅ Index '{INDEX_NAME}' created")
         return True
     except Exception as e:
@@ -253,6 +277,7 @@ def step4_create_index():
             return True
         print(f"❌ Failed to create index: {e}")
         return False
+
 
 def step5_deploy_alerts():
     """Deploy all 3 FortiGate alerts"""
@@ -279,12 +304,16 @@ def step5_deploy_alerts():
             "action.slack": "1",
             "action.slack.param.channel": SLACK_CHANNEL,
             "action.slack.param.message": "$result.alert_message$",
-            "description": alert["description"]
+            "description": alert["description"],
         }
 
         try:
-            make_request("/servicesNS/nobody/search/saved/searches",
-                         method="POST", data=data, parse_json=False)
+            make_request(
+                "/servicesNS/nobody/search/saved/searches",
+                method="POST",
+                data=data,
+                parse_json=False,
+            )
             print(f"   ✅ Alert deployed")
             deployed_count += 1
         except Exception as e:
@@ -292,8 +321,12 @@ def step5_deploy_alerts():
                 print(f"   ⚠️  Alert already exists, updating...")
                 # Try to update existing alert
                 try:
-                    make_request(f"/servicesNS/nobody/search/saved/searches/{alert['name']}",
-                                method="POST", data=data, parse_json=False)
+                    make_request(
+                        f"/servicesNS/nobody/search/saved/searches/{alert['name']}",
+                        method="POST",
+                        data=data,
+                        parse_json=False,
+                    )
                     print(f"   ✅ Alert updated")
                     deployed_count += 1
                 except Exception as update_error:
@@ -304,27 +337,40 @@ def step5_deploy_alerts():
     print(f"\n✅ Deployed {deployed_count}/3 alerts")
     return deployed_count == 3
 
+
 def step6_verify_alerts():
     """Verify all alerts are registered"""
     print_step(6, 6, "Verifying Alert Registration")
 
     try:
-        result = make_request("/servicesNS/nobody/search/saved/searches", parse_json=False)
+        result = make_request(
+            "/servicesNS/nobody/search/saved/searches", parse_json=False
+        )
 
         # Count FortiGate alerts
         import re
-        fortigate_alerts = re.findall(r'FortiGate_\w+_Alert', result)
+
+        fortigate_alerts = re.findall(r"FortiGate_\w+_Alert", result)
         unique_alerts = list(set(fortigate_alerts))
 
         print(f"✅ Found {len(unique_alerts)} FortiGate alerts:")
         for alert in sorted(unique_alerts):
             # Check if enabled
-            alert_details = make_request(f"/servicesNS/nobody/search/saved/searches/{alert}",
-                                         parse_json=False)
-            disabled = re.search(r'<s:key name="disabled">([^<]+)</s:key>', alert_details)
-            realtime = re.search(r'<s:key name="realtime_schedule">([^<]+)</s:key>', alert_details)
+            alert_details = make_request(
+                f"/servicesNS/nobody/search/saved/searches/{alert}", parse_json=False
+            )
+            disabled = re.search(
+                r'<s:key name="disabled">([^<]+)</s:key>', alert_details
+            )
+            realtime = re.search(
+                r'<s:key name="realtime_schedule">([^<]+)</s:key>', alert_details
+            )
 
-            status = "✅ Enabled" if (disabled and disabled.group(1) == "0") else "❌ Disabled"
+            status = (
+                "✅ Enabled"
+                if (disabled and disabled.group(1) == "0")
+                else "❌ Disabled"
+            )
             rt_status = "RT" if (realtime and realtime.group(1) == "1") else "Not RT"
 
             print(f"   - {alert}: {status}, {rt_status}")
@@ -334,15 +380,17 @@ def step6_verify_alerts():
         print(f"❌ Verification failed: {e}")
         return False
 
+
 # ============================================================================
 # Main Execution
 # ============================================================================
 
+
 def main():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("🚀 Splunk Alert Deployment via REST API")
     print("   (Terraform-equivalent, no installation required)")
-    print("="*60)
+    print("=" * 60)
     print(f"\nTarget: {SPLUNK_URL}")
     print(f"Index: {INDEX_NAME}")
     print(f"Alerts: {len(ALERTS)} FortiGate real-time alerts")
@@ -373,9 +421,9 @@ def main():
         success = False
 
     # Summary
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("📊 Deployment Summary")
-    print("="*60)
+    print("=" * 60)
 
     if success:
         print("✅ Status: SUCCESS")
@@ -386,15 +434,17 @@ def main():
 
         print("\n📋 Next Steps:")
         print("1. Test with mock data:")
-        print(f"   export SPLUNK_HEC_TOKEN=\"{hec_token}\"")
+        print(f'   export SPLUNK_HEC_TOKEN="{hec_token}"')
         print("   node scripts/generate-alert-test-data.js --send")
         print("\n2. Verify alerts executing:")
         print("   curl -k -u admin:changeme \\")
         print("     'https://localhost:8089/services/search/jobs/export' \\")
-        print("     -d 'search=search index=_internal source=*scheduler.log savedsearch_name=\"FortiGate_*\" | tail 20'")
+        print(
+            "     -d 'search=search index=_internal source=*scheduler.log savedsearch_name=\"FortiGate_*\" | tail 20'"
+        )
 
         # Save token to file
-        with open('/tmp/splunk_hec_token.txt', 'w') as f:
+        with open("/tmp/splunk_hec_token.txt", "w") as f:
             f.write(hec_token)
         print(f"\n💾 Token saved to: /tmp/splunk_hec_token.txt")
 
@@ -407,6 +457,7 @@ def main():
         print("3. Check REST API port: https://localhost:8089")
         print("4. Run diagnostic: ./scripts/diagnose-alerts-not-working.sh")
         return 1
+
 
 if __name__ == "__main__":
     sys.exit(main())

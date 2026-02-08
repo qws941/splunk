@@ -18,7 +18,7 @@ class SplunkAPIConnector {
     this.isConnected = false;
     this.indexes = {
       security: 'fortianalyzer',
-      logs: 'fortigate_logs', 
+      logs: 'fortigate_logs',
       metrics: 'fortigate_metrics'
     };
 
@@ -31,19 +31,19 @@ class SplunkAPIConnector {
    */
   async initialize() {
     console.log('📊 Initializing Splunk API connector...');
-    
+
     try {
       // Authenticate with Splunk
       await this.authenticate();
-      
+
       // Setup security indexes
       await this.setupSecurityIndexes();
-      
+
       // Test connection
       await this.testConnection();
-      
+
       console.log('✅ Splunk API connector initialized successfully');
-      
+
     } catch (error) {
       console.error('❌ Splunk initialization failed:', error);
       throw error;
@@ -56,7 +56,7 @@ class SplunkAPIConnector {
   async authenticate() {
     try {
       console.log('🔐 Authenticating with Splunk...');
-      
+
       const authData = new URLSearchParams({
         username: this.config.username,
         password: this.config.password,
@@ -66,18 +66,18 @@ class SplunkAPIConnector {
       // In actual implementation, would make real HTTP request
       // For demo purposes, simulate successful authentication
       console.log(`📡 POST ${this.baseURL}/services/auth/login`);
-      
+
       // Mock successful authentication response
       const mockResponse = {
         sessionKey: `splunk-session-${Date.now()}`,
         success: true
       };
-      
+
       this.sessionKey = mockResponse.sessionKey;
       this.isConnected = true;
-      
+
       console.log('✅ Splunk authentication successful');
-      
+
     } catch (error) {
       console.error('❌ Splunk authentication failed:', error);
       throw error;
@@ -89,7 +89,7 @@ class SplunkAPIConnector {
    */
   async setupSecurityIndexes() {
     console.log('🗂️ Setting up security indexes...');
-    
+
     for (const [purpose, indexName] of Object.entries(this.indexes)) {
       try {
         await this.createIndex(indexName, {
@@ -112,7 +112,7 @@ class SplunkAPIConnector {
   async createIndex(indexName, config = {}) {
     try {
       console.log(`📝 Creating index: ${indexName}`);
-      
+
       const indexConfig = new URLSearchParams({
         name: indexName,
         datatype: 'event',
@@ -125,9 +125,9 @@ class SplunkAPIConnector {
       // Mock successful index creation
       console.log(`📡 POST ${this.baseURL}/services/data/indexes`);
       console.log(`✅ Index ${indexName} created successfully`);
-      
+
       return { success: true, index: indexName };
-      
+
     } catch (error) {
       throw new Error(`Failed to create index ${indexName}: ${error.message}`);
     }
@@ -139,20 +139,20 @@ class SplunkAPIConnector {
   async testConnection() {
     try {
       console.log('🔍 Testing Splunk connection...');
-      
+
       // Mock server info request
       console.log(`📡 GET ${this.baseURL}/services/server/info`);
-      
+
       // Mock successful response
       const serverInfo = {
         version: '9.1.0',
         build: '1.0',
         serverName: 'splunk-enterprise'
       };
-      
+
       console.log(`✅ Connected to Splunk ${serverInfo.version}`);
       return serverInfo;
-      
+
     } catch (error) {
       throw new Error(`Connection test failed: ${error.message}`);
     }
@@ -168,21 +168,21 @@ class SplunkAPIConnector {
     }
 
     console.log(`📤 Ingesting ${events.length} security events to Splunk...`);
-    
+
     try {
       // Group events by index
       const eventsByIndex = {
         [this.indexes.security]: events
       };
-      
+
       for (const [indexName, indexEvents] of Object.entries(eventsByIndex)) {
         if (indexEvents.length > 0) {
           await this.ingestToIndex(indexName, indexEvents);
         }
       }
-      
+
       console.log('✅ Security events ingested successfully');
-      
+
     } catch (error) {
       console.error('❌ Failed to ingest security events:', error);
       throw error;
@@ -213,9 +213,9 @@ class SplunkAPIConnector {
       // Mock HEC (HTTP Event Collector) post
       console.log(`📡 POST ${this.baseURL}/services/collector/event`);
       console.log(`📊 Ingested ${splunkEvents.length} events to index ${indexName}`);
-      
+
       return { success: true, count: splunkEvents.length };
-      
+
     } catch (error) {
       throw new Error(`Failed to ingest to ${indexName}: ${error.message}`);
     }
@@ -233,15 +233,15 @@ class SplunkAPIConnector {
 
     try {
       console.log(`🔍 Executing search: ${query.substring(0, 100)}...`);
-      
+
       // Create search job
       const searchJob = await this.createSearchJob(query, options);
-      
+
       // Wait for results
       const results = await this.getSearchResults(searchJob.sid);
-      
+
       return results;
-      
+
     } catch (error) {
       console.error('❌ Search execution failed:', error);
       throw error;
@@ -255,7 +255,7 @@ class SplunkAPIConnector {
    */
   async createSearchJob(query, options = {}) {
     const searchId = `search_${Date.now()}`;
-    
+
     const searchParams = {
       search: query,
       earliest_time: options.earliest_time || '-1h',
@@ -271,9 +271,9 @@ class SplunkAPIConnector {
       resultCount: 0,
       query: query
     };
-    
+
     this.searchJobs.set(searchId, searchJob);
-    
+
     console.log(`✅ Search job created: ${searchId}`);
     return searchJob;
   }
@@ -290,13 +290,13 @@ class SplunkAPIConnector {
 
     // Mock search results based on query type
     let mockResults = [];
-    
+
     if (searchJob.query.includes('stats count')) {
       mockResults = [{ count: 42, _time: Date.now() }];
     } else if (searchJob.query.includes('fortianalyzer')) {
       mockResults = this.generateMockSecurityResults();
     }
-    
+
     return {
       results: mockResults,
       resultCount: mockResults.length,
@@ -320,7 +320,7 @@ class SplunkAPIConnector {
       },
       {
         _time: Date.now() - 300000,
-        device: 'FortiGate-DMZ', 
+        device: 'FortiGate-DMZ',
         severity: 'CRITICAL',
         type: 'malware',
         sourceIP: '203.0.113.45',
@@ -338,19 +338,19 @@ class SplunkAPIConnector {
   async createSecurityDashboard(dashboardName, dashboardXML) {
     try {
       console.log(`📊 Creating dashboard: ${dashboardName}`);
-      
+
       // Mock dashboard creation
       console.log(`📡 POST ${this.baseURL}/services/data/ui/views`);
-      
+
       const dashboard = {
         name: dashboardName,
         xml: dashboardXML,
         created: Date.now()
       };
-      
+
       console.log(`✅ Dashboard ${dashboardName} created successfully`);
       return dashboard;
-      
+
     } catch (error) {
       throw new Error(`Failed to create dashboard: ${error.message}`);
     }
@@ -363,7 +363,7 @@ class SplunkAPIConnector {
     try {
       const metrics = await this.executeSearch(`
         index=${this.indexes.security} earliest=-1h
-        | stats 
+        | stats
           count as total_events,
           dc(device) as active_devices,
           count(eval(severity="CRITICAL")) as critical_events,
@@ -371,7 +371,7 @@ class SplunkAPIConnector {
           values(device) as devices
         | eval last_updated=now()
       `);
-      
+
       return metrics.results[0] || {
         total_events: 0,
         active_devices: 0,
@@ -380,7 +380,7 @@ class SplunkAPIConnector {
         devices: [],
         last_updated: Date.now()
       };
-      
+
     } catch (error) {
       console.error('❌ Failed to get system metrics:', error);
       return {};
@@ -400,7 +400,7 @@ class SplunkAPIConnector {
       | head 100
       | table _time, device, severity, type, sourceIP, targetIP, message
     `;
-    
+
     return await this.executeSearch(query);
   }
 
@@ -410,13 +410,13 @@ class SplunkAPIConnector {
    */
   async getTopAttackingIPs(timeRange = '-4h') {
     const query = `
-      index=${this.indexes.security} earliest=${timeRange} 
+      index=${this.indexes.security} earliest=${timeRange}
       severity=CRITICAL OR severity=HIGH
       | stats count by sourceIP
       | sort -count
       | head 10
     `;
-    
+
     return await this.executeSearch(query);
   }
 
@@ -447,7 +447,7 @@ class SplunkAPIConnector {
         console.warn('⚠️ Error during logout:', error);
       }
     }
-    
+
     this.sessionKey = null;
     this.isConnected = false;
     this.searchJobs.clear();

@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 BIN_PATH = PROJECT_ROOT / "security_alert" / "bin"
 LIB_PATH = BIN_PATH / "lib"
@@ -62,7 +61,11 @@ class TestSlackCallbackSplunkIntegration:
     def test_has_rest_handler_class(self):
         content = SCRIPT_PATH.read_text()
         assert "class " in content
-        assert "MConfigHandler" in content or "AdminHandler" in content or "PersistentServerConnectionApplication" in content
+        assert (
+            "MConfigHandler" in content
+            or "AdminHandler" in content
+            or "PersistentServerConnectionApplication" in content
+        )
 
 
 class TestSlackCallbackFunctions:
@@ -70,11 +73,18 @@ class TestSlackCallbackFunctions:
     def get_defined_functions(self):
         content = SCRIPT_PATH.read_text()
         import re
+
         return re.findall(r"^\s*def (\w+)\(", content, re.MULTILINE)
 
     def test_has_handler_methods(self):
         functions = self.get_defined_functions()
-        handler_methods = ["handleList", "handleEdit", "handleCreate", "handleRemove", "handle"]
+        handler_methods = [
+            "handleList",
+            "handleEdit",
+            "handleCreate",
+            "handleRemove",
+            "handle",
+        ]
         has_handler = any(m in functions for m in handler_methods)
         assert has_handler or len(functions) > 0
 
@@ -87,8 +97,26 @@ class TestSlackCallbackSecurity:
         has_signature = "signature" in content.lower()
         assert has_hmac or has_signature, "No signature validation found"
 
+    def test_signature_called_in_handler(self):
+        """Verify verify_slack_signature is actually called in handleEdit."""
+        content = SCRIPT_PATH.read_text()
+        import re
+
+        # Find handleEdit method body
+        handle_match = re.search(
+            r"def handleEdit\(self.*?\n(.*?)(?=\n    def |\nclass |\Z)",
+            content,
+            re.DOTALL,
+        )
+        assert handle_match, "handleEdit method not found"
+        handle_body = handle_match.group(1)
+        assert (
+            "verify_slack_signature" in handle_body
+        ), "verify_slack_signature is defined but never called in handleEdit"
+
     def test_no_hardcoded_tokens(self):
         import re
+
         content = SCRIPT_PATH.read_text()
 
         patterns = [

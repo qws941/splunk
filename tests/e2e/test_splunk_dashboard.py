@@ -6,10 +6,12 @@ Requires: Splunk running at SPLUNK_URL (default: http://192.168.50.150:8000)
 """
 
 import os
+
 import pytest
 
 try:
     from playwright.sync_api import sync_playwright
+
     PLAYWRIGHT_AVAILABLE = True
 except ImportError:
     PLAYWRIGHT_AVAILABLE = False
@@ -20,8 +22,7 @@ SPLUNK_PASS = os.getenv("SPLUNK_PASS", "")
 
 
 pytestmark = pytest.mark.skipif(
-    not PLAYWRIGHT_AVAILABLE,
-    reason="pytest-playwright not installed"
+    not PLAYWRIGHT_AVAILABLE, reason="pytest-playwright not installed"
 )
 
 
@@ -91,7 +92,9 @@ class TestSlackTestDashboard:
         authenticated_page.goto(f"{SPLUNK_URL}{self.DASHBOARD_PATH}")
         authenticated_page.wait_for_load_state("networkidle")
 
-        dropdown = authenticated_page.query_selector('select, [data-component="Dropdown"]')
+        dropdown = authenticated_page.query_selector(
+            'select, [data-component="Dropdown"]'
+        )
         assert dropdown is not None
 
     def test_dashboard_has_panels(self, authenticated_page):

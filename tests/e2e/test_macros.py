@@ -7,7 +7,6 @@ from typing import Dict
 
 import pytest
 
-
 EXPECTED_MACROS = [
     "fortigate_index",
     "baseline_time_range",
@@ -118,9 +117,9 @@ class TestEnrichMacro:
         macro = macros.get("enrich_with_logid_lookup", {})
         definition = macro.get("definition", "")
 
-        assert "lookup" in definition.lower(), (
-            "enrich_with_logid_lookup should use lookup command"
-        )
+        assert (
+            "lookup" in definition.lower()
+        ), "enrich_with_logid_lookup should use lookup command"
 
 
 class TestSlackChannelMacros:
@@ -144,9 +143,7 @@ class TestMacroSyntax:
         definition = macro.get("definition", "")
 
         double_quotes = definition.count('"')
-        assert double_quotes % 2 == 0, (
-            f"{macro_name} has unbalanced double quotes"
-        )
+        assert double_quotes % 2 == 0, f"{macro_name} has unbalanced double quotes"
 
     @pytest.mark.parametrize("macro_name", EXPECTED_MACROS)
     def test_macro_has_balanced_parentheses(self, macros: Dict, macro_name: str):
@@ -155,18 +152,14 @@ class TestMacroSyntax:
 
         open_parens = definition.count("(")
         close_parens = definition.count(")")
-        assert open_parens == close_parens, (
-            f"{macro_name} has unbalanced parentheses"
-        )
+        assert open_parens == close_parens, f"{macro_name} has unbalanced parentheses"
 
 
 @pytest.mark.splunk_live
 class TestLiveMacroExpansion:
 
     @pytest.mark.parametrize("macro_name", EXPECTED_MACROS[:5])
-    def test_macro_expands_in_splunk(
-        self, splunk_search, macro_name: str
-    ):
+    def test_macro_expands_in_splunk(self, splunk_search, macro_name: str):
         try:
             splunk_search(
                 f"| makeresults | eval test=`{macro_name}` | head 1",

@@ -17,10 +17,10 @@ function SecurityOverview() {
           fetch(`${API_BASE}/api/stats`),
           fetch(`${API_BASE}/api/events?limit=10`)
         ]);
-        
+
         const statsData = await statsRes.json();
         const eventsData = await eventsRes.json();
-        
+
         setStats(statsData);
         setEvents(eventsData.events || []);
       } catch (err) {
@@ -49,7 +49,7 @@ function SecurityOverview() {
   return (
     <div className="security-overview">
       <h1 className="page-title">Security Overview</h1>
-      
+
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-icon">
@@ -60,7 +60,7 @@ function SecurityOverview() {
             <span className="stat-label">Events Processed</span>
           </div>
         </div>
-        
+
         <div className="stat-card critical">
           <div className="stat-icon">
             <AlertTriangle size={24} />
@@ -70,7 +70,7 @@ function SecurityOverview() {
             <span className="stat-label">Critical Events</span>
           </div>
         </div>
-        
+
         <div className="stat-card">
           <div className="stat-icon">
             <Activity size={24} />
@@ -80,7 +80,7 @@ function SecurityOverview() {
             <span className="stat-label">Active Connections</span>
           </div>
         </div>
-        
+
         <div className="stat-card">
           <div className="stat-icon">
             <TrendingUp size={24} />

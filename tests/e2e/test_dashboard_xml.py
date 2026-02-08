@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pytest
 
-
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 SECURITY_ALERT_PATH = PROJECT_ROOT / "security_alert"
 VIEWS_PATH = SECURITY_ALERT_PATH / "default" / "data" / "ui" / "views"
@@ -48,7 +47,9 @@ class TestDashboardXMLFiles:
             tree = ET.parse(str(xml_file))
             root = tree.getroot()
             valid_roots = ["dashboard", "form", "view"]
-            assert root.tag in valid_roots, f"{xml_file.name} has invalid root: {root.tag}"
+            assert (
+                root.tag in valid_roots
+            ), f"{xml_file.name} has invalid root: {root.tag}"
 
 
 class TestDashboardStructure:
@@ -65,7 +66,9 @@ class TestDashboardStructure:
             label = root.find("label")
             if label is None:
                 label = root.get("label")
-            assert label is not None or root.get("label"), f"{xml_file.name} has no label"
+            assert label is not None or root.get(
+                "label"
+            ), f"{xml_file.name} has no label"
 
     def test_dashboards_have_panels(self):
         for xml_file in self.get_dashboard_files():
@@ -85,6 +88,7 @@ class TestDashboardSecurity:
 
     def test_no_hardcoded_credentials(self):
         import re
+
         patterns = [
             r"password\s*=\s*['\"][^'\"]+['\"]",
             r"api_key\s*=\s*['\"][^'\"]+['\"]",
@@ -104,5 +108,9 @@ class TestDashboardSecurity:
             for script in root.iter("script"):
                 if script.text:
                     text = script.text.lower()
-                    assert "password" not in text, f"{xml_file.name} has password in script"
-                    assert "api_key" not in text, f"{xml_file.name} has api_key in script"
+                    assert (
+                        "password" not in text
+                    ), f"{xml_file.name} has password in script"
+                    assert (
+                        "api_key" not in text
+                    ), f"{xml_file.name} has api_key in script"

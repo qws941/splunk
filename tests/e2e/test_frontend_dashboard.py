@@ -7,11 +7,12 @@ Run frontend: cd frontend && npm run dev
 Tests run against: http://localhost:5173 (Vite dev server)
 """
 
-import pytest
+import os
 import subprocess
 import time
-import os
 from pathlib import Path
+
+import pytest
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 FRONTEND_PATH = Path(__file__).parent.parent.parent / "frontend"

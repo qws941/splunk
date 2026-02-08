@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 
-
 BIN_PATH = Path(__file__).parent.parent.parent / "security_alert" / "bin"
 
 SCRIPTS = [
@@ -154,9 +153,9 @@ class TestNoHardcodedSecrets:
 
         for pattern in ["password='", 'password="', "password='"]:
             if pattern in content:
-                assert "getenv" in content or "environ" in content or "config" in content, (
-                    f"{script} may have hardcoded password"
-                )
+                assert (
+                    "getenv" in content or "environ" in content or "config" in content
+                ), f"{script} may have hardcoded password"
 
 
 class TestNoPrintStatements:
@@ -221,9 +220,9 @@ class TestLoggingUsage:
         uses_stderr = "sys.stderr" in content
         uses_logging = "import logging" in content or "from logging" in content
 
-        assert uses_stderr or uses_logging, (
-            f"{script} should use sys.stderr or logging module"
-        )
+        assert (
+            uses_stderr or uses_logging
+        ), f"{script} should use sys.stderr or logging module"
 
 
 # =============================================================================
@@ -260,24 +259,26 @@ class TestAutoValidatorBehavior:
 
         output = result.stdout + result.stderr
         has_validation_output = (
-            "검증" in output or
-            "validation" in output.lower() or
-            "error" in output.lower() or
-            "pass" in output.lower() or
-            len(output) > 0
+            "검증" in output
+            or "validation" in output.lower()
+            or "error" in output.lower()
+            or "pass" in output.lower()
+            or len(output) > 0
         )
         assert has_validation_output
 
     def test_detects_missing_stanza_bracket(self, validator_script, temp_conf_dir):
         """Validator should detect missing bracket in stanza."""
         invalid_conf = temp_conf_dir / "invalid.conf"
-        invalid_conf.write_text(
-            "[unclosed_stanza\n"
-            "key = value\n"
-        )
+        invalid_conf.write_text("[unclosed_stanza\n" "key = value\n")
 
         result = subprocess.run(
-            [sys.executable, str(validator_script), "--check-syntax", str(invalid_conf)],
+            [
+                sys.executable,
+                str(validator_script),
+                "--check-syntax",
+                str(invalid_conf),
+            ],
             capture_output=True,
             text=True,
             timeout=30,
@@ -285,10 +286,10 @@ class TestAutoValidatorBehavior:
 
         # Should either fail or report an error
         has_error = (
-            result.returncode != 0 or
-            "error" in result.stderr.lower() or
-            "error" in result.stdout.lower() or
-            "invalid" in result.stdout.lower()
+            result.returncode != 0
+            or "error" in result.stderr.lower()
+            or "error" in result.stdout.lower()
+            or "invalid" in result.stdout.lower()
         )
         assert result.returncode == 0 or has_error
 
@@ -458,7 +459,7 @@ class TestScriptInterdependencies:
                 sys.executable,
                 "-c",
                 f"import sys; sys.path.insert(0, '{BIN_PATH}'); "
-                f"compile(open('{script_path}').read(), '{script_path}', 'exec')"
+                f"compile(open('{script_path}').read(), '{script_path}', 'exec')",
             ],
             capture_output=True,
             text=True,

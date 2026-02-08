@@ -1,7 +1,7 @@
 <form version="1.1" theme="dark">
   <label>Slack 알림 테스트</label>
   <description>FortiGate 알림 유형별 Slack 메시지 테스트</description>
-  
+
   <fieldset submitButton="true" autoRun="false">
     <input type="dropdown" token="alert_type" searchWhenChanged="false">
       <label>알림 유형 선택</label>
@@ -49,10 +49,10 @@
       <title>사용 가능한 알림 유형</title>
       <table>
         <search>
-          <query>| makeresults 
+          <query>| makeresults
 | eval alerts="001,Config Change,⚙️,설정 변경 알림|002,VPN Tunnel Down,🔴,VPN 터널 다운|003,VPN Tunnel Up,🟢,VPN 터널 복구|006,CPU/Memory Anomaly,📊,리소스 이상|007,Hardware Failure,🔴,하드웨어 장애|007r,Hardware Restored,🟢,하드웨어 복구|008,HA State Change,🔄,HA 상태 변경|010,Resource Limit,⚠️,리소스 한계|011,Admin Login Failed,🚫,관리자 로그인 실패|012,Interface Down,🔴,인터페이스 다운|012r,Interface Up,🟢,인터페이스 복구|013,SSL VPN Brute Force,🚨,SSL VPN 무차별 공격|015,Abnormal Traffic Spike,📈,비정상 트래픽|016,System Reboot,🔄,시스템 재부팅|017,License Expiry Warning,⏰,라이선스 만료 경고"
-| makemv delim="|" alerts 
-| mvexpand alerts 
+| makemv delim="|" alerts
+| mvexpand alerts
 | rex field=alerts "(?&lt;id&gt;[^,]+),(?&lt;name&gt;[^,]+),(?&lt;icon&gt;[^,]+),(?&lt;desc&gt;.+)"
 | table id, icon, name, desc
 | rename id as "ID", icon as "아이콘", name as "알림명", desc as "설명"</query>

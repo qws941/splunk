@@ -21,9 +21,9 @@ const SPLUNK_BASE = import.meta.env.VITE_SPLUNK_BASE_URL || 'http://192.168.50.1
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { 
-    path: '/security', 
-    label: 'Security', 
+  {
+    path: '/security',
+    label: 'Security',
     icon: Shield,
     children: [
       { path: '/security/events', label: 'Events' },
@@ -31,9 +31,9 @@ const navItems = [
     ]
   },
   { path: '/correlation', label: 'Correlation', icon: Link2 },
-  { 
-    path: '/alerts', 
-    label: 'Alerts', 
+  {
+    path: '/alerts',
+    label: 'Alerts',
     icon: Bell,
     children: [
       { path: '/alerts/active', label: 'Active' },
@@ -81,7 +81,7 @@ const Sidebar = () => {
 
   const toggleSidebar = () => setCollapsed(!collapsed);
   const toggleMobile = () => setMobileOpen(!mobileOpen);
-  
+
   const toggleExpand = (path) => {
     setExpandedItems(prev => ({ ...prev, [path]: !prev[path] }));
   };
@@ -89,10 +89,10 @@ const Sidebar = () => {
   const handleSearch = useCallback((e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      const flatItems = navItems.flatMap(item => 
+      const flatItems = navItems.flatMap(item =>
         item.children ? [item, ...item.children] : [item]
       );
-      const match = flatItems.find(item => 
+      const match = flatItems.find(item =>
         item.label.toLowerCase().includes(searchQuery.toLowerCase())
       );
       if (match) {
@@ -121,9 +121,9 @@ const Sidebar = () => {
           >
             <Icon className="sidebar-icon" size={20} />
             <span className="sidebar-label">{label}</span>
-            <ChevronDown 
-              className={`nav-chevron ${isExpanded ? 'expanded' : ''}`} 
-              size={16} 
+            <ChevronDown
+              className={`nav-chevron ${isExpanded ? 'expanded' : ''}`}
+              size={16}
             />
           </button>
           {isExpanded && (
@@ -166,8 +166,8 @@ const Sidebar = () => {
         {mobileOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
 
-      <div 
-        className={`sidebar-overlay ${mobileOpen ? 'visible' : ''}`} 
+      <div
+        className={`sidebar-overlay ${mobileOpen ? 'visible' : ''}`}
         onClick={() => setMobileOpen(false)}
       />
 
@@ -175,9 +175,9 @@ const Sidebar = () => {
         <div className="sidebar-header">
           {!collapsed && <span className="sidebar-title">Security Alert</span>}
         </div>
-        
-        <button 
-          className="search-trigger" 
+
+        <button
+          className="search-trigger"
           onClick={() => setSearchOpen(true)}
           title="Search (⌘K)"
         >
@@ -185,11 +185,11 @@ const Sidebar = () => {
           {!collapsed && <span>Search...</span>}
           {!collapsed && <kbd>⌘K</kbd>}
         </button>
-        
+
         <nav className="sidebar-nav">
           {navItems.map(renderNavItem)}
         </nav>
-        
+
         {!collapsed && (
           <div className="splunk-links">
             <span className="splunk-links-title">Splunk</span>
@@ -207,7 +207,7 @@ const Sidebar = () => {
             ))}
           </div>
         )}
-        
+
         <button className="sidebar-toggle" onClick={toggleSidebar}>
           {collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
           {!collapsed && <span>Collapse</span>}

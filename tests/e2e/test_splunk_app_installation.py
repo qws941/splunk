@@ -14,7 +14,6 @@ from pathlib import Path
 
 import pytest
 
-
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 SECURITY_ALERT_PATH = PROJECT_ROOT / "security_alert"
 BIN_PATH = SECURITY_ALERT_PATH / "bin"
@@ -45,7 +44,9 @@ class TestVendoredDependencies:
     @pytest.mark.parametrize("package", VENDORED_PACKAGES)
     def test_vendored_package_exists(self, package: str):
         package_path = LIB_PATH / package
-        assert package_path.exists(), f"Vendored package {package} not found in bin/lib/"
+        assert (
+            package_path.exists()
+        ), f"Vendored package {package} not found in bin/lib/"
         assert package_path.is_dir(), f"{package} must be a directory"
 
     @pytest.mark.parametrize("package", VENDORED_PACKAGES)
@@ -88,9 +89,9 @@ class TestVendoredDependencies:
 
         version = result.stdout.strip()
         major, *_ = version.split(".")
-        assert int(major) == 1, (
-            f"urllib3 must be v1.x for OpenSSL 1.0.2 compatibility, got v{version}"
-        )
+        assert (
+            int(major) == 1
+        ), f"urllib3 must be v1.x for OpenSSL 1.0.2 compatibility, got v{version}"
 
 
 class TestScriptSysPath:
@@ -103,7 +104,9 @@ class TestScriptSysPath:
 
         content = script_path.read_text()
         assert "sys.path.insert" in content, f"{script} must have sys.path.insert"
-        assert "'lib'" in content or '"lib"' in content, f"{script} must reference 'lib'"
+        assert (
+            "'lib'" in content or '"lib"' in content
+        ), f"{script} must reference 'lib'"
 
     @pytest.mark.parametrize("script", SCRIPTS_USING_REQUESTS)
     def test_script_imports_requests_successfully(self, script: str):
@@ -181,9 +184,9 @@ class TestTarballPackaging:
         contents = result.stdout
 
         for package in VENDORED_PACKAGES:
-            assert f"bin/lib/{package}/" in contents, (
-                f"Vendored package {package} not in tarball"
-            )
+            assert (
+                f"bin/lib/{package}/" in contents
+            ), f"Vendored package {package} not in tarball"
 
 
 @pytest.mark.splunk_live
@@ -232,9 +235,9 @@ class TestLiveSplunkInstallation:
             text=True,
             timeout=30,
         )
-        assert "IMPORT_OK" in result.stdout, (
-            f"requests import failed on Splunk: {result.stderr}"
-        )
+        assert (
+            "IMPORT_OK" in result.stdout
+        ), f"requests import failed on Splunk: {result.stderr}"
 
     @pytest.mark.parametrize("package", VENDORED_PACKAGES)
     def test_vendored_package_on_splunk(self, package: str):

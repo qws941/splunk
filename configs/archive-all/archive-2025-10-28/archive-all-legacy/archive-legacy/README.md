@@ -1,6 +1,6 @@
 # Archive - Legacy Dashboard Files
 
-**Created**: 2025-10-24  
+**Created**: 2025-10-24
 **Purpose**: Archive of legacy/backup dashboard files after simplification
 
 ## Archived Files

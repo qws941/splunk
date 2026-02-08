@@ -1,7 +1,7 @@
 <form version="1.1">
   <label>🛡️ Fortinet Management + Slack Control</label>
   <description>Fortinet Device Management with Slack Alert Toggle Controls</description>
-  
+
   <!-- Slack 제어 패널 -->
   <row>
     <panel>
@@ -13,20 +13,20 @@
           <button id="test-btn" onclick="sendTestMessage()" style="padding: 12px 25px; background: #007bff; color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; margin: 10px;">📤 테스트</button>
         </div>
         <div id="status-message" style="padding: 15px; background: #f8f9fa; border-radius: 8px; text-align: center;">버튼을 클릭하여 Slack 알림을 제어하세요</div>
-        
+
         <script>
         require(['jquery', 'splunkjs/ready!'], function($, mvc) {
             window.toggleSlackAlerts = function(action) {
                 const statusDiv = $('#status-message');
                 const enableBtn = $('#enable-btn');
                 const disableBtn = $('#disable-btn');
-                
+
                 enableBtn.prop('disabled', true);
                 disableBtn.prop('disabled', true);
-                
+
                 const actionText = action === 'enable' ? '활성화' : '비활성화';
                 statusDiv.html('&lt;span style="color: #ffc107;"&gt;⏳ Slack 알림을 ' + actionText + ' 중...&lt;/span&gt;');
-                
+
                 const correlationRules = [
                     'Correlation_Multi_Factor_Threat',
                     'Correlation_Repeated_High_Risk',
@@ -35,11 +35,11 @@
                     'Correlation_Time_Anomaly',
                     'Correlation_Sophisticated_Threat_APT'
                 ];
-                
+
                 const slackValue = action === 'enable' ? '1' : '0';
                 let successCount = 0;
                 let errorCount = 0;
-                
+
                 correlationRules.forEach(function(ruleName, index) {
                     setTimeout(function() {
                         $.ajax({
@@ -64,15 +64,15 @@
                     }, index * 200);
                 });
             };
-            
+
             function finishToggle(action, successCount, errorCount) {
                 const statusDiv = $('#status-message');
                 const enableBtn = $('#enable-btn');
                 const disableBtn = $('#disable-btn');
-                
+
                 enableBtn.prop('disabled', false);
                 disableBtn.prop('disabled', false);
-                
+
                 if (errorCount === 0) {
                     const icon = action === 'enable' ? '✅' : '⛔';
                     const actionText = action === 'enable' ? '활성화' : '비활성화';
@@ -81,9 +81,9 @@
                         icon + ' Slack 알림 ' + actionText + ' 완료!&lt;/span&gt;&lt;br/&gt;' +
                         '&lt;span style="font-size: 14px;"&gt;총 ' + successCount + '개 규칙 업데이트됨&lt;/span&gt;'
                     );
-                    
+
                     sendSlackNotification(action);
-                    
+
                     setTimeout(function() {
                         location.reload();
                     }, 2000);
@@ -94,16 +94,16 @@
                     );
                 }
             }
-            
+
             function sendSlackNotification(action) {
                 const icon = action === 'enable' ? '✅' : '⛔';
                 const actionText = action === 'enable' ? 'ENABLED' : 'DISABLED';
                 const timestamp = new Date().toISOString().replace('T', ' ').substr(0, 19);
-                
+
                 const message = icon + ' *Slack Alert Status Changed* → ' + actionText + ' (6 rules) | ' + timestamp;
-                
+
                 const spl = '| makeresults | eval message="' + message + '" | sendalert slack param.message=message';
-                
+
                 $.ajax({
                     url: '/en-US/splunkd/__raw/services/search/jobs',
                     type: 'POST',
@@ -114,13 +114,13 @@
                     }
                 });
             }
-            
+
             window.sendTestMessage = function() {
                 const statusDiv = $('#status-message');
                 statusDiv.html('&lt;span style="color: #ffc107;"&gt;⏳ 테스트 메시지 전송 중...&lt;/span&gt;');
-                
+
                 const spl = '| makeresults | eval message="🧪 Slack 연결 테스트 - ' + new Date().toLocaleString() + '" | sendalert slack param.message=message';
-                
+
                 $.ajax({
                     url: '/en-US/splunkd/__raw/services/search/jobs',
                     type: 'POST',
@@ -142,7 +142,7 @@
       </html>
     </panel>
   </row>
-  
+
   <!-- Slack 상태 테이블 -->
   <row>
     <panel>
@@ -171,5 +171,5 @@
       </table>
     </panel>
   </row>
-  
+
 </form>

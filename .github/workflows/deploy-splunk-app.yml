@@ -21,6 +21,9 @@ on:
         default: false
         type: boolean
 
+permissions:
+  contents: read
+
 env:
   APP_NAME: security_alert
 
@@ -34,11 +37,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: false
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
+          cache: 'pip'
 
       - name: Validate Splunk configs
         run: |
@@ -67,6 +73,8 @@ jobs:
       artifact_name: ${{ steps.package.outputs.artifact_name }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: false
 
       - name: Get version
         id: version
@@ -107,6 +115,8 @@ jobs:
       (github.event_name == 'push')
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: false
 
       - name: Download artifact
         uses: actions/download-artifact@v4
@@ -126,10 +136,10 @@ jobs:
           fi
 
           TARBALL=$(ls security_alert-*.tar.gz 2>/dev/null | head -1)
-          
+
           echo "📦 Deploying app package: $TARBALL"
           echo "🔗 Connecting to Splunk at ${SPLUNK_HOST}..."
-          
+
           # Test SSH connection
           if ! ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@${SPLUNK_HOST} "echo 'SSH OK'" 2>/dev/null; then
             echo "⚠️ Cannot SSH to Splunk server"
@@ -141,18 +151,18 @@ jobs:
             echo "   2. ssh root@splunk '/opt/splunk/bin/splunk install app /tmp/${TARBALL} -update true -auth <user>:<pass>'"
             exit 0
           fi
-          
+
           echo "✅ SSH connection successful"
-          
+
           # Step 1: Copy tarball to Splunk server
           echo "📤 Copying tarball to server..."
           scp -o StrictHostKeyChecking=no "${TARBALL}" root@${SPLUNK_HOST}:/tmp/
-          
+
           # Step 2: Install app via Splunk CLI
           echo "📥 Installing app via Splunk CLI..."
           INSTALL_OUTPUT=$(ssh -o StrictHostKeyChecking=no root@${SPLUNK_HOST} \
             "/opt/splunk/bin/splunk install app /tmp/${TARBALL} -update true -auth ${SPLUNK_USER}:${SPLUNK_PASS}" 2>&1)
-          
+
           if echo "$INSTALL_OUTPUT" | grep -q "installed"; then
             echo "✅ App installed successfully"
             echo "$INSTALL_OUTPUT"
@@ -161,7 +171,7 @@ jobs:
             echo "$INSTALL_OUTPUT"
             exit 1
           fi
-          
+
           # Cleanup
           ssh -o StrictHostKeyChecking=no root@${SPLUNK_HOST} "rm -f /tmp/${TARBALL}"
 
@@ -174,15 +184,15 @@ jobs:
             echo "⚠️ SPLUNK_HOST_DEV not configured, skipping restart"
             exit 0
           fi
-          
+
           echo "🔄 Restarting Splunk via SSH..."
           ssh -o StrictHostKeyChecking=no root@${SPLUNK_HOST} "/opt/splunk/bin/splunk restart" || {
             echo "⚠️ Restart command sent (may have timed out, this is normal)"
           }
-          
+
           echo "⏳ Waiting for Splunk to come back online..."
           sleep 45
-          
+
           for i in {1..20}; do
             if ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no root@${SPLUNK_HOST} \
               "/opt/splunk/bin/splunk status" 2>/dev/null | grep -q "running"; then
@@ -201,19 +211,19 @@ jobs:
             echo "⚠️ Skipping verification - no host configured"
             exit 0
           fi
-          
+
           echo "🔍 Verifying app installation..."
-          
+
           # Check app version from app.conf
           VERSION=$(ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@${SPLUNK_HOST} \
             "grep '^version' /opt/splunk/etc/apps/security_alert/default/app.conf 2>/dev/null | cut -d= -f2 | tr -d ' '" 2>/dev/null) || VERSION="unknown"
-          
+
           if [ -n "$VERSION" ] && [ "$VERSION" != "unknown" ]; then
             echo "✅ App installed: security_alert v$VERSION"
           else
             echo "⚠️ Could not verify app version"
           fi
-          
+
           echo ""
           echo "📋 Checking saved searches..."
           SEARCHES=$(ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@${SPLUNK_HOST} \
@@ -242,6 +252,8 @@ jobs:
       github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'prod'
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: false
 
       - name: Download artifact
         uses: actions/download-artifact@v4
@@ -260,10 +272,10 @@ jobs:
           fi
 
           TARBALL=$(ls security_alert-*.tar.gz 2>/dev/null | head -1)
-          
+
           echo "📦 Deploying app package to production: $TARBALL"
           echo "🔗 Connecting to Splunk at ${SPLUNK_HOST}..."
-          
+
           # Test SSH connection
           if ! ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@${SPLUNK_HOST} "echo 'SSH OK'" 2>/dev/null; then
             echo "⚠️ Cannot SSH to production Splunk server"
@@ -271,18 +283,18 @@ jobs:
             echo "   Artifact available for manual deploy"
             exit 0
           fi
-          
+
           echo "✅ SSH connection successful"
-          
+
           # Step 1: Copy tarball to Splunk server
           echo "📤 Copying tarball to server..."
           scp -o StrictHostKeyChecking=no "${TARBALL}" root@${SPLUNK_HOST}:/tmp/
-          
+
           # Step 2: Install app via Splunk CLI
           echo "📥 Installing app via Splunk CLI..."
           INSTALL_OUTPUT=$(ssh -o StrictHostKeyChecking=no root@${SPLUNK_HOST} \
             "/opt/splunk/bin/splunk install app /tmp/${TARBALL} -update true -auth ${SPLUNK_USER}:${SPLUNK_PASS}" 2>&1)
-          
+
           if echo "$INSTALL_OUTPUT" | grep -q "installed"; then
             echo "✅ App installed to production successfully"
             echo "$INSTALL_OUTPUT"
@@ -291,7 +303,7 @@ jobs:
             echo "$INSTALL_OUTPUT"
             exit 1
           fi
-          
+
           # Cleanup
           ssh -o StrictHostKeyChecking=no root@${SPLUNK_HOST} "rm -f /tmp/${TARBALL}"
 

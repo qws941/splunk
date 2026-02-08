@@ -1,0 +1,80 @@
+# =============================================================================
+# .dockerignore - Reduce Docker build context for faz-splunk-integration
+# =============================================================================
+
+# Version control
+.git/
+.gitattributes
+.gitmodules
+
+# Documentation & wiki
+splunk.wiki/
+docs/
+*.md
+!README.md
+LICENSE
+
+# Frontend (built separately, not needed in backend container)
+frontend/node_modules/
+frontend/dist/
+
+# Test infrastructure
+tests/
+.pytest_cache/
+coverage/
+htmlcov/
+.venv/
+
+# Splunk app (deployed separately as tarball)
+# security_alert/  # Keep - may be needed for validation scripts
+
+# Third-party extras
+extras/
+
+# Terraform / IaC
+terraform/
+
+# CI/CD configuration
+.github/
+
+# Archived files
+archived/
+
+# Development tooling
+.opencode/
+.sisyphus/
+.claude/
+in-memoria*/
+.pre-commit-config.yaml
+.flake8
+.editorconfig
+
+# Build artifacts
+*.tar.gz
+*.tgz
+*.zip
+
+# Node.js development
+node_modules/
+npm-debug.log*
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+.mypy_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+
+# Environment files (secrets)
+.env
+.env.*
+!.env.example
