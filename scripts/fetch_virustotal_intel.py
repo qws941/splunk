@@ -272,7 +272,7 @@ def main():
     for i, file_hash in enumerate(hashes):
         # Rate limiting (free tier: 4 requests/minute)
         if i > 0 and i % API_RATE_LIMIT == 0:
-            print(f"INFO: Rate limit pause (60 seconds)...", file=sys.stderr)
+            print("INFO: Rate limit pause (60 seconds)...", file=sys.stderr)
             time.sleep(60)
 
         print(f"INFO: Checking {file_hash}...", file=sys.stderr)

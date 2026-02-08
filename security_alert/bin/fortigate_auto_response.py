@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "lib"))
 import json
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict
 
 import requests
 
@@ -118,7 +118,7 @@ class SlackNotifier:
     ) -> bool:
         """Send Slack notification about automated action"""
         message = {
-            "text": f"🤖 *Automated Response Executed*",
+            "text": "🤖 *Automated Response Executed*",
             "attachments": [
                 {
                     "color": "warning",

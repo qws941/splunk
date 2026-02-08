@@ -313,11 +313,11 @@ def step5_deploy_alerts():
                 data=data,
                 parse_json=False,
             )
-            print(f"   ✅ Alert deployed")
+            print("   ✅ Alert deployed")
             deployed_count += 1
         except Exception as e:
             if "409" in str(e):
-                print(f"   ⚠️  Alert already exists, updating...")
+                print("   ⚠️  Alert already exists, updating...")
                 # Try to update existing alert
                 try:
                     make_request(
@@ -326,7 +326,7 @@ def step5_deploy_alerts():
                         data=data,
                         parse_json=False,
                     )
-                    print(f"   ✅ Alert updated")
+                    print("   ✅ Alert updated")
                     deployed_count += 1
                 except Exception as update_error:
                     print(f"   ❌ Failed to update: {update_error}")
@@ -429,7 +429,7 @@ def main():
         print(f"✅ HEC Token: {hec_token}")
         print(f"✅ HEC Endpoint: https://localhost:{HEC_PORT}")
         print(f"✅ Index: {INDEX_NAME}")
-        print(f"✅ Alerts: 3 real-time alerts enabled")
+        print("✅ Alerts: 3 real-time alerts enabled")
 
         print("\n📋 Next Steps:")
         print("1. Test with mock data:")
@@ -445,7 +445,7 @@ def main():
         # Save token to file
         with open("/tmp/splunk_hec_token.txt", "w") as f:
             f.write(hec_token)
-        print(f"\n💾 Token saved to: /tmp/splunk_hec_token.txt")
+        print("\n💾 Token saved to: /tmp/splunk_hec_token.txt")
 
         return 0
     else:

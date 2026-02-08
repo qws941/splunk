@@ -23,7 +23,6 @@ import csv
 import json
 import os
 import sys
-from datetime import datetime, timedelta
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 

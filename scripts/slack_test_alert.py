@@ -65,7 +65,7 @@ def main():
     if result:
         print(f"✅ Slack message sent successfully at {timestamp}")
     else:
-        print(f"❌ Failed to send Slack message", file=sys.stderr)
+        print("❌ Failed to send Slack message", file=sys.stderr)
         sys.exit(1)
 
 

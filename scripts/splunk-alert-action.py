@@ -170,7 +170,7 @@ def main():
         webhook_url = os.environ.get("SLACK_WEBHOOK_URL")
 
         if webhook_url:
-            print(f"✅ SLACK_WEBHOOK_URL configured")
+            print("✅ SLACK_WEBHOOK_URL configured")
             print(f"   URL: {webhook_url[:30]}...")
 
             # Test connection

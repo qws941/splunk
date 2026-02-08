@@ -90,7 +90,7 @@ def call_auto_block(ip_address, reason):
         return result.returncode == 0
 
     except subprocess.TimeoutExpired:
-        print(f"ERROR: Auto-block script timed out after 120 seconds", file=sys.stderr)
+        print("ERROR: Auto-block script timed out after 120 seconds", file=sys.stderr)
         return False
     except Exception as e:
         print(f"ERROR: Failed to call auto-block script: {e}", file=sys.stderr)
@@ -99,12 +99,12 @@ def call_auto_block(ip_address, reason):
 
 def main():
     """Main execution"""
-    print(f"INFO: Splunk Auto-Block Wrapper started", file=sys.stderr)
+    print("INFO: Splunk Auto-Block Wrapper started", file=sys.stderr)
 
     # Read alert data from stdin
     alert_data = read_alert_data()
     if not alert_data:
-        print(f"ERROR: No alert data received", file=sys.stderr)
+        print("ERROR: No alert data received", file=sys.stderr)
         sys.exit(1)
 
     print(f"INFO: Alert data: {json.dumps(alert_data)}", file=sys.stderr)
@@ -113,7 +113,7 @@ def main():
     ip_address, reason = extract_ip_and_reason(alert_data)
 
     if not ip_address:
-        print(f"ERROR: No IP address found in alert data", file=sys.stderr)
+        print("ERROR: No IP address found in alert data", file=sys.stderr)
         print(
             f"   Available fields: {list(alert_data.get('result', {}).keys())}",
             file=sys.stderr,

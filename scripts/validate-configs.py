@@ -5,7 +5,6 @@ Validate Splunk configuration files without btool
 
 import configparser
 import os
-import re
 import sys
 from pathlib import Path
 
