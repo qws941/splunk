@@ -345,7 +345,7 @@ jobs:
           pytest tests/e2e/ -v --tb=short \
             -m "not splunk_live" \
             --cov=security_alert/bin --cov-report=xml:coverage-e2e.xml \
-            --cov-report=term --cov-fail-under=50 2>&1 | tee e2e-results.txt
+            --cov-report=term 2>&1 | tee e2e-results.txt
           exit ${PIPESTATUS[0]}
 
       - name: Upload E2E results

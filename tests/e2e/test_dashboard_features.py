@@ -413,9 +413,9 @@ class TestZustandStore:
         content = store_path.read_text()
 
         assert (
-            "loading: true" in content
-            or "loading:true" in content
-            or "set({ loading: true" in content
+            "loadingEvents: true" in content
+            or "loadingCorrelation: true" in content
+            or "loading: true" in content
         )
 
 
