@@ -45,7 +45,7 @@ class TestScriptSyntax:
         if not script_path.exists():
             pytest.skip(f"{script} not found")
 
-        result = subprocess.run(
+        subprocess.run(
             [
                 sys.executable,
                 "-c",
@@ -191,7 +191,7 @@ class TestNoPrintStatements:
         # This is documented in AGENTS.md as acceptable
         if script == "slack.py":
             pytest.skip(
-                f"slack.py uses print() for Splunk protocol (known issue, documented in AGENTS.md)"
+                "slack.py uses print() for Splunk protocol (known issue, documented in AGENTS.md)"
             )
 
 

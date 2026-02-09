@@ -6,9 +6,7 @@ Uses subprocess to start the backend server and makes HTTP requests.
 """
 
 import os
-import signal
 import subprocess
-import sys
 import time
 from pathlib import Path
 

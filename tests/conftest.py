@@ -19,8 +19,8 @@ import time
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional
-from unittest.mock import MagicMock, patch
+from typing import Any, Dict, List, Optional
+from unittest.mock import MagicMock, patch  # noqa: F401
 
 import pytest
 

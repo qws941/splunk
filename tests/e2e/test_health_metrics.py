@@ -209,7 +209,7 @@ class TestBackendMetrics:
             "api_",
         ]
 
-        found_any = any(metric in text for metric in process_metrics)
+        found_any = any(metric in text for metric in process_metrics)  # noqa: F841
         has_metrics = len(text.strip()) > 0
         assert has_metrics, "Metrics endpoint should return content"
 

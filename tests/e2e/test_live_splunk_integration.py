@@ -11,12 +11,8 @@ Credentials: Set via environment or use defaults below
     SPLUNK_PASSWORD=admin123
 """
 
-import csv
-import io
-import json
 import os
 import time
-from datetime import datetime, timedelta
 
 import pytest
 

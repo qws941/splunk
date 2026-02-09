@@ -4,7 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
+import pytest  # noqa: F401
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 BIN_PATH = PROJECT_ROOT / "security_alert" / "bin"
