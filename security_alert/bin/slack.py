@@ -94,7 +94,7 @@ def build_block_kit_message(
                     "type": "mrkdwn",
                     "text": f"*Time:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S KST')}",
                 },
-                {"type": "mrkdwn", "text": f"*Source:* NextTrade Security Alert"},
+                {"type": "mrkdwn", "text": "*Source:* NextTrade Security Alert"},
             ],
         },
         {"type": "divider"},

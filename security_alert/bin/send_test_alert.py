@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Send test Slack alerts for each alert type."""
 
-import json
 import os
 import sys
 from datetime import datetime

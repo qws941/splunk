@@ -25,7 +25,6 @@ except ImportError:
 import fcntl
 
 import splunk.admin as admin
-import splunk.rest as rest
 
 
 def get_alert_state_path():
@@ -151,8 +150,6 @@ class SlackCallbackHandler(admin.MConfigHandler):
                 actions = payload.get("actions", [])
                 user = payload.get("user", {})
                 user_name = user.get("name", user.get("username", "Unknown"))
-                message = payload.get("message", {})
-                channel = payload.get("channel", {})
 
                 for action in actions:
                     action_id = action.get("action_id")

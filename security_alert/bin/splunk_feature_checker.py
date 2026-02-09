@@ -7,7 +7,6 @@ Splunk Feature Checker & Automation Framework
 
 import functools
 import json
-import os
 import subprocess
 import sys
 from datetime import datetime
@@ -117,12 +116,12 @@ class SplunkFeatureChecker:
 
         # 라이선스 정보
         try:
-            license_output = self.run_splunk_command("list license")
+            self.run_splunk_command("list license")
             checks["license"] = {"status": "OK", "info": "License configured"}
-            print(f"   ✅ 라이선스: 설정됨")
+            print("   ✅ 라이선스: 설정됨")
         except Exception as e:
             checks["license"] = {"status": "WARNING", "error": str(e)}
-            print(f"   ⚠️ 라이선스 확인 실패 (Free 버전일 수 있음)")
+            print("   ⚠️ 라이선스 확인 실패 (Free 버전일 수 있음)")
 
         self.results["checks"]["system"] = checks
         print("")
@@ -135,7 +134,7 @@ class SplunkFeatureChecker:
         storage = {}
 
         # 1. 인덱스 저장소 경로
-        indexes_conf = self.splunk_home / "etc" / "system" / "local" / "indexes.conf"
+        indexes_conf = self.splunk_home / "etc" / "system" / "local" / "indexes.con"
         if indexes_conf.exists():
             storage["indexes_conf"] = {
                 "status": "OK",
@@ -149,13 +148,13 @@ class SplunkFeatureChecker:
                 content = f.read()
                 if "homePath" in content:
                     storage["custom_homePath"] = True
-                    print(f"   ✅ 커스텀 homePath 설정됨")
+                    print("   ✅ 커스텀 homePath 설정됨")
                 if "coldPath" in content:
                     storage["custom_coldPath"] = True
-                    print(f"   ✅ 커스텀 coldPath 설정됨 (콜드 데이터 분리)")
+                    print("   ✅ 커스텀 coldPath 설정됨 (콜드 데이터 분리)")
         else:
             storage["indexes_conf"] = {"status": "WARNING", "exists": False}
-            print(f"   ⚠️ indexes.conf 없음 (기본 설정 사용)")
+            print("   ⚠️ indexes.conf 없음 (기본 설정 사용)")
 
         # 2. 디스크 사용량 점검
         try:
@@ -180,22 +179,22 @@ class SplunkFeatureChecker:
         if frozen_path.exists():
             print(f"   ✅ Frozen 아카이브 설정됨: {frozen_path}")
         else:
-            print(f"   ℹ️ Frozen 아카이브 미설정 (오래된 데이터 자동 삭제)")
+            print("   ℹ️ Frozen 아카이브 미설정 (오래된 데이터 자동 삭제)")
 
         # 4. SmartStore 설정 (S3/Azure 통합)
-        smartstore_conf = self.splunk_home / "etc" / "system" / "local" / "server.conf"
+        smartstore_conf = self.splunk_home / "etc" / "system" / "local" / "server.con"
         if smartstore_conf.exists():
             with open(smartstore_conf, "r") as f:
                 content = f.read()
                 if "[s3]" in content or "[azure]" in content:
                     storage["smartstore"] = {"status": "OK", "enabled": True}
-                    print(f"   ✅ SmartStore 설정됨 (S3/Azure 통합)")
+                    print("   ✅ SmartStore 설정됨 (S3/Azure 통합)")
                 else:
                     storage["smartstore"] = {"status": "INFO", "enabled": False}
-                    print(f"   ℹ️ SmartStore 미사용 (로컬 스토리지)")
+                    print("   ℹ️ SmartStore 미사용 (로컬 스토리지)")
         else:
             storage["smartstore"] = {"status": "INFO", "enabled": False}
-            print(f"   ℹ️ SmartStore 미설정")
+            print("   ℹ️ SmartStore 미설정")
 
         self.results["storage"] = storage
         print("")
@@ -218,9 +217,9 @@ class SplunkFeatureChecker:
 
             # fw 인덱스 존재 확인
             if "fw" in indexes_output.lower():
-                print(f"   ✅ fw 인덱스 존재 (FortiGate 데이터용)")
+                print("   ✅ fw 인덱스 존재 (FortiGate 데이터용)")
             else:
-                print(f"   ⚠️ fw 인덱스 없음 (생성 필요)")
+                print("   ⚠️ fw 인덱스 없음 (생성 필요)")
                 self.results["recommendations"].append(
                     {
                         "type": "INDEX",
@@ -250,34 +249,34 @@ class SplunkFeatureChecker:
                 # TCP 입력
                 if "[tcp://" in content:
                     inputs_check["tcp"] = {"status": "OK", "configured": True}
-                    print(f"   ✅ TCP 입력 설정됨")
+                    print("   ✅ TCP 입력 설정됨")
                 else:
                     inputs_check["tcp"] = {"status": "INFO", "configured": False}
 
                 # UDP 입력
                 if "[udp://" in content:
                     inputs_check["udp"] = {"status": "OK", "configured": True}
-                    print(f"   ✅ UDP 입력 설정됨 (Syslog 수신 가능)")
+                    print("   ✅ UDP 입력 설정됨 (Syslog 수신 가능)")
                 else:
                     inputs_check["udp"] = {"status": "INFO", "configured": False}
 
                 # HEC (HTTP Event Collector)
                 if "[http" in content:
                     inputs_check["hec"] = {"status": "OK", "configured": True}
-                    print(f"   ✅ HEC 입력 설정됨")
+                    print("   ✅ HEC 입력 설정됨")
                 else:
                     inputs_check["hec"] = {"status": "INFO", "configured": False}
-                    print(f"   ℹ️ HEC 미설정 (HTTP 기반 이벤트 수집)")
+                    print("   ℹ️ HEC 미설정 (HTTP 기반 이벤트 수집)")
 
                 # 파일 모니터링
                 if "[monitor://" in content:
                     inputs_check["monitor"] = {"status": "OK", "configured": True}
-                    print(f"   ✅ 파일 모니터링 설정됨")
+                    print("   ✅ 파일 모니터링 설정됨")
                 else:
                     inputs_check["monitor"] = {"status": "INFO", "configured": False}
 
         else:
-            print(f"   ⚠️ inputs.conf 없음 (데이터 입력 미설정)")
+            print("   ⚠️ inputs.conf 없음 (데이터 입력 미설정)")
 
         self.results["checks"]["inputs"] = inputs_check
         print("")
@@ -290,7 +289,7 @@ class SplunkFeatureChecker:
         alert_checks = {}
 
         # savedsearches.conf
-        savedsearches = self.app_dir / "default" / "savedsearches.conf"
+        savedsearches = self.app_dir / "default" / "savedsearches.con"
         if savedsearches.exists():
             with open(savedsearches, "r") as f:
                 content = f.read()
@@ -307,10 +306,10 @@ class SplunkFeatureChecker:
                 print(f"   ✅ {alert_count}개 알림 정의됨 ({enabled_count}개 활성)")
         else:
             alert_checks["savedsearches"] = {"status": "WARNING", "exists": False}
-            print(f"   ⚠️ savedsearches.conf 없음")
+            print("   ⚠️ savedsearches.conf 없음")
 
         # alert_actions.conf
-        alert_actions = self.app_dir / "default" / "alert_actions.conf"
+        alert_actions = self.app_dir / "default" / "alert_actions.con"
         if alert_actions.exists():
             with open(alert_actions, "r") as f:
                 content = f.read()
@@ -352,7 +351,7 @@ class SplunkFeatureChecker:
             print(f"   ✅ {len(state_trackers)}개 State Tracker (상태 저장)")
 
             # 자동 룩업 적용 확인
-            transforms_conf = self.app_dir / "default" / "transforms.conf"
+            transforms_conf = self.app_dir / "default" / "transforms.con"
             if transforms_conf.exists():
                 with open(transforms_conf, "r") as f:
                     content = f.read()
@@ -362,7 +361,7 @@ class SplunkFeatureChecker:
 
         else:
             lookup_checks["status"] = "WARNING"
-            print(f"   ⚠️ lookups 디렉토리 없음")
+            print("   ⚠️ lookups 디렉토리 없음")
 
         self.results["checks"]["lookups"] = lookup_checks
         print("")
@@ -388,7 +387,7 @@ class SplunkFeatureChecker:
 
             if is_ready:
                 # collections.conf 확인
-                collections_conf = self.app_dir / "default" / "collections.conf"
+                collections_conf = self.app_dir / "default" / "collections.con"
                 if collections_conf.exists():
                     with open(collections_conf, "r") as f:
                         content = f.read()
@@ -396,7 +395,7 @@ class SplunkFeatureChecker:
                         kvstore_checks["collections"] = collection_count
                         print(f"   ✅ {collection_count}개 KV Store 컬렉션 정의됨")
                 else:
-                    print(f"   ℹ️ collections.conf 없음 (KV Store 미사용)")
+                    print("   ℹ️ collections.conf 없음 (KV Store 미사용)")
 
         except Exception as e:
             kvstore_checks["status"] = "ERROR"
@@ -418,13 +417,13 @@ class SplunkFeatureChecker:
             indexes_output = self.run_splunk_command("list index")
             if "summary" in indexes_output.lower():
                 summary_checks["summary_index"] = {"status": "OK", "exists": True}
-                print(f"   ✅ summary 인덱스 존재")
+                print("   ✅ summary 인덱스 존재")
             else:
                 summary_checks["summary_index"] = {"status": "INFO", "exists": False}
-                print(f"   ℹ️ summary 인덱스 없음 (요약 인덱싱 미사용)")
+                print("   ℹ️ summary 인덱스 없음 (요약 인덱싱 미사용)")
 
             # savedsearches.conf에서 요약 검색 확인
-            savedsearches = self.app_dir / "default" / "savedsearches.conf"
+            savedsearches = self.app_dir / "default" / "savedsearches.con"
             if savedsearches.exists():
                 with open(savedsearches, "r") as f:
                     content = f.read()
@@ -434,7 +433,7 @@ class SplunkFeatureChecker:
                     if summary_count > 0:
                         print(f"   ✅ {summary_count}개 요약 인덱싱 검색 설정됨")
                     else:
-                        print(f"   ℹ️ 요약 인덱싱 검색 없음")
+                        print("   ℹ️ 요약 인덱싱 검색 없음")
 
         except Exception as e:
             summary_checks["status"] = "ERROR"
@@ -469,11 +468,11 @@ class SplunkFeatureChecker:
             if accelerated_count > 0:
                 print(f"   ✅ {accelerated_count}개 데이터 모델 가속화 활성화됨")
             else:
-                print(f"   ℹ️ 가속화된 데이터 모델 없음")
+                print("   ℹ️ 가속화된 데이터 모델 없음")
 
         else:
             dm_checks["status"] = "INFO"
-            print(f"   ℹ️ 데이터 모델 미사용")
+            print("   ℹ️ 데이터 모델 미사용")
 
         self.results["checks"]["data_model"] = dm_checks
         print("")
@@ -493,14 +492,14 @@ class SplunkFeatureChecker:
 
             shc_checks["is_member"] = is_member
             if is_member:
-                print(f"   ✅ 검색 헤드 클러스터 멤버임")
+                print("   ✅ 검색 헤드 클러스터 멤버임")
             else:
-                print(f"   ℹ️ 검색 헤드 클러스터 미사용 (단일 검색 헤드)")
+                print("   ℹ️ 검색 헤드 클러스터 미사용 (단일 검색 헤드)")
 
-        except Exception as e:
+        except Exception:
             shc_checks["status"] = "INFO"
             shc_checks["is_member"] = False
-            print(f"   ℹ️ 검색 헤드 클러스터 미사용")
+            print("   ℹ️ 검색 헤드 클러스터 미사용")
 
         self.results["checks"]["shc"] = shc_checks
         print("")
@@ -520,14 +519,14 @@ class SplunkFeatureChecker:
 
             idx_cluster_checks["is_clustered"] = is_clustered
             if is_clustered:
-                print(f"   ✅ 인덱서 클러스터 구성됨 (고가용성)")
+                print("   ✅ 인덱서 클러스터 구성됨 (고가용성)")
             else:
-                print(f"   ℹ️ 인덱서 클러스터 미사용 (단일 인덱서)")
+                print("   ℹ️ 인덱서 클러스터 미사용 (단일 인덱서)")
 
-        except Exception as e:
+        except Exception:
             idx_cluster_checks["status"] = "INFO"
             idx_cluster_checks["is_clustered"] = False
-            print(f"   ℹ️ 인덱서 클러스터 미사용")
+            print("   ℹ️ 인덱서 클러스터 미사용")
 
         self.results["checks"]["indexer_clustering"] = idx_cluster_checks
         print("")
@@ -539,7 +538,7 @@ class SplunkFeatureChecker:
 
         forwarding_checks = {}
 
-        outputs_conf = self.splunk_home / "etc" / "system" / "local" / "outputs.conf"
+        outputs_conf = self.splunk_home / "etc" / "system" / "local" / "outputs.con"
         if outputs_conf.exists():
             with open(outputs_conf, "r") as f:
                 content = f.read()
@@ -547,7 +546,7 @@ class SplunkFeatureChecker:
                 # 인덱서 포워딩
                 if "[tcpout:" in content:
                     forwarding_checks["tcpout"] = {"status": "OK", "configured": True}
-                    print(f"   ✅ TCP 포워딩 설정됨 (인덱서로 전송)")
+                    print("   ✅ TCP 포워딩 설정됨 (인덱서로 전송)")
                 else:
                     forwarding_checks["tcpout"] = {
                         "status": "INFO",
@@ -556,11 +555,11 @@ class SplunkFeatureChecker:
 
                 # 자동 로드 밸런싱
                 if "autoLB" in content or "autoLBFrequency" in content:
-                    print(f"   ✅ 자동 로드 밸런싱 설정됨")
+                    print("   ✅ 자동 로드 밸런싱 설정됨")
 
         else:
             forwarding_checks["status"] = "INFO"
-            print(f"   ℹ️ outputs.conf 없음 (포워딩 미사용)")
+            print("   ℹ️ outputs.conf 없음 (포워딩 미사용)")
 
         self.results["checks"]["forwarding"] = forwarding_checks
         print("")
@@ -730,7 +729,7 @@ def main():
         splunk_home = "/opt/splunk"
 
     checker = SplunkFeatureChecker(splunk_home)
-    results = checker.check_all_features()
+    checker.check_all_features()
 
     # 결과 반환
     sys.exit(0)

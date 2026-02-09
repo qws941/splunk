@@ -6,7 +6,6 @@ Auto Validator for Security Alert System
 """
 
 import csv
-import json
 import os
 import re
 import sys

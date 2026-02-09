@@ -6,7 +6,6 @@ Usage: python3 generate_test_events.py [alert_name|all]
 """
 
 import datetime
-import gzip
 import os
 import random
 import sys
