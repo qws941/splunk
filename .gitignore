@@ -77,3 +77,7 @@ logs/
 release/*.tar.gz
 release/*.tgz
 .venv/
+
+# Terraform
+*.tfvars
+!*.tfvars.example

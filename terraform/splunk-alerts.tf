@@ -37,7 +37,6 @@ variable "splunk_password" {
   description = "Splunk admin password"
   type        = string
   sensitive   = true
-  default     = "changeme"
 }
 
 variable "insecure_ssl" {
@@ -94,27 +93,27 @@ resource "splunk_saved_searches" "config_change_alert" {
   disabled = false
 
   # Real-time scheduling
-  is_scheduled          = true
-  realtime_schedule     = true
-  cron_schedule         = "* * * * *"
-  schedule_window       = 0
-  schedule_priority     = "default"
-  max_concurrent        = 1
+  is_scheduled              = true
+  realtime_schedule         = true
+  cron_schedule             = "* * * * *"
+  schedule_window           = 0
+  schedule_priority         = "default"
+  max_concurrent            = 1
   restart_on_searchpeer_add = true
 
   # Alert actions
-  actions = "slack"
-  action_slack_param_channel = var.slack_channel
-  action_slack_param_message = "$result.Alert Message$"
+  actions                                 = "slack"
+  action_slack_param_channel              = var.slack_channel
+  action_slack_param_message              = "$result.Alert Message$"
   action_slack_param_webhook_url_override = var.slack_webhook_url
 
   # Suppression settings (15 seconds)
-  alert_suppress         = true
-  alert_suppress_period  = "15s"
-  alert_suppress_fields  = "user,cfgpath"
+  alert_suppress        = true
+  alert_suppress_period = "15s"
+  alert_suppress_fields = "user,cfgpath"
 
   # Trigger condition
-  alert_type      = "number of events"
+  alert_type       = "number of events"
   alert_comparator = "greater than"
   alert_threshold  = "0"
 }
@@ -137,27 +136,27 @@ resource "splunk_saved_searches" "critical_event_alert" {
   disabled = false
 
   # Real-time scheduling
-  is_scheduled          = true
-  realtime_schedule     = true
-  cron_schedule         = "* * * * *"
-  schedule_window       = 0
-  schedule_priority     = "default"
-  max_concurrent        = 1
+  is_scheduled              = true
+  realtime_schedule         = true
+  cron_schedule             = "* * * * *"
+  schedule_window           = 0
+  schedule_priority         = "default"
+  max_concurrent            = 1
   restart_on_searchpeer_add = true
 
   # Alert actions
-  actions = "slack"
-  action_slack_param_channel = var.slack_channel
-  action_slack_param_message = "$result.Alert Message$"
+  actions                                 = "slack"
+  action_slack_param_channel              = var.slack_channel
+  action_slack_param_message              = "$result.Alert Message$"
   action_slack_param_webhook_url_override = var.slack_webhook_url
 
   # Suppression settings (15 seconds)
-  alert_suppress         = true
-  alert_suppress_period  = "15s"
-  alert_suppress_fields  = "devname"
+  alert_suppress        = true
+  alert_suppress_period = "15s"
+  alert_suppress_fields = "devname"
 
   # Trigger condition
-  alert_type      = "number of events"
+  alert_type       = "number of events"
   alert_comparator = "greater than"
   alert_threshold  = "0"
 }
@@ -183,27 +182,27 @@ resource "splunk_saved_searches" "ha_event_alert" {
   disabled = false
 
   # Real-time scheduling
-  is_scheduled          = true
-  realtime_schedule     = true
-  cron_schedule         = "* * * * *"
-  schedule_window       = 0
-  schedule_priority     = "default"
-  max_concurrent        = 1
+  is_scheduled              = true
+  realtime_schedule         = true
+  cron_schedule             = "* * * * *"
+  schedule_window           = 0
+  schedule_priority         = "default"
+  max_concurrent            = 1
   restart_on_searchpeer_add = true
 
   # Alert actions
-  actions = "slack"
-  action_slack_param_channel = var.slack_channel
-  action_slack_param_message = "$result.Alert Message$"
+  actions                                 = "slack"
+  action_slack_param_channel              = var.slack_channel
+  action_slack_param_message              = "$result.Alert Message$"
   action_slack_param_webhook_url_override = var.slack_webhook_url
 
   # Suppression settings (15 seconds)
-  alert_suppress         = true
-  alert_suppress_period  = "15s"
-  alert_suppress_fields  = "devname"
+  alert_suppress        = true
+  alert_suppress_period = "15s"
+  alert_suppress_fields = "devname"
 
   # Trigger condition
-  alert_type      = "number of events"
+  alert_type       = "number of events"
   alert_comparator = "greater than"
   alert_threshold  = "0"
 }
