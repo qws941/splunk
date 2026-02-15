@@ -60,33 +60,26 @@ chown -R splunk:splunk security_alert
 ## 📁 프로젝트 구조
 
 ```
-/home/jclee/app/splunk/
-├── security_alert.tar.gz        # 🎯 배포 패키지 (16KB)
-├── security_alert/               # 소스 디렉토리
-│   ├── bin/                      # Python 스크립트
-│   │   ├── slack_blockkit_alert.py
+splunk/
+├── security_alert/               # 소스 디렉토리 (→ tarball 배포)
+│   ├── bin/                      # Python 스크립트 (8개)
+│   │   ├── slack_blockkit_alert.py   # 메인 알림 핸들러
+│   │   ├── slack_callback.py         # Slack Ack/Snooze 콜백
 │   │   └── fortigate_auto_response.py
 │   ├── default/                  # 기본 설정
-│   │   ├── app.conf
-│   │   ├── alert_actions.conf
-│   │   ├── props.conf
-│   │   ├── transforms.conf
-│   │   ├── macros.conf
-│   │   ├── savedsearches.conf
-│   │   └── setup.xml
-│   ├── lookups/                  # 13개 CSV
-│   │   ├── fortigate_logid_notification_map.csv
-│   │   ├── severity_priority.csv
-│   │   ├── auto_response_actions.csv
-│   │   └── *_state_tracker.csv (10개)
-│   ├── local/                    # 사용자 수정
+│   │   ├── savedsearches.conf    # 15개 알림 정의
+│   │   ├── macros.conf           # LogID 매핑
+│   │   └── transforms.conf
+│   ├── lookups/                  # 13개 CSV (상태 추적)
+│   ├── local/                    # 사용자 수정 (gitignored)
 │   └── metadata/
-│       └── default.meta
-├── INSTALLATION_GUIDE.md         # 설치 가이드
-├── nextrade/                     # ⚠️ 레거시 (참고용)
-├── configs/                      # 설정 참조
-├── lookups/                      # 공통 CSV
-└── archive-dev/                  # 개발 아카이브
+├── scripts/                      # 배포 및 유효성 검사 (80+)
+├── backend/                      # Express 서버 (FAZ→Splunk HEC)
+├── frontend/                     # React 대시보드 (Vite)
+├── domains/                      # DDD 통합 레이어 (Node.js)
+├── tests/                        # 테스트 (unit + e2e)
+├── configs/                      # Docker, 대시보드, 프로비저닝
+└── splunk.wiki/                  # 문서 (XWiki 서브모듈)
 ```
 
 ## ⚙️ Slack 설정
@@ -139,15 +132,16 @@ security_alert/lookups/
 
 ## 🗂️ 디렉토리 설명
 
-| 디렉토리 | 용도 | 사용자 필요 여부 |
-|---------|------|------------------|
-| `security_alert.tar.gz` | 🎯 **배포 패키지** | ✅ 필수 (Splunk 설치) |
-| `security_alert/` | 소스 코드 | ⚠️ 수정 시만 |
-| `INSTALLATION_GUIDE.md` | 설치 가이드 | 📖 참고 (필독) |
-| `configs/` | 설정 참조 | 📖 참고용 |
-| `lookups/` | 공통 CSV | 📖 참고용 |
-| `nextrade/` | 레거시 (v2.0.3) | ❌ 무시 |
-| `archive-dev/` | 개발 아카이브 | ❌ 무시 |
+| 디렉토리 | 용도 | 비고 |
+|---------|------|------|
+| `security_alert/` | Splunk 앱 소스 코드 | `tar -czf` 로 패키징 |
+| `scripts/` | 배포/유효성 검사 스크립트 | 80+ 파일 |
+| `backend/` | FAZ→Splunk HEC 브리지 | Express 서버 |
+| `frontend/` | React 대시보드 | Vite 빌드 |
+| `domains/` | DDD 통합 레이어 | Node.js |
+| `tests/` | unit + e2e 테스트 | pytest |
+| `configs/` | Docker, 대시보드 참조 | 📖 참고용 |
+| `splunk.wiki/` | XWiki 문서 | Git 서브모듈 |
 
 ## 🚀 빠른 시작
 

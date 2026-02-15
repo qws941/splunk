@@ -67,7 +67,7 @@ splunk/
 
 | NEVER | Why |
 |-------|-----|
-| `print()` in bin/*.py | Breaks Splunk alert protocol |
+| `print()` to stdout in alert scripts | Breaks Splunk alert protocol (use `file=sys.stderr`) |
 | Tokens in `default/` | Must use `local/` (gitignored) |
 | Modify `bin/lib/`, `vendor/`, `extras/addons/` | Third-party dependencies |
 | `docker compose` without context | Must use `synology` context |
@@ -139,10 +139,8 @@ FortiGate Syslog → Splunk index=fw
 | Issue | Status | Notes |
 |-------|--------|-------|
 | Missing barrel exports | Tech debt | domains/, backend/ lack index.js |
-| print() in validators | Violation | 4 bin/*.py files use print() |
 | Flat scripts/ | Organization | 80+ scripts need categorization |
-| Flat scripts/ | Organization | 80+ scripts need categorization |
-| Flat scripts/ | Organization | 80+ scripts need categorization |
+| `fortigate_auto_response.py` credentials | Security | Hardcoded credentials, needs env vars |
 
 ## SUBDIRECTORY AGENTS
 

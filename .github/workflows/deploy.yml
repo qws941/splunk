@@ -39,8 +39,22 @@ jobs:
 
       - name: Sync wiki documentation
         run: |
-          chmod +x ./tools/scripts/util/sync-wiki.sh
-          ./tools/scripts/util/sync-wiki.sh
+          if [ ! -d "splunk.wiki" ]; then
+            echo "Wiki directory not found, skipping"
+            exit 0
+          fi
+          cd splunk.wiki
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin master || exit 0
+          git pull origin master || exit 0
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "docs: sync wiki [skip ci]"
+            git push origin master
+          else
+            echo "No wiki changes to sync"
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
 
