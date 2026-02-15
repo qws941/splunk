@@ -74,7 +74,7 @@ security_alert/
 
 | NEVER | Use Instead |
 |-------|-------------|
-| `print()` in bin/*.py | `sys.stderr.write()` |
+| Tokens in alert scripts | Use `local/` or env vars |
 | Tokens in `default/` | `local/` (gitignored) |
 | 6-field cron | 5-field (no seconds) |
 | Edit `local/` in git | Instance-specific, excluded |
@@ -87,4 +87,4 @@ security_alert/
 ## KNOWN ISSUES
 
 - `splunk_feature_checker.py` (727 LOC) — HIGH complexity, split needed
-- 6 bin/*.py files use `print()` instead of `sys.stderr.write()`
+- All bin/*.py files correctly use `print(..., file=sys.stderr)` — no stdout issues
