@@ -10,17 +10,7 @@
     "dev": "npm start",
     "dev:frontend": "cd frontend && npm run dev",
     "build:frontend": "cd frontend && npm run build",
-    "dev:worker": "wrangler dev worker/worker.js",
-    "deploy:worker": "wrangler deploy worker/worker.js",
-    "tail:worker": "wrangler tail",
-    "deploy:dashboards": "python3 scripts/deploy/deploy-dashboard-studio.py",
-    "secret:faz-host": "wrangler secret put FAZ_HOST",
-    "secret:faz-username": "wrangler secret put FAZ_USERNAME",
-    "secret:faz-password": "wrangler secret put FAZ_PASSWORD",
-    "secret:splunk-host": "wrangler secret put SPLUNK_HEC_HOST",
-    "secret:splunk-token": "wrangler secret put SPLUNK_HEC_TOKEN",
-    "secret:slack-token": "wrangler secret put SLACK_BOT_TOKEN",
-    "secret:slack-channel": "wrangler secret put SLACK_CHANNEL"
+    "deploy:dashboards": "python3 scripts/deploy/deploy-dashboard-studio.py"
   },
   "keywords": [
     "fortianalyzer",
@@ -31,9 +21,7 @@
     "slack",
     "alerts"
   ],
-  "devDependencies": {
-    "wrangler": "^3.114.15"
-  },
+  "devDependencies": {},
   "engines": {
     "node": ">=18.0.0"
   },

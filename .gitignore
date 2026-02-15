@@ -55,6 +55,7 @@ wrangler.toml.bak
 # Development tools
 .serena/
 .sisyphus/
+.claude/
 
 # AI/ML databases
 in-memoria-vectors.db/
@@ -88,19 +89,6 @@ release/*.tgz
 # Terraform
 *.tfvars
 !*.tfvars.example
-terraform/.terraform/
-terraform/terraform.tfstate
-terraform/terraform.tfstate.backup
-
-# Database files
-in-memoria.db
-
-# Docker
-.docker-context
-
-# Test artifacts
-.coverage
-.pytest_cache/
 terraform/.terraform/
 terraform/terraform.tfstate
 terraform/terraform.tfstate.backup
