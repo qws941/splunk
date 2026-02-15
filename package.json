@@ -7,7 +7,6 @@
   "main": "backend/server.js",
   "scripts": {
     "start": "node backend/server.js",
-    "start:legacy": "node index.js",
     "dev": "npm start",
     "dev:frontend": "cd frontend && npm run dev",
     "build:frontend": "cd frontend && npm run build",

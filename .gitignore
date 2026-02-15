@@ -71,13 +71,46 @@ temp/
 # Large files
 *.zip
 *.tar.gz
-*.rar*.pyc
+*.rar
+
+# Python
+*.pyc
 __pycache__/
-logs/
+.venv/
+
+# Logs (duplicate removed)
+# logs/ already listed above
+
+# Release artifacts
 release/*.tar.gz
 release/*.tgz
-.venv/
 
 # Terraform
 *.tfvars
 !*.tfvars.example
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+
+# Database files
+in-memoria.db
+
+# Docker
+.docker-context
+
+# Test artifacts
+.coverage
+.pytest_cache/
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+
+# Database files
+in-memoria.db
+
+# Docker
+.docker-context
+
+# Test artifacts
+.coverage
+.pytest_cache/

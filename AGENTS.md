@@ -6,7 +6,7 @@
 
 ## OVERVIEW
 
-Splunk Security Alert System for FortiGate monitoring. Hybrid monorepo: Splunk app (Python), Node.js DDD integration, React frontend, 80+ deployment scripts. Dual-server architecture (legacy `index.js` vs modern `backend/server.js`). Slack interactive callbacks (Ack/Snooze) via custom REST handler.
+Splunk Security Alert System for FortiGate monitoring. Hybrid monorepo: Splunk app (Python), Node.js DDD integration, React frontend, 80+ deployment scripts. Server: `backend/server.js` (FAZ→Splunk HEC bridge). Slack interactive callbacks (Ack/Snooze) via custom REST handler.
 
 ## STRUCTURE
 
@@ -23,7 +23,7 @@ splunk/
 ├── scripts/             # Deployment & validation (80+ files)
 ├── backend/             # Express server (FAZ→Splunk HEC)
 ├── frontend/            # React dashboard (Vite)
-├── tests/               # E2E test suite (pytest, 13 test files)
+├── tests/               # Test suite (pytest, unit + e2e)
 ├── splunk.wiki/         # Documentation (XWiki submodule)
 └── configs/             # Docker, dashboards, provisioning
 ```
@@ -34,7 +34,6 @@ splunk/
 |--------|-------|---------|
 | Splunk App | `security_alert/bin/slack_blockkit_alert.py` | Alert→Slack notifications |
 | Integration | `backend/server.js` | FAZ API→Splunk HEC bridge |
-| Legacy | `index.js` | Deprecated monolithic entry |
 | Frontend | `frontend/src/main.jsx` | React dashboard |
 | Scripts | `scripts/deploy-*.sh` | Deployment automation |
 | Tests | `pytest tests/e2e -v` | E2E test suite |
@@ -102,6 +101,7 @@ docker context use synology && docker compose up -d --build  # Deploy
 
 ```bash
 ./scripts/check-stanza.py                    # Config syntax (local)
+pytest tests/unit -v                         # Unit tests (local)
 pytest tests/e2e -v -m "not splunk_live"     # E2E tests (local)
 pre-commit run --all-files                   # Hooks
 ```
@@ -127,8 +127,10 @@ FortiGate Syslog → Splunk index=fw
 ## CI/CD
 
 **GitHub Actions** (.github/workflows/):
-- `ci.yml`: validate-syntax, security scans (Semgrep, detect-secrets), unit tests
-- `deploy.yml`: wiki deploy, dev/prod deploy, changelog generation
+- `ci.yml`: validate-syntax, security scans (Semgrep, detect-secrets), unit tests, e2e tests
+- `appinspect.yml`: Splunk AppInspect validation (precert + cloud mode)
+- `deploy-splunk-app.yml`: automated app deployment via SSH
+- `deploy.yml`: wiki deploy, GitHub Release
 
 **Triggers:** push/PR to master/main/develop, version tags (v*)
 
@@ -136,9 +138,10 @@ FortiGate Syslog → Splunk index=fw
 
 | Issue | Status | Notes |
 |-------|--------|-------|
-| Dual entry points | Tech debt | Use `backend/server.js`, not `index.js` |
 | Missing barrel exports | Tech debt | domains/, backend/ lack index.js |
 | print() in validators | Violation | 4 bin/*.py files use print() |
+| Flat scripts/ | Organization | 80+ scripts need categorization |
+| Flat scripts/ | Organization | 80+ scripts need categorization |
 | Flat scripts/ | Organization | 80+ scripts need categorization |
 
 ## SUBDIRECTORY AGENTS
