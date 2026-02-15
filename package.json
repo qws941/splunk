@@ -13,7 +13,7 @@
     "dev:worker": "wrangler dev worker/worker.js",
     "deploy:worker": "wrangler deploy worker/worker.js",
     "tail:worker": "wrangler tail",
-    "deploy:dashboards": "python3 scripts/deploy-dashboard-studio.py",
+    "deploy:dashboards": "python3 scripts/deploy/deploy-dashboard-studio.py",
     "secret:faz-host": "wrangler secret put FAZ_HOST",
     "secret:faz-username": "wrangler secret put FAZ_USERNAME",
     "secret:faz-password": "wrangler secret put FAZ_PASSWORD",

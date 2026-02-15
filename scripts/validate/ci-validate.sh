@@ -49,9 +49,6 @@ REQUIRED_FILES=(
     "default/data/models/FortiGate_Security.json"
     "default/data/ui/views/eventgen_test_dashboard.xml"
     "bin/settings_handler_persistent.py"
-    "scripts/install-eventgen.sh"
-    "scripts/validate-deployment.sh"
-    "scripts/performance-benchmark.sh"
     "tests/integration/test_eventgen_scenarios.sh"
     "DEPLOYMENT-GUIDE.md"
     "README-DEPLOYMENT.md"
@@ -128,9 +125,6 @@ done
 echo ""
 echo "[7] Bash Script Validation"
 BASH_SCRIPTS=(
-    "scripts/install-eventgen.sh"
-    "scripts/validate-deployment.sh"
-    "scripts/performance-benchmark.sh"
     "tests/integration/test_eventgen_scenarios.sh"
 )
 
@@ -266,9 +260,8 @@ if [ "$FAILED" -eq 0 ]; then
     echo ""
     echo "Next Steps:"
     echo "1. Deploy to Splunk environment"
-    echo "2. Run: ./scripts/install-eventgen.sh"
-    echo "3. Run: ./scripts/validate-deployment.sh"
-    echo "4. Run: ./scripts/performance-benchmark.sh"
+    echo "2. Run: ./scripts/validate/check-stanza.py"
+    echo "3. Run: ./scripts/validate/verify-splunk-deployment.sh"
     exit 0
 else
     echo "⚠️  $FAILED check(s) failed"

@@ -97,7 +97,7 @@ echo ""
 echo -e "${YELLOW}[4/6]${NC} Generating and sending test events..."
 cd "$(dirname "$0")/.."
 
-if ! node scripts/generate-alert-test-data.js --send --token="$SPLUNK_HEC_TOKEN" 2>&1; then
+if ! node scripts/generate/generate-alert-test-data.js --send --token="$SPLUNK_HEC_TOKEN" 2>&1; then
     echo -e "${RED}✗${NC} Failed to send test data"
     exit 1
 fi

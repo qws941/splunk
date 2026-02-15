@@ -1,6 +1,6 @@
 # SCRIPTS KNOWLEDGE BASE
 
-**Scope:** Deployment and validation scripts (80+ files)
+**Scope:** Deployment, validation, and automation scripts (80+ files, categorized)
 
 ## OVERVIEW
 
@@ -10,31 +10,41 @@ Bash-first automation: deploy to Synology Docker, validate Splunk configs, diagn
 
 ```
 scripts/
-├── deploy-*.sh          # 15 deployment scripts
-├── validate-*.sh        # 12 validation scripts
-├── diagnose-*.sh        # 10 diagnostic scripts
-├── check-stanza.py      # Config validation (227 LOC) ★
-├── validate-configs.py  # Config integrity (213 LOC)
-└── *.sh, *.py, *.js     # Utilities
+├── deploy/        # 17 deployment scripts (deploy-*, Deploy-*)
+├── validate/      # 15 validation & verification (check-*, ci-validate-*, validate-*, verify-*)
+├── diagnose/      # 5 diagnostic & review (diagnose-*, review-*)
+├── cleanup/       # 4 cleanup automation (cleanup-*, consolidate-*, run-full-cleanup)
+├── test/          # 4 test & demo runners (test-*, QUICK-TEST, start-demo)
+├── slack/         # 6 Slack integration (create-slack-alert, extract-slack-token, etc.)
+├── intel/         # 4 threat intelligence fetching (fetch_*, fetch-*, get-*)
+├── fortigate/     # 2 FortiGate/FAZ specific (faz-*, fortigate_*)
+├── generate/      # 2 data & config generators (generate-*)
+├── setup/         # 5 installation & setup (auto-*, install-*, setup-*)
+├── util/          # 12 miscellaneous utilities (btool, splunk-*, find-*, etc.)
+├── AGENTS.md
+└── README.md
 ```
 
 ## KEY SCRIPTS
 
-| Script | Purpose | Run When |
-|--------|---------|----------|
-| `check-stanza.py` | Validate Splunk configs | **Before every deploy** |
-| `deploy-secmon-only.sh` | Standard deployment | App updates |
-| `verify-splunk-deployment.sh` | Post-deploy check | After deployment |
-| `diagnose-splunk-issues.sh` | Troubleshooting | On errors |
+| Script | Location | Purpose | Run When |
+|--------|----------|---------|----------|
+| `check-stanza.py` | `validate/` | Validate Splunk configs | **Before every deploy** |
+| `deploy-secmon-only.sh` | `deploy/` | Standard deployment | App updates |
+| `verify-splunk-deployment.sh` | `validate/` | Post-deploy check | After deployment |
+| `diagnose-splunk-issues.sh` | `diagnose/` | Troubleshooting | On errors |
+| `ci-validate-security-alert.sh` | `validate/` | CI validation | GitHub Actions |
 
 ## WHERE TO LOOK
 
 | Task | Script |
 |------|--------|
-| Deploy app | `deploy-secmon-only.sh` |
-| Validate before deploy | `check-stanza.py` |
-| Check Splunk health | `diagnose-splunk-issues.sh` |
-| Sync configs | `sync-splunk-configs.sh` |
+| Deploy app | `deploy/deploy-secmon-only.sh` |
+| Validate before deploy | `validate/check-stanza.py` |
+| Check Splunk health | `diagnose/diagnose-splunk-issues.sh` |
+| CI validation | `validate/ci-validate-security-alert.sh` |
+| Test Slack notifications | `slack/slack_test_alert.py` |
+| Fetch threat intel | `intel/fetch_abuseipdb_intel.py` |
 
 ## CONVENTIONS
 
@@ -66,10 +76,10 @@ SPLUNK_CONTAINER=splunk
 
 ## REFACTOR CANDIDATES
 
-| Script | LOC | Issue |
-|--------|-----|-------|
-| `verify-splunk-deployment.sh` | 403 | Too many responsibilities |
-| `deploy-fluentd-hec.sh` | 348 | Could be modularized |
+| Script | Location | LOC | Issue |
+|--------|----------|-----|-------|
+| `verify-splunk-deployment.sh` | `validate/` | 403 | Too many responsibilities |
+| `deploy-fluentd-hec.sh` | `deploy/` | 348 | Could be modularized |
 
 ## OUTPUT CONVENTIONS
 

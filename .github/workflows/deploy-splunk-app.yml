@@ -48,7 +48,7 @@ jobs:
 
       - name: Validate Splunk configs
         run: |
-          python scripts/check-stanza.py
+          python scripts/validate/check-stanza.py
           python3 -m py_compile security_alert/bin/*.py
 
       - name: Check XML syntax

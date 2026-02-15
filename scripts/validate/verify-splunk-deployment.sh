@@ -202,11 +202,11 @@ validate_slack_blockkit() {
     print_header "Phase 5: Slack Block Kit Validation"
 
     # Check script exists and is executable
-    if [ -x "scripts/slack_blockkit_alert.py" ]; then
+    if [ -x "scripts/slack/slack_blockkit_alert.py" ]; then
         print_success "slack_blockkit_alert.py: Executable"
 
         # Check file size (should be ~12KB)
-        size=$(stat -c%s "scripts/slack_blockkit_alert.py" 2>/dev/null || stat -f%z "scripts/slack_blockkit_alert.py" 2>/dev/null)
+        size=$(stat -c%s "scripts/slack/slack_blockkit_alert.py" 2>/dev/null || stat -f%z "scripts/slack/slack_blockkit_alert.py" 2>/dev/null)
         if [ $size -gt 10000 ]; then
             print_success "Script size: ${size} bytes (reasonable)"
         else
@@ -390,7 +390,7 @@ main() {
             echo ""
             echo "Next steps:"
             echo "  1. Review docs/SLACK_BLOCKKIT_DEPLOYMENT.md"
-            echo "  2. Deploy dashboards: node scripts/deploy-dashboards.js"
+            echo "  2. Deploy dashboards: node scripts/deploy/deploy-dashboards.js"
             echo "  3. Deploy Slack Block Kit: Follow deployment guide"
             echo "  4. Verify correlation rules: splunk search '| savedsearch Correlation_Multi_Factor_Threat_Score'"
         fi

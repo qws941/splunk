@@ -48,11 +48,11 @@ jobs:
           cache: 'pip'
 
       - name: Make scripts executable
-        run: chmod -R +x scripts/*.sh tests/integration/*.sh 2>/dev/null || true
+        run: find scripts -name "*.sh" -exec chmod +x {} + && chmod +x tests/integration/*.sh 2>/dev/null || true
 
       - name: Run CI validation
         run: |
-          ./scripts/ci-validate-security-alert.sh | tee ci-validate-results.txt
+          ./scripts/validate/ci-validate-security-alert.sh | tee ci-validate-results.txt
           exit ${PIPESTATUS[0]}
 
       - name: Upload validation results

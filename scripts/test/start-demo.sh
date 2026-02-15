@@ -119,7 +119,7 @@ SPLUNK_HEC_HOST=${SPLUNK_HOST} \
 SPLUNK_HEC_PORT=${SPLUNK_HEC_PORT} \
 SPLUNK_HEC_TOKEN=${SPLUNK_HEC_TOKEN} \
 SPLUNK_INDEX_FORTIGATE=${SPLUNK_INDEX} \
-node scripts/generate-mock-data.js --count=1000 --send
+node scripts/generate/generate-mock-data.js --count=1000 --send
 
 echo "   ✅ 모의 데이터 전송 완료"
 
@@ -130,8 +130,8 @@ echo "   ✅ 모의 데이터 전송 완료"
 echo ""
 echo "📊 Step 5: Splunk 대시보드 4개 배포..."
 
-# Export dashboards to XML files
-node scripts/export-dashboards.js
+# Export dashboards to XML files (REMOVED: export-dashboards.js was deleted)
+# node scripts/deploy/export-dashboards.js
 
 # Deploy dashboards via REST API
 SPLUNK_HOST=${SPLUNK_HOST} \
@@ -139,7 +139,7 @@ SPLUNK_PORT=${SPLUNK_MGMT_PORT} \
 SPLUNK_USERNAME=${SPLUNK_USERNAME} \
 SPLUNK_PASSWORD=${SPLUNK_PASSWORD} \
 SPLUNK_APP=search \
-node scripts/deploy-dashboards.js
+node scripts/deploy/deploy-dashboards.js
 
 echo "   ✅ 대시보드 배포 완료"
 

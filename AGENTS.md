@@ -20,7 +20,18 @@ splunk/
 │   ├── defense/         # Circuit breaker, retry logic
 │   ├── integration/     # FAZ, Splunk, Slack connectors
 │   └── security/        # Event processor
-├── scripts/             # Deployment & validation (80+ files)
+├── scripts/             # Deployment & validation (80+ files, categorized)
+│   ├── deploy/          # Deployment scripts
+│   ├── validate/        # Config validation & CI checks
+│   ├── diagnose/        # Diagnostic & review tools
+│   ├── cleanup/         # Legacy cleanup automation
+│   ├── test/            # Test & demo runners
+│   ├── slack/           # Slack integration scripts
+│   ├── intel/           # Threat intelligence fetching
+│   ├── fortigate/       # FortiGate/FAZ specific
+│   ├── generate/        # Data & config generators
+│   ├── setup/           # Installation & setup
+│   └── util/            # Miscellaneous utilities
 ├── backend/             # Express server (FAZ→Splunk HEC)
 ├── frontend/            # React dashboard (Vite)
 ├── tests/               # Test suite (pytest, unit + e2e)
@@ -35,7 +46,7 @@ splunk/
 | Splunk App | `security_alert/bin/slack_blockkit_alert.py` | Alert→Slack notifications |
 | Integration | `backend/server.js` | FAZ API→Splunk HEC bridge |
 | Frontend | `frontend/src/main.jsx` | React dashboard |
-| Scripts | `scripts/deploy-*.sh` | Deployment automation |
+| Scripts | `scripts/deploy/deploy-*.sh` | Deployment automation |
 | Tests | `pytest tests/e2e -v` | E2E test suite |
 
 ## WHERE TO LOOK
@@ -48,8 +59,8 @@ splunk/
 | Add Slack callback | `security_alert/bin/slack_callback.py` | Ack/Snooze buttons |
 | Send test alert | `security_alert/bin/send_test_alert.py` | CLI test tool |
 | Add FAZ connector | `domains/integration/` | Follow DDD pattern |
-| Deploy to Synology | `scripts/deploy-secmon-only.sh` | Uses Docker context |
-| Validate configs | `scripts/check-stanza.py` | Run before deploy |
+| Deploy to Synology | `scripts/deploy/deploy-secmon-only.sh` | Uses Docker context |
+| Validate configs | `scripts/validate/check-stanza.py` | Run before deploy |
 
 ## CONVENTIONS
 
@@ -81,7 +92,7 @@ splunk/
 |-------------|--------|
 | UID 41812 for Splunk container | Splunk user inside container |
 | Preserve symlinks in tarball | `tar -czf` not `tar -czhf` |
-| Run `check-stanza.py` before deploy | Catches config errors locally |
+| Run `scripts/validate/check-stanza.py` before deploy | Catches config errors locally |
 | Test on Synology before production | Air-gapped OPS server |
 | Run pre-commit hooks | Black, Flake8, trailing whitespace |
 
@@ -90,7 +101,7 @@ splunk/
 **Pattern:** Rocky Linux (dev) → tarball → Synology NAS (Docker)
 
 ```bash
-./scripts/check-stanza.py                        # Validate configs
+./scripts/validate/check-stanza.py                        # Validate configs
 tar -czf security_alert.tar.gz security_alert/   # Package
 docker context use synology && docker compose up -d --build  # Deploy
 ```
@@ -100,7 +111,7 @@ docker context use synology && docker compose up -d --build  # Deploy
 ## TESTING
 
 ```bash
-./scripts/check-stanza.py                    # Config syntax (local)
+./scripts/validate/check-stanza.py                    # Config syntax (local)
 pytest tests/unit -v                         # Unit tests (local)
 pytest tests/e2e -v -m "not splunk_live"     # E2E tests (local)
 pre-commit run --all-files                   # Hooks
@@ -136,11 +147,7 @@ FortiGate Syslog → Splunk index=fw
 
 ## KNOWN ISSUES
 
-| Issue | Status | Notes |
-|-------|--------|-------|
-| Missing barrel exports | Tech debt | domains/, backend/ lack index.js |
-| Flat scripts/ | Organization | 80+ scripts need categorization |
-| `fortigate_auto_response.py` credentials | Security | Hardcoded credentials, needs env vars |
+No critical known issues.
 
 ## SUBDIRECTORY AGENTS
 
