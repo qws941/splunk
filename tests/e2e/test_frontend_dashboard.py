@@ -8,6 +8,7 @@ Tests run against: http://localhost:5173 (Vite dev server)
 """
 
 import os
+import socket
 import subprocess
 import time
 from pathlib import Path
@@ -18,12 +19,25 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 FRONTEND_PATH = Path(__file__).parent.parent.parent / "frontend"
 
 
+def _is_server_reachable(host="localhost", port=5173, timeout=2):
+    """Check if frontend dev server is reachable."""
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except (ConnectionRefusedError, OSError, TimeoutError):
+        return False
+
+
 @pytest.fixture(scope="module")
 def frontend_server():
-    """Start frontend dev server for testing."""
-    if os.getenv("SKIP_SERVER_START"):
+    """Start frontend dev server for testing, or skip if unavailable."""
+    # If server is already running externally, use it
+    if _is_server_reachable():
         yield FRONTEND_URL
         return
+
+    if os.getenv("SKIP_SERVER_START"):
+        pytest.skip("SKIP_SERVER_START set and no server running on localhost:5173")
 
     if not FRONTEND_PATH.exists():
         pytest.skip("Frontend directory not found")
@@ -39,7 +53,14 @@ def frontend_server():
         stderr=subprocess.PIPE,
     )
 
-    time.sleep(5)
+    for _ in range(15):
+        time.sleep(1)
+        if _is_server_reachable():
+            break
+    else:
+        proc.terminate()
+        proc.wait(timeout=5)
+        pytest.skip("Frontend dev server failed to start on localhost:5173")
 
     yield FRONTEND_URL
 
