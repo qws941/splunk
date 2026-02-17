@@ -263,6 +263,73 @@ class TestPrintResults:
         assert checker.results["summary"]["overall_status"] == "OK"
 
 
+class TestCheckDataAvailability:
+    def test_data_found(self, checker):
+        mock_result = Mock()
+        mock_result.stdout = "count\n42\n"
+        with patch("deployment_health_check.subprocess.run", return_value=mock_result):
+            checker.check_data_availability()
+        assert checker.results["checks"][0]["status"] == "OK"
+
+    def test_zero_count(self, checker):
+        mock_result = Mock()
+        mock_result.stdout = "count\n0\n"
+        with patch("deployment_health_check.subprocess.run", return_value=mock_result):
+            checker.check_data_availability()
+        assert checker.results["checks"][0]["status"] == "WARNING"
+
+    def test_no_count_in_output(self, checker):
+        mock_result = Mock()
+        mock_result.stdout = "some random output"
+        with patch("deployment_health_check.subprocess.run", return_value=mock_result):
+            checker.check_data_availability()
+        assert checker.results["checks"][0]["status"] == "WARNING"
+
+    def test_timeout(self, checker):
+        with patch(
+            "deployment_health_check.subprocess.run",
+            side_effect=subprocess.TimeoutExpired("splunk", 30),
+        ):
+            checker.check_data_availability()
+        assert checker.results["checks"][0]["status"] == "WARNING"
+
+    def test_exception(self, checker):
+        with patch(
+            "deployment_health_check.subprocess.run",
+            side_effect=Exception("connection refused"),
+        ):
+            checker.check_data_availability()
+        assert checker.results["checks"][0]["status"] == "WARNING"
+
+
+class TestCheckSlackIntegrationEdgeCases:
+    def test_webhook_path(self, checker, app_dir):
+        content = """[slack]
+param.webhook_url = https://hooks.slack.com/test
+param.channel = #alerts
+"""
+        (app_dir / "local" / "alert_actions.conf").write_text(content)
+        checker.check_slack_integration()
+        assert checker.results["checks"][0]["status"] == "OK"
+
+    def test_missing_channel(self, checker, app_dir):
+        content = """[slack]
+param.bot_token = xoxb-test
+"""
+        (app_dir / "local" / "alert_actions.conf").write_text(content)
+        checker.check_slack_integration()
+        assert any("\ucc44\ub110" in w for w in checker.results["warnings"])
+
+
+class TestPrintResultsEdgeCases:
+    def test_warnings_only_no_errors(self, checker):
+        checker.results["checks"].append({"name": "test", "status": "WARNING"})
+        checker.results["warnings"].append("a warning")
+        checker.print_results()
+        assert checker.results["summary"]["overall_status"] == "OK"
+        assert checker.results["summary"]["warnings"] == 1
+
+
 class TestRunAllChecks:
     def test_returns_results_dict(self, checker, app_dir):
         # Mock subprocess calls
@@ -274,3 +341,51 @@ class TestRunAllChecks:
         assert isinstance(results, dict)
         assert "summary" in results
         assert len(results["checks"]) == 10
+
+
+class TestMainFunction:
+    def test_main_with_custom_app_dir(self, app_dir):
+        mock_result = Mock()
+        mock_result.stdout = "splunkd is running"
+        mock_result.returncode = 0
+        with patch("sys.argv", ["deployment_health_check.py", str(app_dir)]):
+            with patch("deployment_health_check.subprocess.run", return_value=mock_result):
+                with pytest.raises(SystemExit) as exc:
+                    dhc_module.main()
+                # May have errors from missing files
+                assert exc.value.code in (0, 1)
+
+    def test_main_without_args(self):
+        with patch("sys.argv", ["deployment_health_check.py"]):
+            with patch.object(dhc_module, "DeploymentHealthCheck") as MockCheck:
+                mock_instance = MockCheck.return_value
+                mock_instance.run_all_checks.return_value = {
+                    "summary": {"errors": 0}
+                }
+                with pytest.raises(SystemExit) as exc:
+                    dhc_module.main()
+                assert exc.value.code == 0
+                MockCheck.assert_called_once_with(None)
+
+    def test_main_with_json_flag(self):
+        with patch("sys.argv", ["deployment_health_check.py", "--json"]):
+            with patch.object(dhc_module, "DeploymentHealthCheck") as MockCheck:
+                mock_instance = MockCheck.return_value
+                mock_instance.run_all_checks.return_value = {
+                    "summary": {"errors": 0},
+                    "checks": [],
+                }
+                with pytest.raises(SystemExit) as exc:
+                    dhc_module.main()
+                assert exc.value.code == 0
+
+    def test_main_exits_1_on_errors(self):
+        with patch("sys.argv", ["deployment_health_check.py"]):
+            with patch.object(dhc_module, "DeploymentHealthCheck") as MockCheck:
+                mock_instance = MockCheck.return_value
+                mock_instance.run_all_checks.return_value = {
+                    "summary": {"errors": 2}
+                }
+                with pytest.raises(SystemExit) as exc:
+                    dhc_module.main()
+                assert exc.value.code == 1

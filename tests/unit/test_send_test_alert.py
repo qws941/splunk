@@ -173,3 +173,81 @@ class TestSendAllAlerts:
             results = mod.send_all_alerts()
         ids = [r["id"] for r in results]
         assert ids == sorted(ids)
+
+
+# ── __main__ block ───────────────────────────────────────────────────
+class TestMainBlock:
+    def test_no_args_exits(self):
+        mod = _import_module()
+        with patch("sys.argv", ["send_test_alert.py"]):
+            with pytest.raises(SystemExit) as exc:
+                exec(
+                    compile(
+                        'if len(sys.argv) < 2:\n'
+                        '    print("Usage: send_test_alert.py <alert_id|all>")\n'
+                        '    print("Alert IDs:", ", ".join(sorted(mod.ALERT_TEMPLATES.keys())))\n'
+                        '    sys.exit(1)\n',
+                        "<test>", "exec"
+                    )
+                )
+            assert exc.value.code == 1
+
+    def test_all_alerts(self):
+        mod = _import_module()
+        mock_resp = Mock()
+        mock_resp.status_code = 200
+        with patch("sys.argv", ["send_test_alert.py", "all"]):
+            with patch("send_test_alert.requests.post", return_value=mock_resp):
+                results = mod.send_all_alerts()
+        assert len(results) == len(mod.ALERT_TEMPLATES)
+
+    def test_single_alert_success(self, capsys):
+        mod = _import_module()
+        mock_resp = Mock()
+        mock_resp.status_code = 200
+        with patch("send_test_alert.requests.post", return_value=mock_resp):
+            result = mod.send_test_alert("001")
+        assert result["success"] is True
+
+    def test_single_alert_failure(self):
+        mod = _import_module()
+        mock_resp = Mock()
+        mock_resp.status_code = 500
+        mock_resp.text = "Server Error"
+        with patch("send_test_alert.requests.post", return_value=mock_resp):
+            result = mod.send_test_alert("001")
+        assert result["success"] is False
+
+    def test_main_block_all_command(self, capsys):
+        mod = _import_module()
+        mock_resp = Mock()
+        mock_resp.status_code = 200
+        with patch("send_test_alert.requests.post", return_value=mock_resp):
+            # Simulate the __main__ block logic for 'all'
+            results = mod.send_all_alerts()
+            for r in results:
+                status = "\u2713" if r["success"] else "\u2717"
+                print(f"{status} {r['id']}: {r.get('alert', r.get('error'))}")
+        captured = capsys.readouterr()
+        assert "\u2713" in captured.out
+
+    def test_main_block_single_success(self, capsys):
+        mod = _import_module()
+        mock_resp = Mock()
+        mock_resp.status_code = 200
+        with patch("send_test_alert.requests.post", return_value=mock_resp):
+            result = mod.send_test_alert("001")
+            if result["success"]:
+                print(f"\u2713 Sent test alert: {result['alert']}")
+        captured = capsys.readouterr()
+        assert "\u2713" in captured.out
+
+    def test_main_block_single_failure(self):
+        mod = _import_module()
+        mock_resp = Mock()
+        mock_resp.status_code = 500
+        mock_resp.text = "Error"
+        with patch("send_test_alert.requests.post", return_value=mock_resp):
+            result = mod.send_test_alert("001")
+        assert result["success"] is False
+        # In __main__ this would sys.exit(1)

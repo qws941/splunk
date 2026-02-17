@@ -217,3 +217,74 @@ class TestAutoResponseEngine:
             engine.execute_action({"search_name": "Unknown"})
         assert len(engine.action_log) == 1
         assert "timestamp" in engine.action_log[0]
+
+    def test_traffic_spike_monitoring_path(self):
+        mod = _import_module()
+        engine = mod.AutoResponseEngine()
+        with patch.object(engine.slack, "send_notification", return_value=True):
+            result = engine.execute_action(
+                {
+                    "search_name": "015_Abnormal_Traffic_Spike",
+                    "source_ip": "10.0.0.1",
+                    "spike_multiplier": 3,
+                }
+            )
+        assert result["status"] == "monitoring"
+        assert result["multiplier"] == 3
+
+    def test_admin_login_monitoring_path(self):
+        mod = _import_module()
+        engine = mod.AutoResponseEngine()
+        with patch.object(engine.slack, "send_notification", return_value=True):
+            result = engine.execute_action(
+                {
+                    "search_name": "011_Admin_Login_Failed",
+                    "source_ip": "10.0.0.1",
+                    "fail_count": 2,
+                    "user": "admin",
+                }
+            )
+        assert result["status"] == "monitoring"
+        assert result["count"] == 2
+
+
+# ── FortiManagerAPI edge cases ───────────────────────────────────────
+class TestFortiManagerAPIEdgeCases:
+    def test_apply_bandwidth_limit_failure(self):
+        mod = _import_module()
+        api = mod.FortiManagerAPI("https://fmg.local", "token")
+        with patch.object(
+            api.session, "post", side_effect=Exception("timeout")
+        ):
+            result = api.apply_bandwidth_limit("10.0.0.1", 10)
+        assert result["status"] == "error"
+
+    def test_verify_ssl_from_env(self, monkeypatch):
+        monkeypatch.setenv("FORTIMANAGER_VERIFY_SSL", "false")
+        mod = _import_module()
+        api = mod.FortiManagerAPI("https://fmg.local", "token")
+        assert api.verify_ssl is False
+
+
+# ── main() ───────────────────────────────────────────────────────────
+class TestMainFunction:
+    def test_main_success(self):
+        mod = _import_module()
+        alert_data = json.dumps({
+            "search_name": "999_Unknown",
+            "source_ip": "10.0.0.1",
+        })
+        with patch("sys.stdin", MagicMock(read=MagicMock(return_value=alert_data))):
+            with patch.object(mod, "AutoResponseEngine") as MockEngine:
+                mock_instance = MockEngine.return_value
+                mock_instance.execute_action.return_value = {"status": "notified"}
+                with pytest.raises(SystemExit) as exc:
+                    mod.main()
+                assert exc.value.code == 0
+
+    def test_main_exception(self):
+        mod = _import_module()
+        with patch("sys.stdin", MagicMock(read=MagicMock(return_value="not json"))):
+            with pytest.raises(SystemExit) as exc:
+                mod.main()
+            assert exc.value.code == 1

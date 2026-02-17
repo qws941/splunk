@@ -151,3 +151,48 @@ class TestModuleLevelConstants:
     def test_users_list_exists(self):
         assert hasattr(gte, "USERS")
         assert len(gte.USERS) > 0
+
+
+class TestInjectToSplunkWriteError:
+    def test_file_write_error_returns_false(self, tmp_path):
+        test_dir = str(tmp_path / "test_logs")
+        os.makedirs(test_dir, exist_ok=True)
+        with patch.object(gte, "TEST_LOG_DIR", test_dir):
+            with patch("builtins.open", side_effect=OSError("disk full")):
+                result = gte.inject_to_splunk(["test event"], source="test")
+        assert result is False
+
+
+class TestMainFunction:
+    def test_no_args_prints_usage(self, capsys):
+        with patch("sys.argv", ["generate_test_events.py"]):
+            gte.main()
+        captured = capsys.readouterr()
+        assert "Usage" in captured.out
+
+    def test_list_command(self, capsys):
+        with patch("sys.argv", ["generate_test_events.py", "list"]):
+            gte.main()
+        captured = capsys.readouterr()
+        assert "Available alerts" in captured.out
+
+    def test_all_command(self, tmp_path):
+        test_dir = str(tmp_path / "test_logs")
+        with patch.object(gte, "TEST_LOG_DIR", test_dir):
+            with patch("sys.argv", ["generate_test_events.py", "all"]):
+                gte.main()
+        # Should have created log file
+        assert os.path.isdir(test_dir)
+
+    def test_single_known_alert(self, tmp_path):
+        test_dir = str(tmp_path / "test_logs")
+        with patch.object(gte, "TEST_LOG_DIR", test_dir):
+            with patch("sys.argv", ["generate_test_events.py", "001_config_change", "2"]):
+                gte.main()
+        assert os.path.isdir(test_dir)
+
+    def test_single_unknown_alert(self, capsys):
+        with patch("sys.argv", ["generate_test_events.py", "999_nonexistent"]):
+            gte.main()
+        # generate_event returns [] for unknown, inject_to_splunk not called (events is falsy)
+        # No crash expected

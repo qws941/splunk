@@ -6,6 +6,7 @@ import csv
 import os
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -268,6 +269,16 @@ class TestValidateAll:
         assert result is False
         assert len(validator.errors) > 0
 
+    def test_print_results_with_errors(self, validator):
+        validator.errors.append("test error")
+        validator.warnings.append("test warning")
+        validator.info.append("test info")
+        validator.print_results()  # Should not raise
+
+    def test_print_results_no_errors(self, validator):
+        validator.info.append("all good")
+        validator.print_results()  # Should not raise
+
     def test_returns_true_with_valid_config(self, validator, app_dir):
         # Setup minimal valid config
         for name in [
@@ -320,3 +331,125 @@ param.channel = #test
 
         result = validator.validate_all()
         assert result is True
+
+
+class TestValidateAlertActionsConf:
+    def test_missing_file_adds_error(self, validator, app_dir):
+        validator.validate_alert_actions_conf()
+        assert any("alert_actions" in e.lower() for e in validator.errors)
+
+    def test_missing_slack_stanza(self, validator, app_dir):
+        content = "[email]\npython.version = python3\n"
+        write_conf_file(app_dir / "default" / "alert_actions.conf", content)
+        validator.validate_alert_actions_conf()
+        assert any("[slack]" in e for e in validator.errors)
+
+    def test_missing_python_version(self, validator, app_dir):
+        content = "[slack]\nparam.webhook_url = https://hooks.slack.com/test\n"
+        write_conf_file(app_dir / "default" / "alert_actions.conf", content)
+        validator.validate_alert_actions_conf()
+        assert any("python.version" in e for e in validator.errors)
+
+    def test_valid_config_with_all_params(self, validator, app_dir):
+        content = """[slack]
+python.version = python3
+param.bot_token = xoxb-test
+param.webhook_url = https://hooks.slack.com/test
+param.channel = #alerts
+"""
+        write_conf_file(app_dir / "default" / "alert_actions.conf", content)
+        validator.validate_alert_actions_conf()
+        # All params defined
+        assert any("param.bot_token" in i for i in validator.info)
+        assert any("param.webhook_url" in i for i in validator.info)
+        assert any("param.channel" in i for i in validator.info)
+
+    def test_missing_params_warn(self, validator, app_dir):
+        content = """[slack]
+python.version = python3
+"""
+        write_conf_file(app_dir / "default" / "alert_actions.conf", content)
+        validator.validate_alert_actions_conf()
+        assert any("param.bot_token" in w for w in validator.warnings)
+
+
+class TestValidateSplEdgeCases:
+    def test_stanza_not_found(self, validator):
+        content = "[other_stanza]\nsearch = index=fw\n"
+        result = validator.validate_spl_in_alert(content, "nonexistent")
+        assert result is False
+
+    def test_non_index_starting_query_warns(self, validator):
+        content = """[001_Test_Alert]
+search = sourcetype=syslog | stats count by device
+"""
+        result = validator.validate_spl_in_alert(content, "001_Test_Alert")
+        assert result is True
+        assert any("index" in w for w in validator.warnings)
+
+    def test_unknown_spl_command_warns(self, validator):
+        content = """[001_Test_Alert]
+search = index=fw | customcommand field1 | stats count
+"""
+        result = validator.validate_spl_in_alert(content, "001_Test_Alert")
+        assert result is True
+        assert any("customcommand" in w for w in validator.warnings)
+
+
+class TestValidateSavedSearchesEdgeCases:
+    def test_no_alerts_found_warns(self, validator, app_dir):
+        content = "[default]\nsome_setting = value\n"
+        write_conf_file(app_dir / "default" / "savedsearches.conf", content)
+        validator.validate_savedsearches_conf()
+        assert any("\uc5c6\uc2b5" in w for w in validator.warnings)
+
+    def test_spl_validation_error_in_alert(self, validator, app_dir):
+        content = """[001_Bad_Alert]
+cron_schedule = */5 * * * *
+"""
+        write_conf_file(app_dir / "default" / "savedsearches.conf", content)
+        validator.validate_savedsearches_conf()
+        assert any("SPL" in e for e in validator.errors)
+
+    def test_missing_cron_in_alert_warns(self, validator, app_dir):
+        content = """[001_No_Cron_Alert]
+search = index=fw | stats count
+"""
+        write_conf_file(app_dir / "default" / "savedsearches.conf", content)
+        validator.validate_savedsearches_conf()
+        assert any("cron_schedule" in w for w in validator.warnings)
+
+
+class TestValidateCsvFileEdgeCases:
+    def test_no_headers_adds_error(self, validator, app_dir):
+        csv_path = app_dir / "lookups" / "bad.csv"
+        csv_path.write_text("")  # empty file, no headers
+        validator.validate_csv_file(csv_path)
+        assert any("\ud5e4\ub354" in e for e in validator.errors)
+
+
+class TestCreateStateTrackerFailure:
+    def test_write_failure_adds_error(self, validator, app_dir):
+        tracker_path = app_dir / "lookups" / "fail_tracker.csv"
+        with patch("builtins.open", side_effect=OSError("disk full")):
+            validator.create_state_tracker(tracker_path)
+        assert any("\uc2e4\ud328" in e for e in validator.errors)
+
+
+class TestMain:
+    def test_main_with_custom_app_dir(self, app_dir):
+        with patch("sys.argv", ["auto_validator.py", str(app_dir)]):
+            with pytest.raises(SystemExit) as exc:
+                auto_validator.main()
+            # Will exit 1 because minimal config has errors
+            assert exc.value.code == 1
+
+    def test_main_without_args(self):
+        with patch("sys.argv", ["auto_validator.py"]):
+            with patch.object(auto_validator, "AutoValidator") as MockValidator:
+                mock_instance = MockValidator.return_value
+                mock_instance.validate_all.return_value = True
+                with pytest.raises(SystemExit) as exc:
+                    auto_validator.main()
+                assert exc.value.code == 0
+                MockValidator.assert_called_once_with(None)
