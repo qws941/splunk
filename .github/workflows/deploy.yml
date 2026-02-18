@@ -85,7 +85,7 @@ jobs:
             security_alert/
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b
         with:
           files: security_alert-${{ steps.version.outputs.version }}.tar.gz
           generate_release_notes: true
