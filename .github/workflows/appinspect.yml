@@ -44,7 +44,7 @@ jobs:
       tarball: ${{ steps.package.outputs.tarball }}
       version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: false
 
@@ -84,7 +84,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: package
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: false
 
