@@ -1,160 +1,220 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-02-08
-**Commit:** be5e4e5
+**Generated:** 2026-02-26
+**Commit:** c6ea65a
 **Branch:** master
 
 ## OVERVIEW
 
-Splunk Security Alert System for FortiGate monitoring. Hybrid monorepo: Splunk app (Python), Node.js DDD integration, React frontend, 80+ deployment scripts. Server: `backend/server.js` (FAZ→Splunk HEC bridge). Slack interactive callbacks (Ack/Snooze) via custom REST handler.
+GitHub community health files **Single Source of Truth (SSoT)** for all `qws941` repositories. Contains governance files, reusable CI/CD workflows, issue templates, and label definitions that auto-sync to 10+ downstream repos. No application code — config and policy only.
 
 ## STRUCTURE
 
+```text
+./
+├── .github/
+│   ├── workflows/
+│   │   ├── _ci-node.yml            # Reusable Node.js CI (workflow_call)
+│   │   ├── _ci-python.yml          # Reusable Python CI (workflow_call)
+│   │   ├── _deploy-cf-worker.yml   # Reusable CF Worker deploy (workflow_call)
+│   │   ├── auto-merge.yml          # Dependabot + owner auto-merge (synced)
+│   │   ├── labeler.yml             # PR auto-labeling workflow (synced)
+│   │   ├── stale.yml               # Stale issue cleanup 14d+5d (synced)
+│   │   └── sync-files.yml          # File sync orchestrator (push to master)
+│   ├── ISSUE_TEMPLATE/
+│   │   ├── bug_report.yml          # Structured bug report form
+│   │   ├── feature_request.yml     # Structured feature request form
+│   │   └── config.yml              # Blank issues disabled, security redirect
+│   ├── CODEOWNERS                  # * @qws941
+│   ├── FUNDING.yml                 # github: qws941
+│   ├── PULL_REQUEST_TEMPLATE.md    # What/Why/Kind/Changes/Testing/Checklist
+│   ├── copilot-instructions.md     # SSoT context, 5 rules, key file table
+│   ├── dependabot.yml              # Weekly github-actions updates
+│   ├── labeler.yml                 # PR auto-label path rules
+│   └── sync.yml                    # Sync target config: 2 groups, 10 repos
+├── scripts/
+│   ├── labels.yml                  # 17 standard labels (type:*/priority:*/status:*)
+│   └── sync-labels.sh              # gh CLI label sync script
+├── profile/
+│   └── README.md                   # GitHub profile page content
+├── .editorconfig                   # 2-space JS/TS/YAML, 4-space Python, tabs Makefile
+├── CODE_OF_CONDUCT.md              # Contributor Covenant v2.1
+├── CONTRIBUTING.md                 # Trunk-based dev, conventional commits, review policy
+├── LICENSE                         # MIT
+├── OWNERS                          # Google3-style: approvers + reviewers = qws941
+└── SECURITY.md                     # Security policy: security@jclee.me, 48h SLA
 ```
-splunk/
-├── security_alert/      # Core Splunk app (tarball deployment)
-│   ├── bin/             # Python alert handlers (8 scripts)
-│   ├── default/         # Configs (15 alerts, macros, transforms)
-│   └── lookups/         # CSV state trackers (13 files)
-├── domains/             # DDD integration layer (Node.js)
-│   ├── defense/         # Circuit breaker, retry logic
-│   ├── integration/     # FAZ, Splunk, Slack connectors
-│   └── security/        # Event processor
-├── scripts/             # Deployment & validation (80+ files, categorized)
-│   ├── deploy/          # Deployment scripts
-│   ├── validate/        # Config validation & CI checks
-│   ├── diagnose/        # Diagnostic & review tools
-│   ├── cleanup/         # Legacy cleanup automation
-│   ├── test/            # Test & demo runners
-│   ├── slack/           # Slack integration scripts
-│   ├── intel/           # Threat intelligence fetching
-│   ├── fortigate/       # FortiGate/FAZ specific
-│   ├── generate/        # Data & config generators
-│   ├── setup/           # Installation & setup
-│   └── util/            # Miscellaneous utilities
-├── backend/             # Express server (FAZ→Splunk HEC)
-├── frontend/            # React dashboard (Vite)
-├── tests/               # Test suite (pytest, unit + e2e)
-├── splunk.wiki/         # Documentation (XWiki submodule)
-└── configs/             # Docker, dashboards, provisioning
-```
-
-## ENTRY POINTS
-
-| System | Entry | Purpose |
-|--------|-------|---------|
-| Splunk App | `security_alert/bin/slack_blockkit_alert.py` | Alert→Slack notifications |
-| Integration | `backend/server.js` | FAZ API→Splunk HEC bridge |
-| Frontend | `frontend/src/main.jsx` | React dashboard |
-| Scripts | `scripts/deploy/deploy-*.sh` | Deployment automation |
-| Tests | `pytest tests/e2e -v` | E2E test suite |
 
 ## WHERE TO LOOK
 
-| Task | Location | Notes |
-|------|----------|-------|
-| Add new alert | `security_alert/default/savedsearches.conf` | Follow 0XX_ naming |
-| Add LogID mapping | `security_alert/default/macros.conf` | `[logids_*]` stanzas |
-| Modify Slack format | `security_alert/bin/slack_blockkit_alert.py` | Block Kit structure |
-| Add Slack callback | `security_alert/bin/slack_callback.py` | Ack/Snooze buttons |
-| Send test alert | `security_alert/bin/send_test_alert.py` | CLI test tool |
-| Add FAZ connector | `domains/integration/` | Follow DDD pattern |
-| Deploy to Synology | `scripts/deploy/deploy-secmon-only.sh` | Uses Docker context |
-| Validate configs | `scripts/validate/check-stanza.py` | Run before deploy |
+| Task                          | Location                           | Notes                                                      |
+| ----------------------------- | ---------------------------------- | ---------------------------------------------------------- |
+| Add/modify synced files       | `.github/sync.yml`                 | Defines file mappings and target repos                     |
+| Add a new sync target repo    | `.github/sync.yml` → `repos:`      | Add to both Group 1 and Group 2 (unless custom auto-merge) |
+| Reusable CI workflows         | `.github/workflows/_*.yml`         | `_` prefix = `workflow_call` only, not synced              |
+| Synced workflows              | `.github/workflows/{name}.yml`     | No `_` prefix = synced to downstream repos                 |
+| Issue templates               | `.github/ISSUE_TEMPLATE/`          | Bug report + feature request forms                         |
+| PR template                   | `.github/PULL_REQUEST_TEMPLATE.md` | What/Why/Kind/Changes/Testing/Checklist format             |
+| Standard labels               | `scripts/labels.yml`               | 17 labels: `type:*`, `priority:*`, `status:*`              |
+| Label sync to repos           | `scripts/sync-labels.sh`           | Uses `gh` CLI, run manually                                |
+| Contribution rules            | `CONTRIBUTING.md`                  | Trunk-based dev, conventional commits, review SLA          |
+| Security reports              | `SECURITY.md`                      | Email security@jclee.me, 48h response SLA                  |
+| GitHub profile page           | `profile/README.md`                | Rendered at github.com/qws941                              |
+| Editor formatting             | `.editorconfig`                    | Synced to all repos                                        |
+| Copilot context for this repo | `.github/copilot-instructions.md`  | SSoT-specific rules, NOT synced                            |
 
 ## CONVENTIONS
 
-| Item | Convention |
-|------|------------|
-| Python formatting | Black 88 cols (strict) |
-| Python linting | Flake8 120 cols (relaxed) |
-| Line endings | LF only (`.gitattributes`) |
-| Alert naming | `0XX_Alert_Name` (3-digit prefix) |
-| Cron format | 5-field: `* * * * *` (no seconds) |
-| State tracking | EMS pattern: join→eval→outputlookup |
-| Docker context | `docker context use synology` first |
+### SSoT Sync Model
 
-## ANTI-PATTERNS
+This repo is the canonical source. Changes propagate automatically:
 
-| NEVER | Why |
-|-------|-----|
-| `print()` to stdout in alert scripts | Breaks Splunk alert protocol (use `file=sys.stderr`) |
-| Tokens in `default/` | Must use `local/` (gitignored) |
-| Modify `bin/lib/`, `vendor/`, `extras/addons/` | Third-party dependencies |
-| `docker compose` without context | Must use `synology` context |
-| Archive `domains/` | Active DDD modules |
-| Direct rsync to OPS | Use release tarball, manual transfer |
-| CRLF line endings | LF only enforced |
+- **Sync trigger**: Push to `master` on paths: `OWNERS`, `LICENSE`, `.editorconfig`, `AGENTS.md`, `.github/sync.yml`, `.github/workflows/codex-triage.yml`
+- **Sync engine**: `BetaHuhn/repo-file-sync-action` via `.github/workflows/sync-files.yml`
+- **Sync PRs**: Prefixed `chore: `, labeled `sync`, assigned to `qws941`
 
-## MUST DO
+**Synced files** (must remain generic, no repo-specific content):
 
-| Requirement | Reason |
-|-------------|--------|
-| UID 41812 for Splunk container | Splunk user inside container |
-| Preserve symlinks in tarball | `tar -czf` not `tar -czhf` |
-| Run `scripts/validate/check-stanza.py` before deploy | Catches config errors locally |
-| Test on Synology before production | Air-gapped OPS server |
-| Run pre-commit hooks | Black, Flake8, trailing whitespace |
+| File                               | Targets                                 |
+| ---------------------------------- | --------------------------------------- |
+| `OWNERS`                           | All 10 repos                            |
+| `LICENSE`                          | All 10 repos                            |
+| `.editorconfig`                    | All 10 repos                            |
+| `.github/labeler.yml`              | All 10 repos                            |
+| `.github/workflows/stale.yml`      | All 10 repos                            |
+| `.github/workflows/labeler.yml`    | All 10 repos                            |
+| `.github/workflows/auto-merge.yml` | 9 repos (excludes `terraform` — custom) |
+| `AGENTS.md`                        | All 10 repos                            |
+| `.github/workflows/codex-triage.yml`| All 10 repos                            |
 
-## DEPLOYMENT
+**NOT synced** (repo-specific by design):
 
-**Pattern:** Rocky Linux (dev) → tarball → Synology NAS (Docker)
+- `.github/dependabot.yml` — different ecosystems per repo
+- `.github/CODEOWNERS` — terraform has custom path rules
+- `.github/copilot-instructions.md` — repo-specific context
+
+### Sync Target Repos
+
+`blacklist`, `hycu_fsds`, `propose`, `qws941`, `resume`, `safetywallet`, `splunk`, `terraform`, `tmux`, `youtube`
+
+### Reusable Workflows
+
+Three `workflow_call` workflows prefixed with `_` (not synced, called via `uses:`):
+
+| Workflow                | Purpose                      | Key Inputs                                           |
+| ----------------------- | ---------------------------- | ---------------------------------------------------- |
+| `_ci-node.yml`          | Node.js CI (lint/type/test)  | `node-version`, `turbo`, `run-lint`, `run-test`      |
+| `_ci-python.yml`        | Python CI (ruff/mypy/pytest) | `python-version`, `run-mypy`, `run-test`, `src-dirs` |
+| `_deploy-cf-worker.yml` | Cloudflare Worker deploy     | `working-directory`, `environment`, `deploy-command` |
+
+Usage pattern in consuming repos:
+
+```yaml
+jobs:
+  ci:
+    uses: qws941/.github/.github/workflows/_ci-node.yml@master
+    with:
+      node-version: "20"
+    secrets: inherit
+```
+
+### GitHub Actions
+
+- SHA-pin all actions with `# vN` version comment suffix
+- Never use mutable tags (`@v4`) — always full commit SHA
+
+### Commit and PR Conventions
+
+- **Conventional Commits**: `type(scope): imperative summary` (≤72 chars, lowercase)
+- **Types**: `feat`, `fix`, `docs`, `refactor`, `test`, `ci`, `chore`, `perf`, `build`, `revert`
+- **Branch naming**: `type/description` (e.g., `feat/add-metrics-export`)
+- **PR size**: ~200 LOC max
+- **Merge policy**: Squash merge only. Merge commits disabled.
+- **Review SLA**: 24 hours. `nit:` prefix for non-blocking feedback.
+- **PR body format**: What / Why / Testing sections
+
+### Labels
+
+17 standard labels across all repos, defined in `scripts/labels.yml`:
+
+- `type:bug`, `type:feature`, `type:docs`, `type:refactor`, `type:ci`, `type:chore`, `type:security`, `type:test`, `type:infra`
+- `priority:critical`, `priority:high`, `priority:medium`, `priority:low`
+- `status:blocked`, `status:in-progress`, `status:needs-review`, `status:wontfix`, `status:duplicate`
+
+### Governance
+
+- **OWNERS** (Google3/K8s-style): Defines approvers and reviewers. Hierarchical. Synced.
+- **CODEOWNERS** (GitHub-native): Enforces required reviews. NOT synced (repo-specific).
+- Both set to `qws941` at root level.
+
+### Codex Integration
+
+`chatgpt-codex-connector` GitHub App is installed with access to all repositories.
+
+**Triggers:**
+
+| Trigger | Action | Context |
+| ------- | ------ | ------- |
+| `@codex review` in PR comment | Code review using AGENTS.md conventions | PR diff + repo context |
+| `@codex <task>` in PR comment | Execute arbitrary task (fix, refactor, test) | PR context |
+| `@codex` in issue comment | Investigate and propose fix, create PR | Issue context |
+| Automatic review (if enabled) | Review every new PR without @mention | Per-repo Codex setting |
+
+**Configuration:**
+
+- Codex reads `AGENTS.md` at repo root automatically — no additional config needed.
+- `## Review guidelines` section (below) customizes review behavior.
+- Enable automatic reviews per-repo at `chatgpt.com/codex/settings/code-review`.
+- AGENTS.md is synced to all 10 repos via `sync.yml` Group 1.
+
+## Review guidelines
+
+- Enforce conventional commit format in PR titles: `type(scope): summary`.
+- All GitHub Actions must be SHA-pinned with `# vN` version comment — flag any mutable tag (`@v4`).
+- Never approve PRs that add `as any`, `@ts-ignore`, `@ts-expect-error`, or empty `catch {}` blocks.
+- Never approve PRs that hardcode IPs, secrets, or credentials.
+- Synced files (OWNERS, LICENSE, .editorconfig, AGENTS.md, labeler.yml, workflow files) must remain generic — flag any repo-specific content.
+- PR size should be ~200 LOC max. Flag PRs exceeding 400 LOC.
+- Squash merge only — flag merge commits or rebase merges.
+- Trunk-based development — flag long-lived feature branches.
+- Review SLA context: non-blocking feedback uses `nit:` prefix.
+- For Terraform changes: verify no hardcoded IPs, use variables/env vars.
+- For workflow changes: verify SHA-pinned actions, correct `workflow_call` inputs, proper permissions scoping.
+
+## ANTI-PATTERNS (THIS PROJECT)
+
+- Never put repo-specific content in synced files — they propagate to all repos.
+- Never sync `dependabot.yml` or `CODEOWNERS` — they vary per repo.
+- Never use mutable action tags (`@v4`) — always SHA-pin with version comment.
+- Never hardcode IPs or secrets — use Terraform variables or env vars.
+- Never suppress type errors (`as any`, `@ts-ignore`) or delete failing tests.
+- Never use merge commits — squash merge only.
+- Never create long-lived feature branches — trunk-based development only.
+
+## UNIQUE STYLES
+
+- Config-only repo: no application code, no build system, no tests.
+- Dual governance: OWNERS (intent/policy) + CODEOWNERS (GitHub enforcement) coexist.
+- Reusable workflow naming: `_` prefix distinguishes callable workflows from synced workflows.
+- Sync groups: Group 1 (governance + workflows → all repos) vs Group 2 (auto-merge → excludes terraform).
+- GitHub auto-inherits: `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md` apply to all repos without syncing.
+
+## COMMANDS
 
 ```bash
-./scripts/validate/check-stanza.py                        # Validate configs
-tar -czf security_alert.tar.gz security_alert/   # Package
-docker context use synology && docker compose up -d --build  # Deploy
+# Sync labels to all repos (requires gh CLI auth)
+bash scripts/sync-labels.sh
+
+# File sync happens automatically on push to master
+# Manual trigger available via workflow_dispatch on sync-files.yml
 ```
 
-**Env:** `SPLUNK_HOST=192.168.50.215`, `SPLUNK_PORT=1111`, `DOCKER_CONTEXT=synology`
+## NOTES
 
-## TESTING
-
-```bash
-./scripts/validate/check-stanza.py                    # Config syntax (local)
-pytest tests/unit -v                         # Unit tests (local)
-pytest tests/e2e -v -m "not splunk_live"     # E2E tests (local)
-pre-commit run --all-files                   # Hooks
-```
-
-## DATA FLOW
-
-```
-FortiGate Syslog → Splunk index=fw
-                        ↓
-              Saved Search (15 alerts)
-                        ↓
-              EMS State Tracking (CSV join)
-                        ↓
-              State Changed? → slack_blockkit_alert.py
-                        ↓
-              Slack #security-firewall-alert
-                        ↓
-              Ack/Snooze buttons → slack_callback.py
-                        ↓
-              Update alert_state.csv
-```
-
-## CI/CD
-
-**GitHub Actions** (.github/workflows/):
-- `ci.yml`: validate-syntax, security scans (Semgrep, detect-secrets), unit tests, e2e tests
-- `appinspect.yml`: Splunk AppInspect validation (precert + cloud mode)
-- `deploy-splunk-app.yml`: automated app deployment via SSH
-- `deploy.yml`: wiki deploy, GitHub Release
-
-**Triggers:** push/PR to master/main/develop, version tags (v*)
-
-## KNOWN ISSUES
-
-No critical known issues.
-
-## SUBDIRECTORY AGENTS
-
-- `security_alert/AGENTS.md` - Splunk app internals
-- `scripts/AGENTS.md` - Deployment and validation scripts
-- `domains/AGENTS.md` - DDD integration layer
-- `frontend/AGENTS.md` - React dashboard (Vite)
-- `backend/AGENTS.md` - Zero-dep API server (Node.js)
-- `tests/AGENTS.md` - E2E test suite (pytest)
-- `splunk.wiki/docs/AGENTS.md` - Documentation system (XWiki format)
+- This is a personal account `.github` repo, not a GitHub Organization `.github` repo. GitHub still honors community health file inheritance for the account's repos.
+- `profile/README.md` renders as the GitHub profile page at `github.com/qws941`.
+- Reusable workflows are consumed via `uses: qws941/.github/.github/workflows/_ci-node.yml@master` — note the double `.github` path segment.
+- The `terraform` repo has custom auto-merge (risk-based) and custom CODEOWNERS, which is why those files are excluded from sync Group 2 / not synced respectively.
+- Secrets required: `GH_PAT` for sync-files workflow, `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` for CF Worker deploy workflow.
+- `chatgpt-codex-connector` GitHub App installed with all-repo access. `@codex review` works in any repo PR. `@codex` works in issue comments to investigate and propose fixes.
+- AGENTS.md is synced to all downstream repos — Codex reads it automatically for review context in every repo.
