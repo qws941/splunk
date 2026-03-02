@@ -56,7 +56,7 @@ jobs:
           exit ${PIPESTATUS[0]}
 
       - name: Upload validation results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ci-validate-results
@@ -201,7 +201,7 @@ jobs:
           echo "Scan complete"
 
       - name: Upload SAST results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: semgrep-results
@@ -241,7 +241,7 @@ jobs:
           fi
 
       - name: Upload secrets results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: secrets-results
@@ -276,7 +276,7 @@ jobs:
           fi
 
       - name: Upload dependency results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: dependency-audit
@@ -310,7 +310,7 @@ jobs:
           fi
 
       - name: Upload SBOM
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: sbom
@@ -345,7 +345,7 @@ jobs:
           exit ${PIPESTATUS[0]}
 
       - name: Upload unit test results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: unit-test-results
@@ -382,7 +382,7 @@ jobs:
           exit ${PIPESTATUS[0]}
 
       - name: Upload E2E results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: e2e-test-results
