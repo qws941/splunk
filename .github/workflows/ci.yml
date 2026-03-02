@@ -402,7 +402,7 @@ jobs:
     if: always()
     steps:
       - name: Download E2E coverage
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: e2e-test-results
           path: ./e2e
