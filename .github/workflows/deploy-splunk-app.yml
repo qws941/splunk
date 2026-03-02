@@ -97,7 +97,7 @@ jobs:
           ls -lh "$ARTIFACT_NAME"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: splunk-app-package
           path: ${{ steps.package.outputs.artifact_name }}
