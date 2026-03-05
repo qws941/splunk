@@ -120,8 +120,9 @@ class TestInjectToSplunk:
     def test_handles_write_permission_error(self, tmp_path):
         """os.makedirs is outside try/except so PermissionError propagates."""
         test_dir = str(tmp_path / "no_perms")
-        with patch.object(gte, "TEST_LOG_DIR", test_dir), \
-             patch("os.makedirs", side_effect=PermissionError("Permission denied")):
+        with patch.object(gte, "TEST_LOG_DIR", test_dir), patch(
+            "os.makedirs", side_effect=PermissionError("Permission denied")
+        ):
             events = ["test event"]
             with pytest.raises(PermissionError):
                 gte.inject_to_splunk(events, source="test")
@@ -187,7 +188,9 @@ class TestMainFunction:
     def test_single_known_alert(self, tmp_path):
         test_dir = str(tmp_path / "test_logs")
         with patch.object(gte, "TEST_LOG_DIR", test_dir):
-            with patch("sys.argv", ["generate_test_events.py", "001_config_change", "2"]):
+            with patch(
+                "sys.argv", ["generate_test_events.py", "001_config_change", "2"]
+            ):
                 gte.main()
         assert os.path.isdir(test_dir)
 

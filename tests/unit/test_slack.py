@@ -90,7 +90,9 @@ class TestFormatFieldValue:
 
     def test_no_emoji_for_unknown_key(self):
         result = format_field_value("random_field", "value")
-        assert result.startswith(" *Random Field:*") or result.startswith("*Random Field:*")
+        assert result.startswith(" *Random Field:*") or result.startswith(
+            "*Random Field:*"
+        )
 
     def test_truncates_long_values(self):
         long_val = "x" * 200
@@ -182,7 +184,11 @@ class TestGetAlertStatePath:
 # ── get_recent_alert_thread_ts ───────────────────────────────────────
 class TestGetRecentAlertThreadTs:
     def test_returns_none_when_no_state_file(self, tmp_path):
-        with patch.object(slack_module, "get_alert_state_path", return_value=str(tmp_path / "nope.csv")):
+        with patch.object(
+            slack_module,
+            "get_alert_state_path",
+            return_value=str(tmp_path / "nope.csv"),
+        ):
             result = get_recent_alert_thread_ts("test", "#channel")
         assert result is None
 
@@ -193,8 +199,14 @@ class TestGetRecentAlertThreadTs:
             writer = csv.DictWriter(
                 f,
                 fieldnames=[
-                    "alert_id", "search_name", "message_ts",
-                    "channel", "status", "created_at", "updated_at", "acked_by",
+                    "alert_id",
+                    "search_name",
+                    "message_ts",
+                    "channel",
+                    "status",
+                    "created_at",
+                    "updated_at",
+                    "acked_by",
                 ],
             )
             writer.writeheader()
@@ -210,7 +222,9 @@ class TestGetRecentAlertThreadTs:
                     "acked_by": "",
                 }
             )
-        with patch.object(slack_module, "get_alert_state_path", return_value=str(state_file)):
+        with patch.object(
+            slack_module, "get_alert_state_path", return_value=str(state_file)
+        ):
             result = get_recent_alert_thread_ts("test_search", "#alerts")
         assert result == "1234567890.123456"
 
@@ -221,8 +235,14 @@ class TestGetRecentAlertThreadTs:
             writer = csv.DictWriter(
                 f,
                 fieldnames=[
-                    "alert_id", "search_name", "message_ts",
-                    "channel", "status", "created_at", "updated_at", "acked_by",
+                    "alert_id",
+                    "search_name",
+                    "message_ts",
+                    "channel",
+                    "status",
+                    "created_at",
+                    "updated_at",
+                    "acked_by",
                 ],
             )
             writer.writeheader()
@@ -238,7 +258,9 @@ class TestGetRecentAlertThreadTs:
                     "acked_by": "",
                 }
             )
-        with patch.object(slack_module, "get_alert_state_path", return_value=str(state_file)):
+        with patch.object(
+            slack_module, "get_alert_state_path", return_value=str(state_file)
+        ):
             result = get_recent_alert_thread_ts("test_search", "#alerts")
         assert result is None
 
@@ -249,8 +271,14 @@ class TestGetRecentAlertThreadTs:
             writer = csv.DictWriter(
                 f,
                 fieldnames=[
-                    "alert_id", "search_name", "message_ts",
-                    "channel", "status", "created_at", "updated_at", "acked_by",
+                    "alert_id",
+                    "search_name",
+                    "message_ts",
+                    "channel",
+                    "status",
+                    "created_at",
+                    "updated_at",
+                    "acked_by",
                 ],
             )
             writer.writeheader()
@@ -266,7 +294,9 @@ class TestGetRecentAlertThreadTs:
                     "acked_by": "user1",
                 }
             )
-        with patch.object(slack_module, "get_alert_state_path", return_value=str(state_file)):
+        with patch.object(
+            slack_module, "get_alert_state_path", return_value=str(state_file)
+        ):
             result = get_recent_alert_thread_ts("test_search", "#alerts")
         assert result is None
 
@@ -275,7 +305,9 @@ class TestGetRecentAlertThreadTs:
 class TestSaveAlertState:
     def test_creates_new_file_if_not_exists(self, tmp_path):
         state_file = tmp_path / "lookups" / "alert_state.csv"
-        with patch.object(slack_module, "get_alert_state_path", return_value=str(state_file)):
+        with patch.object(
+            slack_module, "get_alert_state_path", return_value=str(state_file)
+        ):
             save_alert_state("test_search", "12345.6789", "#alerts")
         assert state_file.exists()
         with open(state_file) as f:
@@ -294,8 +326,14 @@ class TestSaveAlertState:
             writer = csv.DictWriter(
                 f,
                 fieldnames=[
-                    "alert_id", "search_name", "message_ts",
-                    "channel", "status", "created_at", "updated_at", "acked_by",
+                    "alert_id",
+                    "search_name",
+                    "message_ts",
+                    "channel",
+                    "status",
+                    "created_at",
+                    "updated_at",
+                    "acked_by",
                 ],
             )
             writer.writeheader()
@@ -311,7 +349,9 @@ class TestSaveAlertState:
                     "acked_by": "",
                 }
             )
-        with patch.object(slack_module, "get_alert_state_path", return_value=str(state_file)):
+        with patch.object(
+            slack_module, "get_alert_state_path", return_value=str(state_file)
+        ):
             save_alert_state("new_search", "333.444", "#new")
         with open(state_file) as f:
             reader = csv.DictReader(f)
@@ -360,9 +400,7 @@ class TestSendToSlack:
         assert success is False
 
     def test_invalid_webhook_url_returns_false(self):
-        success, ts = send_to_slack(
-            "https://not-slack.com/hook", None, "#channel", []
-        )
+        success, ts = send_to_slack("https://not-slack.com/hook", None, "#channel", [])
         assert success is False
 
     def test_api_error_returns_false(self):
@@ -370,18 +408,14 @@ class TestSendToSlack:
         mock_resp.json.return_value = {"ok": False, "error": "invalid_auth"}
         mock_resp.raise_for_status = Mock()
         with patch("slack.requests.post", return_value=mock_resp):
-            success, ts = send_to_slack(
-                None, "xoxb-test-token", "#channel", []
-            )
+            success, ts = send_to_slack(None, "xoxb-test-token", "#channel", [])
         assert success is False
 
     def test_timeout_returns_false(self):
         import requests
 
         with patch("slack.requests.post", side_effect=requests.exceptions.Timeout):
-            success, ts = send_to_slack(
-                None, "xoxb-test-token", "#channel", []
-            )
+            success, ts = send_to_slack(None, "xoxb-test-token", "#channel", [])
         assert success is False
 
     def test_request_exception_returns_false(self):
@@ -391,9 +425,7 @@ class TestSendToSlack:
             "slack.requests.post",
             side_effect=requests.exceptions.ConnectionError("fail"),
         ):
-            success, ts = send_to_slack(
-                None, "xoxb-test-token", "#channel", []
-            )
+            success, ts = send_to_slack(None, "xoxb-test-token", "#channel", [])
         assert success is False
 
     def test_proxy_passed_through(self):
@@ -402,9 +434,7 @@ class TestSendToSlack:
         mock_resp.raise_for_status = Mock()
         proxies = {"http": "http://proxy:8080"}
         with patch("slack.requests.post", return_value=mock_resp) as mock_post:
-            send_to_slack(
-                None, "xoxb-test-token", "#channel", [], proxies=proxies
-            )
+            send_to_slack(None, "xoxb-test-token", "#channel", [], proxies=proxies)
         assert mock_post.call_args[1]["proxies"] == proxies
 
     def test_webhook_non_ok_response(self):
@@ -414,7 +444,9 @@ class TestSendToSlack:
         with patch("slack.requests.post", return_value=mock_resp):
             success, ts = send_to_slack(
                 "https://hooks.slack.com/services/T/B/X",
-                None, "#channel", [{"type": "section"}],
+                None,
+                "#channel",
+                [{"type": "section"}],
             )
         assert success is False
         assert ts is None
@@ -427,7 +459,10 @@ class TestSendToSlack:
         with patch("slack.requests.post", return_value=mock_resp) as mock_post:
             success, ts = send_to_slack(
                 "https://hooks.slack.com/services/T/B/X",
-                None, "#channel", [{"type": "section"}], proxies=proxies,
+                None,
+                "#channel",
+                [{"type": "section"}],
+                proxies=proxies,
             )
         assert success is True
         assert mock_post.call_args[1]["proxies"] == proxies
@@ -438,7 +473,9 @@ class TestGetRecentAlertThreadTsException:
     def test_returns_none_on_malformed_csv(self, tmp_path):
         state_file = tmp_path / "alert_state.csv"
         state_file.write_text("not,a,valid\ncsv,with,bad_date")
-        with patch.object(slack_module, "get_alert_state_path", return_value=str(state_file)):
+        with patch.object(
+            slack_module, "get_alert_state_path", return_value=str(state_file)
+        ):
             result = get_recent_alert_thread_ts("test", "#ch")
         assert result is None
 
@@ -449,9 +486,16 @@ class TestSaveAlertStateException:
         state_file = tmp_path / "lookups" / "alert_state.csv"
         state_file.parent.mkdir(parents=True)
         # Create a read-only directory to cause write error on existing file
-        state_file.write_text("alert_id,search_name,message_ts,channel,status,created_at,updated_at,acked_by\n")
-        with patch.object(slack_module, "get_alert_state_path", return_value=str(state_file)):
-            with patch("builtins.open", side_effect=[open(str(state_file), "r+"), OSError("disk full")]):
+        state_file.write_text(
+            "alert_id,search_name,message_ts,channel,status,created_at,updated_at,acked_by\n"
+        )
+        with patch.object(
+            slack_module, "get_alert_state_path", return_value=str(state_file)
+        ):
+            with patch(
+                "builtins.open",
+                side_effect=[open(str(state_file), "r+"), OSError("disk full")],
+            ):
                 # Should not raise
                 save_alert_state("test", "123.456", "#ch")
 
@@ -477,6 +521,7 @@ class TestMain:
         monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-test")
         results_file = tmp_path / "results.csv.gz"
         import gzip as gz
+
         with gz.open(str(results_file), "wt") as f:
             f.write("device\n")  # header only, no data
         with patch("sys.argv", ["slack.py", str(results_file)]):
@@ -490,6 +535,7 @@ class TestMain:
         monkeypatch.setenv("SLACK_CHANNEL", "#test")
         results_file = tmp_path / "results.csv.gz"
         import gzip as gz
+
         with gz.open(str(results_file), "wt") as f:
             writer = csv.DictWriter(f, fieldnames=["device", "msg"])
             writer.writeheader()
@@ -511,15 +557,18 @@ class TestMain:
         monkeypatch.delenv("SLACK_BOT_TOKEN", raising=False)
         results_file = tmp_path / "results.csv.gz"
         import gzip as gz
+
         with gz.open(str(results_file), "wt") as f:
             writer = csv.DictWriter(f, fieldnames=["device"])
             writer.writeheader()
             writer.writerow({"device": "FG100"})
-        config = json.dumps({
-            "configuration": {"bot_token": "xoxb-stdin", "channel": "#stdin"},
-            "search_name": "Test Search",
-            "results_link": "https://splunk.local/search",
-        })
+        config = json.dumps(
+            {
+                "configuration": {"bot_token": "xoxb-stdin", "channel": "#stdin"},
+                "search_name": "Test Search",
+                "results_link": "https://splunk.local/search",
+            }
+        )
         mock_resp = Mock()
         mock_resp.json.return_value = {"ok": True, "ts": "1"}
         mock_resp.raise_for_status = Mock()
@@ -536,22 +585,25 @@ class TestMain:
         monkeypatch.delenv("SLACK_BOT_TOKEN", raising=False)
         results_file = tmp_path / "results.csv.gz"
         import gzip as gz
+
         with gz.open(str(results_file), "wt") as f:
             writer = csv.DictWriter(f, fieldnames=["device"])
             writer.writeheader()
             writer.writerow({"device": "FG100"})
-        config = json.dumps({
-            "configuration": {
-                "bot_token": "xoxb-proxy",
-                "channel": "#test",
-                "proxy_enabled": "1",
-                "proxy_url": "proxy.corp.com",
-                "proxy_port": "8080",
-                "proxy_username": "user",
-                "proxy_password": "pass",
-            },
-            "search_name": "Proxy Test",
-        })
+        config = json.dumps(
+            {
+                "configuration": {
+                    "bot_token": "xoxb-proxy",
+                    "channel": "#test",
+                    "proxy_enabled": "1",
+                    "proxy_url": "proxy.corp.com",
+                    "proxy_port": "8080",
+                    "proxy_username": "user",
+                    "proxy_password": "pass",
+                },
+                "search_name": "Proxy Test",
+            }
+        )
         mock_resp = Mock()
         mock_resp.json.return_value = {"ok": True, "ts": "1"}
         mock_resp.raise_for_status = Mock()
@@ -572,20 +624,23 @@ class TestMain:
         monkeypatch.delenv("SLACK_BOT_TOKEN", raising=False)
         results_file = tmp_path / "results.csv.gz"
         import gzip as gz
+
         with gz.open(str(results_file), "wt") as f:
             writer = csv.DictWriter(f, fieldnames=["device"])
             writer.writeheader()
             writer.writerow({"device": "FG100"})
-        config = json.dumps({
-            "configuration": {
-                "bot_token": "xoxb-proxy2",
-                "channel": "#test",
-                "proxy_enabled": "1",
-                "proxy_url": "proxy.corp.com",
-                "proxy_port": "3128",
-            },
-            "search_name": "Proxy No Auth Test",
-        })
+        config = json.dumps(
+            {
+                "configuration": {
+                    "bot_token": "xoxb-proxy2",
+                    "channel": "#test",
+                    "proxy_enabled": "1",
+                    "proxy_url": "proxy.corp.com",
+                    "proxy_port": "3128",
+                },
+                "search_name": "Proxy No Auth Test",
+            }
+        )
         mock_resp = Mock()
         mock_resp.json.return_value = {"ok": True, "ts": "1"}
         mock_resp.raise_for_status = Mock()
@@ -603,6 +658,7 @@ class TestMain:
         monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-test")
         results_file = tmp_path / "results.csv.gz"
         import gzip as gz
+
         with gz.open(str(results_file), "wt") as f:
             writer = csv.DictWriter(f, fieldnames=["device"])
             writer.writeheader()
@@ -631,17 +687,20 @@ class TestMain:
         monkeypatch.delenv("SLACK_BOT_TOKEN", raising=False)
         results_file = tmp_path / "results.csv.gz"
         import gzip as gz
+
         with gz.open(str(results_file), "wt") as f:
             writer = csv.DictWriter(f, fieldnames=["device"])
             writer.writeheader()
             writer.writerow({"device": "FG100"})
-        config = json.dumps({
-            "configuration": {
-                "slack_app_oauth_token": "xoxb-oauth",
-                "channel": "#test",
-            },
-            "search_name": "OAuth Test",
-        })
+        config = json.dumps(
+            {
+                "configuration": {
+                    "slack_app_oauth_token": "xoxb-oauth",
+                    "channel": "#test",
+                },
+                "search_name": "OAuth Test",
+            }
+        )
         mock_resp = Mock()
         mock_resp.json.return_value = {"ok": True, "ts": "1"}
         mock_resp.raise_for_status = Mock()
@@ -659,7 +718,9 @@ class TestIfNameMain:
     def test_main_called_as_script(self, tmp_path, monkeypatch):
         monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-test")
         with patch("sys.argv", ["slack.py"]):
-            with patch.object(slack_module, "main", side_effect=SystemExit(1)) as mock_main:
+            with patch.object(
+                slack_module, "main", side_effect=SystemExit(1)
+            ) as mock_main:
                 with pytest.raises(SystemExit):
                     slack_module.main()
                 mock_main.assert_called_once()

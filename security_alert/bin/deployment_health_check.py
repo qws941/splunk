@@ -412,7 +412,9 @@ class DeploymentHealthCheck:
                     check_result["details"].append(f"✅ {py_file.name} - 실행 가능")
                 else:
                     check_result["status"] = "WARNING"
-                    check_result["details"].append(f"⚠️ {py_file.name} - 실행 권한 없음")
+                    check_result["details"].append(
+                        f"⚠️ {py_file.name} - 실행 권한 없음"
+                    )
                     self.results["warnings"].append(f"{py_file.name} 실행 권한 없음")
         else:
             check_result["status"] = "ERROR"
@@ -465,7 +467,9 @@ class DeploymentHealthCheck:
             if not self.results["warnings"]:
                 print("✅ 전체 헬스 체크 통과! (오류 0, 경고 0)")
             else:
-                print(f"⚠️ 헬스 체크 경고 있음 ({len(self.results['warnings'])}개 경고)")
+                print(
+                    f"⚠️ 헬스 체크 경고 있음 ({len(self.results['warnings'])}개 경고)"
+                )
         else:
             print(f"❌ 헬스 체크 실패 ({len(self.results['errors'])}개 오류)")
         print("=" * 70)

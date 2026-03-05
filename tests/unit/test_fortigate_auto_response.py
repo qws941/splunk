@@ -107,9 +107,7 @@ class TestFortiManagerAPI:
     def test_disable_admin_account_failure(self):
         mod = _import_module()
         api = mod.FortiManagerAPI("https://fmg.local", "token")
-        with patch.object(
-            api.session, "put", side_effect=Exception("auth failed")
-        ):
+        with patch.object(api.session, "put", side_effect=Exception("auth failed")):
             result = api.disable_admin_account("admin")
         assert result["status"] == "error"
 
@@ -122,7 +120,9 @@ class TestSlackNotifier:
         mock_resp = Mock()
         mock_resp.raise_for_status = Mock()
         with patch("fortigate_auto_response.requests.post", return_value=mock_resp):
-            result = notifier.send_notification("test_alert", "blocked", {"ip": "1.2.3.4"})
+            result = notifier.send_notification(
+                "test_alert", "blocked", {"ip": "1.2.3.4"}
+            )
         assert result is True
 
     def test_send_notification_failure(self):
@@ -204,9 +204,7 @@ class TestAutoResponseEngine:
         mod = _import_module()
         engine = mod.AutoResponseEngine()
         with patch.object(engine.slack, "send_notification", return_value=True):
-            result = engine.execute_action(
-                {"search_name": "999_Unknown_Alert"}
-            )
+            result = engine.execute_action({"search_name": "999_Unknown_Alert"})
         assert result["status"] == "notified"
         assert result["action"] == "none"
 
@@ -253,9 +251,7 @@ class TestFortiManagerAPIEdgeCases:
     def test_apply_bandwidth_limit_failure(self):
         mod = _import_module()
         api = mod.FortiManagerAPI("https://fmg.local", "token")
-        with patch.object(
-            api.session, "post", side_effect=Exception("timeout")
-        ):
+        with patch.object(api.session, "post", side_effect=Exception("timeout")):
             result = api.apply_bandwidth_limit("10.0.0.1", 10)
         assert result["status"] == "error"
 
@@ -270,10 +266,12 @@ class TestFortiManagerAPIEdgeCases:
 class TestMainFunction:
     def test_main_success(self):
         mod = _import_module()
-        alert_data = json.dumps({
-            "search_name": "999_Unknown",
-            "source_ip": "10.0.0.1",
-        })
+        alert_data = json.dumps(
+            {
+                "search_name": "999_Unknown",
+                "source_ip": "10.0.0.1",
+            }
+        )
         with patch("sys.stdin", MagicMock(read=MagicMock(return_value=alert_data))):
             with patch.object(mod, "AutoResponseEngine") as MockEngine:
                 mock_instance = MockEngine.return_value

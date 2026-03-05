@@ -67,7 +67,9 @@ class TestCheckFileStructure:
     def test_missing_files_add_errors(self, checker, app_dir):
         # Dirs exist but no required files
         checker.check_file_structure()
-        file_errors = [e for e in checker.results["errors"] if "\ud544\uc218 \ud30c\uc77c" in e]
+        file_errors = [
+            e for e in checker.results["errors"] if "\ud544\uc218 \ud30c\uc77c" in e
+        ]
         assert len(file_errors) > 0
 
 
@@ -349,7 +351,9 @@ class TestMainFunction:
         mock_result.stdout = "splunkd is running"
         mock_result.returncode = 0
         with patch("sys.argv", ["deployment_health_check.py", str(app_dir)]):
-            with patch("deployment_health_check.subprocess.run", return_value=mock_result):
+            with patch(
+                "deployment_health_check.subprocess.run", return_value=mock_result
+            ):
                 with pytest.raises(SystemExit) as exc:
                     dhc_module.main()
                 # May have errors from missing files
@@ -359,9 +363,7 @@ class TestMainFunction:
         with patch("sys.argv", ["deployment_health_check.py"]):
             with patch.object(dhc_module, "DeploymentHealthCheck") as MockCheck:
                 mock_instance = MockCheck.return_value
-                mock_instance.run_all_checks.return_value = {
-                    "summary": {"errors": 0}
-                }
+                mock_instance.run_all_checks.return_value = {"summary": {"errors": 0}}
                 with pytest.raises(SystemExit) as exc:
                     dhc_module.main()
                 assert exc.value.code == 0
@@ -383,9 +385,7 @@ class TestMainFunction:
         with patch("sys.argv", ["deployment_health_check.py"]):
             with patch.object(dhc_module, "DeploymentHealthCheck") as MockCheck:
                 mock_instance = MockCheck.return_value
-                mock_instance.run_all_checks.return_value = {
-                    "summary": {"errors": 2}
-                }
+                mock_instance.run_all_checks.return_value = {"summary": {"errors": 2}}
                 with pytest.raises(SystemExit) as exc:
                     dhc_module.main()
                 assert exc.value.code == 1

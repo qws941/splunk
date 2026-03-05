@@ -5,7 +5,7 @@ set -euo pipefail
 # Validates security_alert app structure and syntax
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 PASSED=0
 FAILED=0

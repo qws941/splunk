@@ -96,8 +96,14 @@ class TestUpdateAlertState:
         mod = _import_slack_callback()
         state_file = tmp_path / "alert_state.csv"
         fieldnames = [
-            "alert_id", "search_name", "message_ts",
-            "channel", "status", "created_at", "updated_at", "acked_by",
+            "alert_id",
+            "search_name",
+            "message_ts",
+            "channel",
+            "status",
+            "created_at",
+            "updated_at",
+            "acked_by",
         ]
         with open(state_file, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -114,9 +120,7 @@ class TestUpdateAlertState:
                     "acked_by": "",
                 }
             )
-        with patch.object(
-            mod, "get_alert_state_path", return_value=str(state_file)
-        ):
+        with patch.object(mod, "get_alert_state_path", return_value=str(state_file)):
             result = mod.update_alert_state(
                 "test_alert_123", "acknowledged", "user@corp"
             )
@@ -131,15 +135,19 @@ class TestUpdateAlertState:
         mod = _import_slack_callback()
         state_file = tmp_path / "alert_state.csv"
         fieldnames = [
-            "alert_id", "search_name", "message_ts",
-            "channel", "status", "created_at", "updated_at", "acked_by",
+            "alert_id",
+            "search_name",
+            "message_ts",
+            "channel",
+            "status",
+            "created_at",
+            "updated_at",
+            "acked_by",
         ]
         with open(state_file, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
-        with patch.object(
-            mod, "get_alert_state_path", return_value=str(state_file)
-        ):
+        with patch.object(mod, "get_alert_state_path", return_value=str(state_file)):
             result = mod.update_alert_state("nonexistent", "acknowledged")
         assert result is False
 
@@ -181,8 +189,11 @@ class TestUpdateSlackMessage:
         ]
         with patch("slack_callback.requests.post", return_value=mock_resp) as mock_post:
             mod.update_slack_message(
-                "xoxb-token", "#channel", "12345.6789",
-                "Acknowledged", original_blocks=original_blocks,
+                "xoxb-token",
+                "#channel",
+                "12345.6789",
+                "Acknowledged",
+                original_blocks=original_blocks,
             )
         call_json = mock_post.call_args[1]["json"]
         block_types = [b["type"] for b in call_json["blocks"]]
@@ -197,8 +208,14 @@ class TestUpdateAlertStateByMessageTs:
         mod = _import_slack_callback()
         state_file = tmp_path / "alert_state.csv"
         fieldnames = [
-            "alert_id", "search_name", "message_ts",
-            "channel", "status", "created_at", "updated_at", "acked_by",
+            "alert_id",
+            "search_name",
+            "message_ts",
+            "channel",
+            "status",
+            "created_at",
+            "updated_at",
+            "acked_by",
         ]
         with open(state_file, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -215,12 +232,8 @@ class TestUpdateAlertStateByMessageTs:
                     "acked_by": "",
                 }
             )
-        with patch.object(
-            mod, "get_alert_state_path", return_value=str(state_file)
-        ):
-            result = mod.update_alert_state(
-                "999.888", "acknowledged", "user1"
-            )
+        with patch.object(mod, "get_alert_state_path", return_value=str(state_file)):
+            result = mod.update_alert_state("999.888", "acknowledged", "user1")
         assert result is True
         with open(state_file) as f:
             reader = csv.DictReader(f)
@@ -248,9 +261,7 @@ class TestUpdateSlackMessageEdgeCases:
         original_requests = mod.requests
         mod.requests = None
         try:
-            result = mod.update_slack_message(
-                "xoxb-token", "#channel", "12345", "msg"
-            )
+            result = mod.update_slack_message("xoxb-token", "#channel", "12345", "msg")
             assert result["ok"] is False
             assert "not available" in result["error"]
         finally:
@@ -271,11 +282,13 @@ class TestSlackCallbackHandler:
     def test_handleEdit_ack_alert(self):
         mod = _import_slack_callback()
         handler = mod.SlackCallbackHandler.__new__(mod.SlackCallbackHandler)
-        payload = json.dumps({
-            "type": "block_actions",
-            "actions": [{"action_id": "ack_alert", "value": "alert_123"}],
-            "user": {"name": "testuser"},
-        })
+        payload = json.dumps(
+            {
+                "type": "block_actions",
+                "actions": [{"action_id": "ack_alert", "value": "alert_123"}],
+                "user": {"name": "testuser"},
+            }
+        )
         handler.callerArgs = {
             "payload": [payload],
             "X-Slack-Request-Timestamp": [None],
@@ -290,11 +303,13 @@ class TestSlackCallbackHandler:
     def test_handleEdit_snooze_alert(self):
         mod = _import_slack_callback()
         handler = mod.SlackCallbackHandler.__new__(mod.SlackCallbackHandler)
-        payload = json.dumps({
-            "type": "block_actions",
-            "actions": [{"action_id": "snooze_alert_1h", "value": "alert_456"}],
-            "user": {"username": "snoozeuser"},
-        })
+        payload = json.dumps(
+            {
+                "type": "block_actions",
+                "actions": [{"action_id": "snooze_alert_1h", "value": "alert_456"}],
+                "user": {"username": "snoozeuser"},
+            }
+        )
         handler.callerArgs = {
             "payload": [payload],
             "X-Slack-Request-Timestamp": [None],
@@ -337,11 +352,16 @@ class TestSlackCallbackHandler:
         handler = mod.SlackCallbackHandler.__new__(mod.SlackCallbackHandler)
         signing_secret = "test_secret"
         timestamp = str(int(time.time()))
-        payload_str = json.dumps({"type": "block_actions", "actions": [], "user": {"name": "u"}})
+        payload_str = json.dumps(
+            {"type": "block_actions", "actions": [], "user": {"name": "u"}}
+        )
         sig_basestring = f"v0:{timestamp}:{payload_str}"
-        signature = "v0=" + hmac.new(
-            signing_secret.encode(), sig_basestring.encode(), hashlib.sha256
-        ).hexdigest()
+        signature = (
+            "v0="
+            + hmac.new(
+                signing_secret.encode(), sig_basestring.encode(), hashlib.sha256
+            ).hexdigest()
+        )
         handler.callerArgs = {
             "payload": [payload_str],
             "X-Slack-Request-Timestamp": [timestamp],
@@ -402,6 +422,7 @@ class TestRequestsImport:
     def test_requests_import_failure(self):
         """Test that requests=None when import fails (lines 22-23)."""
         import importlib
+
         # This is covered by the test_requests_not_available test above
         # The module-level try/except is hit during import
         mod = _import_slack_callback()
