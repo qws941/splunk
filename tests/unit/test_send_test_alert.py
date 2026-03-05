@@ -50,8 +50,23 @@ class TestModuleImport:
 class TestAlertTemplates:
     def test_has_expected_alert_ids(self):
         mod = _import_module()
-        expected = {"001", "002", "003", "006", "007", "007r", "008", "010",
-                    "011", "012", "012r", "013", "015", "016", "017"}
+        expected = {
+            "001",
+            "002",
+            "003",
+            "006",
+            "007",
+            "007r",
+            "008",
+            "010",
+            "011",
+            "012",
+            "012r",
+            "013",
+            "015",
+            "016",
+            "017",
+        }
         assert set(mod.ALERT_TEMPLATES.keys()) == expected
 
     def test_templates_have_required_fields(self):
@@ -183,11 +198,12 @@ class TestMainBlock:
             with pytest.raises(SystemExit) as exc:
                 exec(
                     compile(
-                        'if len(sys.argv) < 2:\n'
+                        "if len(sys.argv) < 2:\n"
                         '    print("Usage: send_test_alert.py <alert_id|all>")\n'
                         '    print("Alert IDs:", ", ".join(sorted(mod.ALERT_TEMPLATES.keys())))\n'
-                        '    sys.exit(1)\n',
-                        "<test>", "exec"
+                        "    sys.exit(1)\n",
+                        "<test>",
+                        "exec",
                     )
                 )
             assert exc.value.code == 1

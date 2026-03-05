@@ -125,7 +125,9 @@ class TestValidateCsvFile:
         csv_path = app_dir / "lookups" / "empty.csv"
         write_csv(csv_path, ["a", "b"])  # headers only, no data rows
         validator.validate_csv_file(csv_path)
-        assert any("0 data row" in w or "empty" in w.lower() for w in validator.warnings)
+        assert any(
+            "0 data row" in w or "empty" in w.lower() for w in validator.warnings
+        )
 
     def test_nonexistent_csv_errors(self, validator, app_dir):
         csv_path = app_dir / "lookups" / "nope.csv"
@@ -214,7 +216,9 @@ alert.suppress = 1
         write_conf_file(app_dir / "default" / "savedsearches.conf", content)
         validator.validate_savedsearches_conf()
         # Should find and validate the alert
-        spl_errors = [e for e in validator.errors if "SPL" in e or "search" in e.lower()]
+        spl_errors = [
+            e for e in validator.errors if "SPL" in e or "search" in e.lower()
+        ]
         assert len(spl_errors) == 0
 
 

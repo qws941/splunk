@@ -51,9 +51,7 @@ class TestSplunkFeatureCheckerInit:
 
 class TestCheckSystemInfo:
     def test_successful_checks(self, checker):
-        with patch.object(
-            checker, "run_splunk_command", return_value="Splunk 9.0.0"
-        ):
+        with patch.object(checker, "run_splunk_command", return_value="Splunk 9.0.0"):
             checker.check_system_info()
         assert checker.results["checks"]["system"]["splunk_version"]["status"] == "OK"
 
@@ -62,7 +60,9 @@ class TestCheckSystemInfo:
             checker, "run_splunk_command", side_effect=Exception("not found")
         ):
             checker.check_system_info()
-        assert checker.results["checks"]["system"]["splunk_version"]["status"] == "ERROR"
+        assert (
+            checker.results["checks"]["system"]["splunk_version"]["status"] == "ERROR"
+        )
 
 
 class TestCheckStorageConfiguration:
@@ -119,9 +119,7 @@ class TestCheckAlertSystem:
 
 class TestCheckLookups:
     def test_with_csv_files(self, checker, splunk_home):
-        lookups_dir = (
-            splunk_home / "etc" / "apps" / "security_alert" / "lookups"
-        )
+        lookups_dir = splunk_home / "etc" / "apps" / "security_alert" / "lookups"
         (lookups_dir / "test.csv").write_text("a,b\n1,2\n")
         (lookups_dir / "state_tracker_vpn.csv").write_text("device,state\n")
         checker.check_lookups()
@@ -202,7 +200,8 @@ class TestSaveResults:
 class TestCheckIndexes:
     def test_fw_index_present(self, checker):
         with patch.object(
-            checker, "run_splunk_command",
+            checker,
+            "run_splunk_command",
             return_value="main\nfw\nsummary\n",
         ):
             checker.check_indexes()
@@ -211,7 +210,8 @@ class TestCheckIndexes:
 
     def test_fw_index_missing(self, checker):
         with patch.object(
-            checker, "run_splunk_command",
+            checker,
+            "run_splunk_command",
             return_value="main\nsummary\n",
         ):
             checker.check_indexes()
@@ -220,7 +220,8 @@ class TestCheckIndexes:
 
     def test_exception(self, checker):
         with patch.object(
-            checker, "run_splunk_command",
+            checker,
+            "run_splunk_command",
             side_effect=Exception("connection refused"),
         ):
             checker.check_indexes()
@@ -230,17 +231,28 @@ class TestCheckIndexes:
 class TestCheckKvstore:
     def test_kvstore_ready(self, checker):
         with patch.object(
-            checker, "run_splunk_command",
+            checker,
+            "run_splunk_command",
             return_value="KVStore Status: ready\n",
         ):
             checker.check_kvstore()
         assert checker.results["checks"]["kvstore"]["ready"] is True
 
     def test_kvstore_ready_with_collections(self, checker, splunk_home):
-        collections_conf = splunk_home / "etc" / "apps" / "security_alert" / "default" / "collections.con"
-        collections_conf.write_text("[default]\n[alert_state]\nfield.alert_id = string\n")
+        collections_conf = (
+            splunk_home
+            / "etc"
+            / "apps"
+            / "security_alert"
+            / "default"
+            / "collections.con"
+        )
+        collections_conf.write_text(
+            "[default]\n[alert_state]\nfield.alert_id = string\n"
+        )
         with patch.object(
-            checker, "run_splunk_command",
+            checker,
+            "run_splunk_command",
             return_value="Status: ready",
         ):
             checker.check_kvstore()
@@ -249,7 +261,8 @@ class TestCheckKvstore:
 
     def test_kvstore_not_ready(self, checker):
         with patch.object(
-            checker, "run_splunk_command",
+            checker,
+            "run_splunk_command",
             return_value="KVStore Status: starting\n",
         ):
             checker.check_kvstore()
@@ -257,7 +270,8 @@ class TestCheckKvstore:
 
     def test_kvstore_exception(self, checker):
         with patch.object(
-            checker, "run_splunk_command",
+            checker,
+            "run_splunk_command",
             side_effect=Exception("error"),
         ):
             checker.check_kvstore()
@@ -267,25 +281,43 @@ class TestCheckKvstore:
 class TestCheckSummaryIndexing:
     def test_summary_index_exists(self, checker):
         with patch.object(
-            checker, "run_splunk_command",
+            checker,
+            "run_splunk_command",
             return_value="main\nsummary\nfw\n",
         ):
             checker.check_summary_indexing()
-        assert checker.results["checks"]["summary_indexing"]["summary_index"]["exists"] is True
+        assert (
+            checker.results["checks"]["summary_indexing"]["summary_index"]["exists"]
+            is True
+        )
 
     def test_summary_index_not_exists(self, checker):
         with patch.object(
-            checker, "run_splunk_command",
+            checker,
+            "run_splunk_command",
             return_value="main\nfw\n",
         ):
             checker.check_summary_indexing()
-        assert checker.results["checks"]["summary_indexing"]["summary_index"]["exists"] is False
+        assert (
+            checker.results["checks"]["summary_indexing"]["summary_index"]["exists"]
+            is False
+        )
 
     def test_with_summary_searches(self, checker, splunk_home):
-        savedsearches = splunk_home / "etc" / "apps" / "security_alert" / "default" / "savedsearches.con"
-        savedsearches.write_text("[test]\naction.summary_index = 1\naction.summary_index._name = summary\n")
+        savedsearches = (
+            splunk_home
+            / "etc"
+            / "apps"
+            / "security_alert"
+            / "default"
+            / "savedsearches.con"
+        )
+        savedsearches.write_text(
+            "[test]\naction.summary_index = 1\naction.summary_index._name = summary\n"
+        )
         with patch.object(
-            checker, "run_splunk_command",
+            checker,
+            "run_splunk_command",
             return_value="summary\n",
         ):
             checker.check_summary_indexing()
@@ -293,7 +325,8 @@ class TestCheckSummaryIndexing:
 
     def test_exception(self, checker):
         with patch.object(
-            checker, "run_splunk_command",
+            checker,
+            "run_splunk_command",
             side_effect=Exception("error"),
         ):
             checker.check_summary_indexing()
@@ -306,7 +339,15 @@ class TestCheckDataModelAcceleration:
         assert checker.results["checks"]["data_model"]["status"] == "INFO"
 
     def test_with_data_models(self, checker, splunk_home):
-        models_dir = splunk_home / "etc" / "apps" / "security_alert" / "default" / "data" / "models"
+        models_dir = (
+            splunk_home
+            / "etc"
+            / "apps"
+            / "security_alert"
+            / "default"
+            / "data"
+            / "models"
+        )
         models_dir.mkdir(parents=True)
         (models_dir / "test.json").write_text('{"acceleration": {"enabled": true}}')
         (models_dir / "test2.json").write_text('{"name": "test2"}')
@@ -318,7 +359,8 @@ class TestCheckDataModelAcceleration:
 class TestCheckShcStatus:
     def test_shc_member(self, checker):
         with patch.object(
-            checker, "run_splunk_command",
+            checker,
+            "run_splunk_command",
             return_value="Captain: node1\nMember: node2\n",
         ):
             checker.check_shc_status()
@@ -326,7 +368,8 @@ class TestCheckShcStatus:
 
     def test_shc_not_member(self, checker):
         with patch.object(
-            checker, "run_splunk_command",
+            checker,
+            "run_splunk_command",
             return_value="This instance is not part of a search head cluster",
         ):
             checker.check_shc_status()
@@ -334,7 +377,8 @@ class TestCheckShcStatus:
 
     def test_shc_exception(self, checker):
         with patch.object(
-            checker, "run_splunk_command",
+            checker,
+            "run_splunk_command",
             side_effect=Exception("not configured"),
         ):
             checker.check_shc_status()
@@ -344,7 +388,8 @@ class TestCheckShcStatus:
 class TestCheckIndexerClustering:
     def test_clustered(self, checker):
         with patch.object(
-            checker, "run_splunk_command",
+            checker,
+            "run_splunk_command",
             return_value="Master: node1\nPeer: node2\n",
         ):
             checker.check_indexer_clustering()
@@ -352,7 +397,8 @@ class TestCheckIndexerClustering:
 
     def test_not_clustered(self, checker):
         with patch.object(
-            checker, "run_splunk_command",
+            checker,
+            "run_splunk_command",
             return_value="This instance is not part of a cluster",
         ):
             checker.check_indexer_clustering()
@@ -360,7 +406,8 @@ class TestCheckIndexerClustering:
 
     def test_exception(self, checker):
         with patch.object(
-            checker, "run_splunk_command",
+            checker,
+            "run_splunk_command",
             side_effect=Exception("not configured"),
         ):
             checker.check_indexer_clustering()
@@ -387,9 +434,7 @@ class TestCheckForwarding:
 
 class TestCheckAllFeatures:
     def test_runs_all_checks(self, checker, splunk_home):
-        with patch.object(
-            checker, "run_splunk_command", return_value="Splunk 9.0.0"
-        ):
+        with patch.object(checker, "run_splunk_command", return_value="Splunk 9.0.0"):
             results = checker.check_all_features()
         assert isinstance(results, dict)
         assert "checks" in results
